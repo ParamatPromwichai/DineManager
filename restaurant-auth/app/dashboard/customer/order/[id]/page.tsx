@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 type OrderItem = {
+  menu_id: number; // 👈 เพิ่ม menu_id เพื่อให้หน้าเมนูอัปเดตดาวได้
   menu_name: string;
   quantity: number;
   price: number;
@@ -58,15 +59,18 @@ export default function OrderDetailPage() {
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [isLate, setIsLate] = useState(false);
   const [emojiIndex, setEmojiIndex] = useState(0);
+  
+  // 📝 State สำหรับรีวิว
   const [showReview, setShowReview] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   // ใช้ ref เพื่อเก็บ interval ID สำหรับ cleanup
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ฟังก์ชัน submit review แยกออกจาก useEffect เพื่อให้ใช้ order ล่าสุดได้
+  // ฟังก์ชัน submit review 
   const submitReview = useCallback(async () => {
     if (!order) return;
 
@@ -77,18 +81,20 @@ export default function OrderDetailPage() {
         body: JSON.stringify({
           order_id: order.id,
           rating,
-          comment
+          comment,
+          items: order.items // ส่งรายการอาหารไปให้ Backend
         })
       });
 
       if (!res.ok) throw new Error('ส่งรีวิวไม่สำเร็จ');
 
       setShowReview(false);
-      alert('ขอบคุณสำหรับรีวิว ❤️');
+      setHasReviewed(true);
+      alert(hasReviewed ? 'อัปเดตรีวิวเรียบร้อย ❤️' : 'ขอบคุณสำหรับรีวิว ❤️');
     } catch (err) {
       alert('เกิดข้อผิดพลาด กรุณาลองอีกครั้ง');
     }
-  }, [order, rating, comment]);
+  }, [order, rating, comment, hasReviewed]);
 
   // โหลดข้อมูลออเดอร์
   useEffect(() => {
@@ -97,6 +103,7 @@ export default function OrderDetailPage() {
     setLoading(true);
     setError(null);
 
+    // 1. โหลดข้อมูล Order
     fetch(`/api/customer/order/${id}`)
       .then(async (res) => {
         if (!res.ok) {
@@ -113,9 +120,21 @@ export default function OrderDetailPage() {
         setError(err.message);
         setLoading(false);
       });
+
+    // 2. เช็คว่าเคยรีวิวออเดอร์นี้หรือยัง
+    fetch(`/api/customer/review?order_id=${id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.rating) {
+          setRating(data.rating);
+          setComment(data.comment || '');
+          setHasReviewed(true);
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
-  // จัดการ emoji animation (แยก effect)
+  // จัดการ emoji animation
   useEffect(() => {
     emojiIntervalRef.current = setInterval(() => {
       setEmojiIndex((prev) => (prev + 1) % foodEmojis.length);
@@ -138,7 +157,6 @@ export default function OrderDetailPage() {
     const created = new Date(order.created_at).getTime();
     const endTime = created + order.total_time_min * 60 * 1000;
 
-    // ฟังก์ชันอัปเดตเวลา
     const updateRemaining = () => {
       const now = Date.now();
       const diff = endTime - now;
@@ -146,7 +164,6 @@ export default function OrderDetailPage() {
       if (diff <= 0) {
         setRemainingTime(0);
         setIsLate(true);
-        // เมื่อหมดเวลาแล้วหยุด interval
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -157,16 +174,13 @@ export default function OrderDetailPage() {
       }
     };
 
-    // เรียกทันทีครั้งแรก
     updateRemaining();
-
-    // ตั้ง interval
     intervalRef.current = setInterval(updateRemaining, 1000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [order]); // ขึ้นกับ order เท่านั้น เมื่อ order เปลี่ยนให้คำนวณใหม่
+  }, [order]);
 
   if (loading) {
     return (
@@ -388,9 +402,12 @@ export default function OrderDetailPage() {
           <motion.div className="mt-4">
             <button
               onClick={() => setShowReview(true)}
-              className="w-full bg-yellow-400 text-white font-semibold py-3 rounded-2xl shadow hover:scale-105 transition flex items-center justify-center gap-2"
+              className={`w-full text-white font-semibold py-3 rounded-2xl shadow hover:scale-105 transition flex items-center justify-center gap-2 ${
+                hasReviewed ? 'bg-blue-500' : 'bg-yellow-400'
+              }`}
             >
-              <Star size={20} /> รีวิวอาหาร
+              <Star size={20} className={hasReviewed ? 'text-white' : 'fill-white text-white'} /> 
+              {hasReviewed ? 'แก้ไขรีวิว' : 'รีวิวอาหาร'} 
             </button>
           </motion.div>
         )}
@@ -399,55 +416,60 @@ export default function OrderDetailPage() {
       {/* Modal รีวิว */}
       <AnimatePresence>
         {showReview && (
-          <motion.div
+          <motion.div 
             className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <motion.div 
               className="bg-white rounded-3xl p-6 w-full max-w-sm"
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.8 }}
             >
-              <h2 className="text-lg font-semibold mb-3">รีวิวอาหาร</h2>
+              <h2 className="text-lg font-semibold mb-3 text-center">
+                {hasReviewed ? 'แก้ไขรีวิวอาหาร' : 'ให้คะแนนอาหารมื้อนี้'}
+              </h2>
 
-              {/* Rating */}
-              <div className="flex gap-2 mb-4 justify-center">
-                {[1, 2, 3, 4, 5].map((star) => (
+              {/* 🌟 แสดงไอคอนดาวแบบเลือกแล้วเปลี่ยนสี */}
+              <div className="flex gap-2 mb-6 justify-center">
+                {[1, 2, 3, 4, 5].map((starIdx) => (
                   <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className={`text-3xl ${star <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                    key={starIdx}
+                    onClick={() => setRating(starIdx)}
+                    className="focus:outline-none transition-transform hover:scale-110"
                   >
-                    ⭐
+                    <Star 
+                      size={40} 
+                      className={starIdx <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} 
+                    />
                   </button>
                 ))}
               </div>
 
               {/* Comment */}
               <textarea
-                placeholder="เขียนรีวิว..."
+                placeholder="เขียนรีวิวถึงร้านค้า (ไม่บังคับ)..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="w-full border rounded-xl p-2 mb-4"
+                className="w-full border border-gray-200 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 outline-none rounded-xl p-3 mb-4 transition-all"
                 rows={3}
               />
 
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowReview(false)}
-                  className="flex-1 border rounded-xl py-2"
+                  className="flex-1 border border-gray-200 rounded-xl py-2 font-medium text-gray-600 hover:bg-gray-50 transition"
                 >
                   ยกเลิก
                 </button>
 
                 <button
                   onClick={submitReview}
-                  className="flex-1 bg-green-500 text-white rounded-xl py-2"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl py-2 transition-colors shadow-md"
                 >
-                  ส่งรีวิว
+                  {hasReviewed ? 'บันทึกการแก้ไข' : 'ส่งรีวิว'}
                 </button>
               </div>
             </motion.div>

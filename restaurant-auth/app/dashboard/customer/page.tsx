@@ -39,35 +39,51 @@ type Location = {
 export default function CustomerHome() {
   const router = useRouter();
   const [userId, setUserId] = useState<number | null>(null);
+  
   // --- States ---
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Form & Payment States (เหมือนหน้า AllMenusPage)
+  // Form & Payment States
   const [showPayment, setShowPayment] = useState(false);
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [location, setLocation] = useState<Location | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'qr' | 'cod' | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 📸 State สำหรับเก็บสลิปโอนเงิน (แบบ Base64)
+  const [slipImage, setSlipImage] = useState<string | null>(null);
 
   useEffect(() => {
     const id = localStorage.getItem("user_id");
-
-    console.log("Dashboard user_id:", id);
-
     if (!id) {
       router.push('/login');
       return;
     }
-
     setUserId(Number(id));
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    if (!userId) return; // 🔥 รอให้ได้ user ก่อน
+    if (!userId) return;
+
+    const savedOrderInfo = localStorage.getItem(`lastOrderInfo_${userId}`);
+    let hasLocalData = false;
+
+    if (savedOrderInfo) {
+      try {
+        const parsedInfo = JSON.parse(savedOrderInfo);
+        if (parsedInfo.phone) setPhone(parsedInfo.phone);
+        if (parsedInfo.address) setAddress(parsedInfo.address);
+        if (parsedInfo.location) setLocation(parsedInfo.location);
+        // ไม่จำ paymentMethod เผื่อรอบหน้าลูกค้าอยากจ่ายอีกแบบ และป้องกันลืมแนบสลิป
+        hasLocalData = true;
+      } catch (e) {
+        console.error("Failed to parse saved order info", e);
+      }
+    }
 
     const fetchData = async () => {
       try {
@@ -84,7 +100,7 @@ export default function CustomerHome() {
           setAllMenus(menusData);
         }
 
-        if (profileRes.ok) {
+        if (profileRes.ok && !hasLocalData) {
           const profileData = await profileRes.json();
           if (profileData?.phone) setPhone(profileData.phone);
           if (profileData?.address) setAddress(profileData.address);
@@ -92,7 +108,6 @@ export default function CustomerHome() {
             setLocation({ lat: profileData.latitude, lng: profileData.longitude });
           }
         }
-
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -101,12 +116,12 @@ export default function CustomerHome() {
     };
 
     fetchData();
-  }, [userId]); // 🔥 สำคัญ
+  }, [userId]); 
 
   // --- Calculations ---
   const total = useMemo(() =>
     cart.reduce((sum, i) => sum + i.price * i.quantity, 0),
-    [cart]);
+  [cart]);
 
   // --- Functions ---
   function addToCart(menu: Menu) {
@@ -123,9 +138,7 @@ export default function CustomerHome() {
 
   function removeFromCart(id: number) {
     setCart(prev =>
-      prev
-        .map(i => i.id === id ? { ...i, quantity: i.quantity - 1 } : i)
-        .filter(i => i.quantity > 0)
+      prev.map(i => i.id === id ? { ...i, quantity: i.quantity - 1 } : i).filter(i => i.quantity > 0)
     );
   }
 
@@ -140,23 +153,38 @@ export default function CustomerHome() {
     );
   }
 
-  // ฟังก์ชันสั่งซื้อแบบสมบูรณ์ (เหมือนหน้า AllMenusPage)
+  // 📸 ฟังก์ชันจัดการเมื่อลูกค้าเลือกรูปสลิป
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSlipImage(reader.result as string); // แปลงรูปเป็นข้อความ Base64
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   async function handleConfirmOrder() {
     if (!phone || !address || !paymentMethod) {
       alert('กรุณากรอกข้อมูลให้ครบ (เบอร์, ที่อยู่, วิธีชำระ)');
       return;
     }
 
+    // 🚨 ดักไว้ว่าถ้าเลือกจ่าย QR ต้องแนบสลิปก่อน
+    if (paymentMethod === 'qr' && !slipImage) {
+      alert('กรุณาแนบสลิปโอนเงินด้วยครับ');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // 1. Save Profile
       await fetch('/api/customer/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, address, location }),
       });
 
-      // 2. Create Order
       const res = await fetch('/api/customer/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,14 +194,23 @@ export default function CustomerHome() {
           address,
           location,
           paymentMethod,
+          slipImage, // 👈 ส่งรูปสลิปไปให้ Backend
         }),
       });
 
       if (!res.ok) throw new Error('Order failed');
 
+      localStorage.setItem(`lastOrderInfo_${userId}`, JSON.stringify({
+        phone,
+        address,
+        location
+      }));
+
       alert('สั่งอาหารสำเร็จ! 🍽️');
       setCart([]);
       setShowPayment(false);
+      setSlipImage(null); // ล้างสลิปทิ้ง
+      setPaymentMethod(''); 
     } catch (error) {
       alert('เกิดข้อผิดพลาดในการสั่งซื้อ');
       console.error(error);
@@ -186,8 +223,7 @@ export default function CustomerHome() {
 
   return (
     <div style={{ padding: '20px 20px 140px 20px' }}>
-
-      {/* ส่วนที่ 1: Dashboard */}
+      {/* ส่วน Dashboard เหมือนเดิม (ขอละโค้ดไว้เพื่อความสั้น) */}
       {dashboardData && (
         <>
           <section style={{ marginBottom: 20 }}>
@@ -211,87 +247,38 @@ export default function CustomerHome() {
                 <div key={`rec-${m.id}`} style={{ minWidth: '140px', background: '#fff', border: '1px solid #eee', borderRadius: 8, padding: 10 }}>
                   <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{m.name}</div>
                   <div style={{ color: '#666', fontSize: '0.8rem' }}>{m.price} บาท</div>
-                  <button
-                    onClick={() => addToCart(m)}
-                    style={{ marginTop: 8, width: '100%', padding: '4px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                  >
-                    + เพิ่ม
-                  </button>
+                  <button onClick={() => addToCart(m)} style={{ marginTop: 8, width: '100%', padding: '4px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>+ เพิ่ม</button>
                 </div>
               ))}
             </div>
-
-            <button
-              style={{
-                marginTop: 15,
-                padding: '10px',
-                background: '#f3f4f6',
-                border: '1px solid #ddd',
-                borderRadius: 6,
-                cursor: 'pointer',
-                width: '100%',
-                fontWeight: 'bold',
-                color: '#374151'
-              }}
-              onClick={() => router.push('/dashboard/customer/menus')}
-            >
-              ดูเมนูทั้งหมด 👉
-            </button>
+            <button style={{ marginTop: 15, padding: '10px', background: '#f3f4f6', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', width: '100%', fontWeight: 'bold', color: '#374151' }} onClick={() => router.push('/dashboard/customer/menus')}>ดูเมนูทั้งหมด 👉</button>
           </section>
         </>
       )}
 
       <hr style={{ margin: '20px 0', borderTop: '1px dashed #ccc' }} />
 
-      {/* ส่วนที่ 2: เมนูยอดนิยม/สั่งด่วน */}
       <section>
         <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: 15 }}>🍽️ สั่งด่วน (เมนูยอดฮิต)</h3>
-
         {allMenus.slice(0, 5).map((menu) => (
-          <div
-            key={menu.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '12px 0',
-              borderBottom: '1px solid #eee',
-            }}
-          >
+          <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #eee' }}>
             <div>
               <div style={{ fontWeight: '500' }}>{menu.name}</div>
               <small style={{ color: '#666' }}>{menu.price} บาท</small>
             </div>
-            <button
-              onClick={() => addToCart(menu)}
-              style={{
-                background: '#2563eb',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: 32,
-                height: 32,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
-            >
-              +
-            </button>
+            <button onClick={() => addToCart(menu)} style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
           </div>
         ))}
       </section>
 
-      {/* --- Payment Modal (Pop-up) --- */}
+      {/* --- Payment Modal --- */}
       {showPayment && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', padding: 20, width: '90%', maxWidth: '400px', borderRadius: 8, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3>💳 ยืนยันการสั่งซื้อ</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+              <h3 style={{ margin: 0 }}>💳 ยืนยันการสั่งซื้อ</h3>
+              <span style={{ fontWeight: 'bold', color: '#2563eb' }}>ยอดรวม {total} ฿</span>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 15 }}>
               <input type="tel" placeholder="เบอร์โทรศัพท์ *" value={phone} onChange={e => setPhone(e.target.value)} style={{ padding: 8, border: '1px solid #ddd', borderRadius: 4 }} />
@@ -310,56 +297,40 @@ export default function CustomerHome() {
               </label>
             </div>
 
-            {/* ✅ ส่วนที่เพิ่ม: แสดง QR Code เมื่อเลือกโอนเงิน */}
+            {/* แสดง QR Code และ อัปโหลดสลิป */}
             {paymentMethod === 'qr' && (
-              <div style={{
-                // ✅ 1. ใช้ Flexbox จัดกึ่งกลางทั้งแนวตั้งและแนวนอน
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center', // จัดแกนขวางให้อยู่ตรงกลาง (สำคัญ)
-                justifyContent: 'center',
-
-                background: '#f8f9fa',
-                padding: 15,
-                borderRadius: 8,
-                marginBottom: 15,
-                border: '1px solid #eee'
-              }}>
-                <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#333' }}>
-                  สแกนเพื่อชำระเงิน
-                </p>
-
-                {/* ✅ 1. ดึงรูปจาก Database */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f8f9fa', padding: 15, borderRadius: 8, marginBottom: 15, border: '1px solid #eee' }}>
+                
                 {dashboardData?.shop.qr_image ? (
-                  <img
-                    src={dashboardData.shop.qr_image}
-                    alt="Payment QR Code"
-                    style={{ width: '200px', maxWidth: '100%', borderRadius: 4, border: '1px solid #ddd' }}
-                  />
+                  <img src={dashboardData.shop.qr_image} alt="QR Code" style={{ width: '180px', maxWidth: '100%', borderRadius: 4, border: '1px solid #ddd' }} />
                 ) : (
                   <div style={{ padding: 20, background: '#eee', color: '#666' }}>ไม่พบรูป QR Code</div>
                 )}
 
-                {/* ✅ 2. ดึงข้อมูลธนาคารจาก Database */}
-                <div style={{ marginTop: 10, fontSize: '0.9rem', color: '#444', textAlign: 'left', display: 'inline-block' }}>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ color: '#666' }}>ธนาคาร:</span>
-                    <strong style={{ marginLeft: 5 }}>{dashboardData?.shop.bank_name || '-'}</strong>
-                  </div>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ color: '#666' }}>เลขบัญชี:</span>
-                    <strong style={{ marginLeft: 5, fontSize: '1.1em', color: '#2563eb' }}>
-                      {dashboardData?.shop.account_number || '-'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#666' }}>ชื่อบัญชี:</span>
-                    <strong style={{ marginLeft: 5 }}>{dashboardData?.shop.account_name || '-'}</strong>
-                  </div>
+                <div style={{ marginTop: 10, fontSize: '0.85rem', color: '#444', textAlign: 'center' }}>
+                  <div>ธนาคาร: <strong>{dashboardData?.shop.bank_name || '-'}</strong></div>
+                  <div>เลขบัญชี: <strong style={{ color: '#2563eb' }}>{dashboardData?.shop.account_number || '-'}</strong></div>
+                  <div>ชื่อบัญชี: <strong>{dashboardData?.shop.account_name || '-'}</strong></div>
+                </div>
+
+                {/* 📸 ปุ่มอัปโหลดสลิปแบบคลีนๆ */}
+                <div style={{ marginTop: 15, width: '100%', textAlign: 'center' }}>
+                  <label style={{
+                    display: 'block', padding: '8px 12px', background: slipImage ? '#f0fdf4' : '#eff6ff', 
+                    color: slipImage ? '#166534' : '#1d4ed8', border: `1px dashed ${slipImage ? '#22c55e' : '#93c5fd'}`,
+                    borderRadius: 6, cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s'
+                  }}>
+                    <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                    {slipImage ? '✅ เปลี่ยนรูปสลิป' : '📥 แนบสลิปโอนเงิน *'}
+                  </label>
+                  
+                  {/* พรีวิวสลิปเล็กๆ ใต้ปุ่ม */}
+                  {slipImage && (
+                    <img src={slipImage} alt="Slip Preview" style={{ marginTop: 10, height: '120px', objectFit: 'contain', borderRadius: 8, border: '1px solid #ddd' }} />
+                  )}
                 </div>
               </div>
             )}
-            {/* ✅ จบส่วนที่เพิ่ม */}
 
             <button onClick={requestLocation} style={{ marginBottom: 15, padding: '8px 10px', fontSize: '0.9rem', width: '100%', background: '#fff', border: '1px solid #2563eb', color: '#2563eb', borderRadius: 4, cursor: 'pointer' }}>
               📍 {location ? 'อัปเดตตำแหน่งจัดส่ง' : 'แนบตำแหน่งปัจจุบัน (GPS)'}
@@ -370,7 +341,7 @@ export default function CustomerHome() {
               <button disabled={isSubmitting} onClick={handleConfirmOrder} style={{ flex: 1, padding: 12, background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold' }}>
                 {isSubmitting ? 'กำลังส่ง...' : 'ยืนยันการสั่งซื้อ'}
               </button>
-              <button disabled={isSubmitting} onClick={() => setShowPayment(false)} style={{ padding: 12, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+              <button disabled={isSubmitting} onClick={() => { setShowPayment(false); setSlipImage(null); }} style={{ padding: 12, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
                 ยกเลิก
               </button>
             </div>
@@ -378,24 +349,13 @@ export default function CustomerHome() {
         </div>
       )}
 
-      {/* --- Sticky Cart Footer --- */}
+      {/* --- Sticky Cart Footer เหมือนเดิม --- */}
       {cart.length > 0 && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 60,
-            left: 0,
-            right: 0,
-            background: '#fff',
-            borderTop: '1px solid #ddd',
-            padding: 12,
-          }}
-        >
+        <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, background: '#fff', borderTop: '1px solid #ddd', padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
             <h4 style={{ margin: 0 }}>🛒 ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)})</h4>
             <span style={{ fontWeight: 'bold', color: '#2563eb' }}>{total} บาท</span>
           </div>
-
           <div style={{ maxHeight: '100px', overflowY: 'auto', marginBottom: 10 }}>
             {cart.map(item => (
               <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: 5 }}>
@@ -407,20 +367,7 @@ export default function CustomerHome() {
               </div>
             ))}
           </div>
-
-          <button
-            onClick={() => setShowPayment(true)}
-            style={{
-              width: '100%',
-              padding: 12,
-              background: '#2563eb',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
+          <button onClick={() => setShowPayment(true)} style={{ width: '100%', padding: 12, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer' }}>
             ชำระเงิน
           </button>
         </div>

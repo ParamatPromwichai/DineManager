@@ -76,25 +76,7 @@ ADD COLUMN longitude DECIMAL(10,7);
 
 
 
--- 1. สร้างตารางรีวิว
-CREATE TABLE reviews (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  menu_id INT NOT NULL,
-  rating INT CHECK (rating >= 1 AND rating <= 5), -- คะแนน 1-5 ดาว
-  comment TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (menu_id) REFERENCES menus(id)
-);
 
--- 2. (Optional) เพิ่มข้อมูลตัวอย่าง เพื่อให้เห็นภาพตอนรัน
--- สมมติ user_id=1, menu_id=1,2
-INSERT INTO reviews (user_id, menu_id, rating, comment) VALUES 
-(1, 1, 5, 'อร่อยมาก!'),
-(1, 1, 4, 'รสชาติดีแต่รอนานนิดนึง'),
-(1, 2, 5, 'ชอบมากครับ'),
-(1, 3, 3, 'เฉยๆ ครับ');
 
 
 
@@ -135,3 +117,36 @@ ADD COLUMN table_id INT DEFAULT NULL;
 -- ปรับปรุง column status ให้รองรับสถานะ 'completed'
 ALTER TABLE reservations 
 MODIFY COLUMN status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending';
+
+
+
+
+
+
+
+-- 1. สร้างตารางรีวิว
+CREATE TABLE reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  menu_id INT NOT NULL,
+  rating INT CHECK (rating >= 1 AND rating <= 5), -- คะแนน 1-5 ดาว
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (menu_id) REFERENCES menus(id)
+);
+ALTER TABLE reviews ADD COLUMN order_id INT NOT NULL AFTER id;
+ALTER TABLE reviews MODIFY user_id INT(11) NULL;
+ALTER TABLE reviews MODIFY menu_id INT(11) NULL;
+-- 2. (Optional) เพิ่มข้อมูลตัวอย่าง เพื่อให้เห็นภาพตอนรัน
+-- สมมติ user_id=1, menu_id=1,2
+INSERT INTO reviews (user_id, menu_id, rating, comment) VALUES 
+(1, 1, 5, 'อร่อยมาก!'),
+(1, 1, 4, 'รสชาติดีแต่รอนานนิดนึง'),
+(1, 2, 5, 'ชอบมากครับ'),
+(1, 3, 3, 'เฉยๆ ครับ');
+
+
+
+
+ALTER TABLE orders ADD COLUMN slip_image LONGTEXT NULL;
