@@ -1,0 +1,137 @@
+tidb รหัส h30DSh4gs22w8fjG
+
+
+CREATE DATABASE restaurant_db;
+USE restaurant_db;
+
+CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role ENUM('customer','shop','admin') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shops (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  is_open BOOLEAN DEFAULT TRUE,
+  open_time TIME,
+  close_time TIME
+);
+
+CREATE TABLE menus (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  image VARCHAR(255),
+  is_recommended BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE menu_stats (
+  menu_id INT PRIMARY KEY,
+  order_count INT DEFAULT 0,
+  FOREIGN KEY (menu_id) REFERENCES menus(id)
+);
+
+CREATE TABLE queue_status (
+  id INT PRIMARY KEY,
+  remaining_queue INT NOT NULL
+);
+
+CREATE TABLE orders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  total_price DECIMAL(10,2) NOT NULL,
+  status ENUM('pending','cooking','done','cancel') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE order_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  menu_name VARCHAR(100) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  quantity INT NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+ALTER TABLE order_items
+ADD COLUMN menu_id INT AFTER order_id;
+
+ALTER TABLE orders
+ADD COLUMN phone VARCHAR(20),
+ADD COLUMN address TEXT,
+ADD COLUMN latitude DECIMAL(10,7),
+ADD COLUMN longitude DECIMAL(10,7),
+ADD COLUMN payment_method ENUM('qr','cod') NOT NULL,
+ADD COLUMN payment_status ENUM('pending','paid') DEFAULT 'pending';
+
+
+
+ALTER TABLE users
+ADD COLUMN phone VARCHAR(20),
+ADD COLUMN address TEXT,
+ADD COLUMN latitude DECIMAL(10,7),
+ADD COLUMN longitude DECIMAL(10,7);
+
+
+
+-- 1. สร้างตารางรีวิว
+CREATE TABLE reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  menu_id INT NOT NULL,
+  rating INT CHECK (rating >= 1 AND rating <= 5), -- คะแนน 1-5 ดาว
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (menu_id) REFERENCES menus(id)
+);
+
+-- 2. (Optional) เพิ่มข้อมูลตัวอย่าง เพื่อให้เห็นภาพตอนรัน
+-- สมมติ user_id=1, menu_id=1,2
+INSERT INTO reviews (user_id, menu_id, rating, comment) VALUES 
+(1, 1, 5, 'อร่อยมาก!'),
+(1, 1, 4, 'รสชาติดีแต่รอนานนิดนึง'),
+(1, 2, 5, 'ชอบมากครับ'),
+(1, 3, 3, 'เฉยๆ ครับ');
+
+
+
+
+
+
+
+
+
+-- 1. ตารางเก็บข้อมูลโต๊ะในร้าน
+CREATE TABLE tables (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,       -- ชื่อโต๊ะ เช่น T1, A1, VIP
+  capacity INT NOT NULL,           -- นั่งได้กี่คน
+  is_occupied BOOLEAN DEFAULT FALSE -- สถานะ: ว่าง (FALSE) / ไม่ว่าง (TRUE)
+);
+
+-- เพิ่มข้อมูลโต๊ะตัวอย่าง
+INSERT INTO tables (name, capacity) VALUES 
+('T1', 2), ('T2', 2), ('T3', 4), ('T4', 4), ('VIP-1', 8);
+
+-- 2. ตารางเก็บข้อมูลการจอง (Reservation)
+CREATE TABLE reservations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  pax INT NOT NULL,                -- จำนวนลูกค้า (คน)
+  reservation_time DATETIME NOT NULL, -- วันและเวลาที่จอง
+  status ENUM('pending', 'confirmed', 'cancelled') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE reservations 
+ADD COLUMN table_id INT DEFAULT NULL;
+
+
+
+-- ปรับปรุง column status ให้รองรับสถานะ 'completed'
+ALTER TABLE reservations 
+MODIFY COLUMN status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending';
