@@ -37,15 +37,21 @@ export async function GET(
     order.items = items;
 
     /* =============================
-       ✅ คำนวณระยะทาง + เวลา
+        ✅ คำนวณระยะทาง + เวลา
     ============================== */
 
     const [shops]: any = await db.query(
       `SELECT latitude, longitude FROM shops LIMIT 1`
     );
 
-    const storeLat = Number(shops[0].latitude);
-    const storeLng = Number(shops[0].longitude);
+    // 🛠️ 1. เพิ่มการเช็คว่ามีข้อมูลร้านค้าหรือไม่ (ป้องกัน Error undefined)
+    let storeLat = NaN;
+    let storeLng = NaN;
+
+    if (shops && shops.length > 0) {
+      storeLat = Number(shops[0].latitude);
+      storeLng = Number(shops[0].longitude);
+    }
 
     const customerLat = Number(order.latitude);
     const customerLng = Number(order.longitude);
@@ -53,10 +59,9 @@ export async function GET(
     let distance = 0;
     let deliveryTime = 0;
 
-
     /* =============================
-   ✅ คำนวณเวลาทำอาหาร
-============================= */
+       ✅ คำนวณเวลาทำอาหาร
+    ============================= */
 
     // นับจำนวนเมนูรวมทั้งหมด
     const totalQuantity = items.reduce(
@@ -67,8 +72,10 @@ export async function GET(
     // ทุก 1 เมนู = 5 นาที
     const cookingTime = 5 * Math.ceil(totalQuantity / 1);
 
-
+    // 🛠️ 2. เช็คว่ามีพิกัดร้านค้าและพิกัดลูกค้าครบถ้วนก่อนคำนวณระยะทาง
     if (
+      !isNaN(storeLat) &&
+      !isNaN(storeLng) &&
       !isNaN(customerLat) &&
       !isNaN(customerLng)
     ) {
@@ -88,15 +95,19 @@ export async function GET(
       order.cooking_time_min = cookingTime;
       order.delivery_time_min = Math.ceil(deliveryTime);
       order.total_time_min = Math.ceil(totalTime);
+    } else {
+      // 🛠️ กรณีไม่มีพิกัดร้านค้าหรือลูกค้า ให้เซ็ตค่า default ไว้
+      order.cooking_time_min = cookingTime;
+      order.delivery_time_min = 0;
+      order.total_time_min = cookingTime;
     }
-    console.log(order.customer_lat, order.customer_lng);
+
+    console.log(order.latitude, order.longitude);
 
     order.distance_km = Number(distance.toFixed(2));
     order.delivery_time_min = Math.ceil(deliveryTime);
 
     return NextResponse.json(order);
-
-
 
   } catch (error) {
     console.error(error);

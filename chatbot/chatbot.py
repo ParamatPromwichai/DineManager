@@ -6,7 +6,11 @@ def get_response(msg, user_id):
     msg_lower = msg.lower()
     
     # 🛠️ 1. จัดการคำผิดและลบช่องว่าง
-    msg_normalized = msg_lower.replace("กระเพรา", "กะเพรา").replace("กระหรี่", "กะหรี่")
+# 🛠️ 1. จัดการคำผิดและลบช่องว่าง
+    msg_normalized = msg_lower.replace("กระเพรา", "กะเพรา") \
+                              .replace("กะเพา", "กะเพรา") \
+                              .replace("กระเพา", "กะเพรา") \
+                              .replace("กระหรี่", "กะหรี่")
     msg_search = msg_normalized.replace(" ", "")
     
     intents = detect_intents(msg_normalized)
@@ -39,7 +43,12 @@ def get_response(msg, user_id):
 
     last_menu = None
     if last_user_msg:
-        last_user_search = last_user_msg.replace("กระเพรา", "กะเพรา").replace("กระหรี่", "กะหรี่").replace(" ", "")
+        # ดักคำผิดในประโยคที่แล้วให้เหมือนกัน
+        last_user_search = last_user_msg.replace("กระเพรา", "กะเพรา") \
+                                        .replace("กะเพา", "กะเพรา") \
+                                        .replace("กระเพา", "กะเพรา") \
+                                        .replace("กระหรี่", "กะหรี่") \
+                                        .replace(" ", "")
         for m in menus:
             menu_search = m[0].lower().replace("กระเพรา", "กะเพรา").replace("กระหรี่", "กะหรี่").replace(" ", "")
             if menu_search in last_user_search:
