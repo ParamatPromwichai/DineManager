@@ -20,13 +20,8 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' });
   } catch (err) {
-    // 1. ปริ้นท์ Error ตัวจริงออกทาง Terminal
-    console.error("Database Error:", err); 
+    return NextResponse.json({ message: 'username ซ้ำ' }, { status: 400 });
     
-    // 2. ส่งค่า Error กลับไปให้หน้าเว็บเพื่อดูชั่วคราว
-    return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดที่ Database', error: String(err) }, 
-      { status: 500 }
-    );
+    
   }
 }
