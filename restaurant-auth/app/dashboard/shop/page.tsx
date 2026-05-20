@@ -1,32 +1,46 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Store, 
   TrendingUp, 
-  ClipboardList, 
-  Users, 
-  Clock, 
   Banknote,
-  MoreHorizontal,
-  ChevronRight,
-  ArrowUpRight
+  LayoutGrid,
+  LogOut,
+  ArrowRight
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type DashboardData = {
   shop: { name: string; is_open: boolean; open_time: string; close_time: string };
-  remaining_queue: number;
   todayStats: { total_orders: number; total_revenue: number };
-  pending_orders: number;
-  pending_reservations: number;
+  tableStats: { total: number; available: number };
   recentOrders: { id: number; total_price: number; status: string; payment_method: string; created_at: string }[];
 };
 
 export default function ShopDashboardPage() {
+  const router = useRouter();
+  
+  // 🚨 1. เพิ่ม State สำหรับตรวจสอบการล็อกอิน
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  // 🚨 2. ตรวจสอบสิทธิ์ก่อนเป็นอันดับแรก
+  useEffect(() => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      // ถ้าไม่มี user_id ให้เด้งกลับไปหน้า login ทันที
+      router.replace('/login');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
 
   const fetchDashboard = async () => {
     try {
@@ -40,11 +54,14 @@ export default function ShopDashboardPage() {
     }
   };
 
+  // 🚨 3. จะดึงข้อมูลก็ต่อเมื่อผ่านการตรวจสอบสิทธิ์แล้วเท่านั้น
   useEffect(() => {
+    if (!isAuthorized) return; 
+
     fetchDashboard();
     const interval = setInterval(fetchDashboard, 30000); 
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthorized]);
 
   const toggleShopStatus = async () => {
     if (!data) return;
@@ -64,165 +81,197 @@ export default function ShopDashboardPage() {
     }
   };
 
-  if (loading) {
+  const confirmLogout = () => {
+    setIsLogoutModalOpen(false); 
+    // 🚨 4. ลบข้อมูลการล็อกอินออกเมื่อกดออกจากระบบ
+    localStorage.removeItem('user_id');
+    window.location.href = '/login'; 
+  };
+
+  // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล
+  if (!isAuthorized || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-slate-800 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-medium text-slate-500">Loading workspace...</span>
+      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-bold text-slate-400 tracking-wider">
+            {!isAuthorized ? 'กำลังตรวจสอบสิทธิ์...' : 'กำลังโหลดข้อมูล...'}
+          </span>
         </div>
       </div>
     );
   }
   
-  if (!data) return <div className="p-8 text-red-500 font-medium">เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล</div>;
+  if (!data) return <div className="p-8 text-rose-500 font-bold text-center mt-20">เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล</div>;
+
+  const isTableFull = data.tableStats.available === 0;
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 pb-24 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-24 font-sans selection:bg-blue-100">
+      <div className="max-w-[840px] mx-auto px-4 sm:px-6 pt-8 sm:pt-10">
         
-        {/* --- Header Section --- */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="p-1.5 bg-slate-900 text-white rounded-lg">
-                <Store size={18} />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        {/* --- 🌟 Premium Header --- */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center text-white shadow-lg shadow-slate-900/20 shrink-0">
+              <Store size={24} strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 mb-0.5">
                 {data.shop.name || 'Overview'}
               </h1>
+              <p className="text-xs sm:text-sm font-medium text-slate-500">
+                ภาพรวมยอดขายและคิวหน้าร้าน
+              </p>
             </div>
-            <p className="text-sm text-slate-500 font-medium ml-1">
-              ข้อมูลสรุปยอดขายและการดำเนินการประจำวัน
-            </p>
           </div>
 
-          {/* Shop Status Toggle (SaaS Style) */}
-          <div className="flex items-center gap-4 bg-white p-1.5 pr-4 rounded-full border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-1.5 p-1.5 bg-white/60 backdrop-blur-md rounded-full border border-slate-200/80 shadow-sm w-full sm:w-auto">
+            <div className="flex items-center gap-3 pl-3 pr-2 py-1">
+              <span className="relative flex h-2.5 w-2.5">
+                {data.shop.is_open && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${data.shop.is_open ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+              </span>
+              <span className="text-sm font-bold text-slate-700 hidden sm:block">
+                {data.shop.is_open ? 'เปิดรับออเดอร์' : 'ปิดร้านชั่วคราว'}
+              </span>
+              <button 
+                onClick={toggleShopStatus}
+                disabled={isToggling}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-300 outline-none ml-1 ${data.shop.is_open ? 'bg-emerald-500 shadow-inner shadow-emerald-700/20' : 'bg-slate-200 shadow-inner shadow-slate-400/20'}`}
+              >
+                <motion.div 
+                  layout
+                  className="absolute top-[2px] bg-white w-5 h-5 rounded-full shadow-md"
+                  initial={false}
+                  animate={{ x: data.shop.is_open ? 20 : 2 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              </button>
+            </div>
+
+            <div className="w-[1px] h-6 bg-slate-200"></div>
+
             <button 
-              onClick={toggleShopStatus}
-              disabled={isToggling}
-              className={`relative w-12 h-7 rounded-full transition-colors duration-300 outline-none ${data.shop.is_open ? 'bg-emerald-500' : 'bg-slate-200'}`}
+              onClick={() => setIsLogoutModalOpen(true)}
+              className="flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:h-10 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all font-bold text-sm group outline-none"
             >
-              <motion.div 
-                layout
-                className="absolute top-1 bg-white w-5 h-5 rounded-full shadow-sm"
-                initial={false}
-                animate={{ left: data.shop.is_open ? '26px' : '4px' }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              />
+              <LogOut size={18} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" /> 
+              <span className="hidden sm:inline ml-2">ออก</span>
             </button>
-            <div className="flex items-center gap-2">
-              {data.shop.is_open ? (
-                <>
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-sm font-semibold text-slate-700">เปิดรับออเดอร์</span>
-                </>
-              ) : (
-                <>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400"></span>
-                  <span className="text-sm font-semibold text-slate-500">ปิดร้านชั่วคราว</span>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* --- Stats Grid --- */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          <StatCard 
-            title="รายได้วันนี้" 
-            value={`฿${Number(data.todayStats.total_revenue).toLocaleString()}`} 
-            subtitle={`${data.todayStats.total_orders} ออเดอร์ที่สำเร็จแล้ว`}
-            icon={Banknote} 
-            trend="up"
-          />
-          <StatCard 
-            title="ออเดอร์รอยืนยัน" 
-            value={data.pending_orders.toString()} 
-            subtitle="ต้องการการตอบกลับทันที"
-            icon={ClipboardList} 
-            alert={data.pending_orders > 0}
-          />
-          <StatCard 
-            title="จองโต๊ะรออนุมัติ" 
-            value={data.pending_reservations.toString()} 
-            subtitle="ตรวจสอบคำขอจองโต๊ะ"
-            icon={Users} 
-            alert={data.pending_reservations > 0}
-          />
-          <StatCard 
-            title="คิวรอหน้าร้าน" 
-            value={data.remaining_queue.toString()} 
-            subtitle="ลูกค้าที่กำลังรอโต๊ะว่าง"
-            icon={Clock} 
-          />
+        {/* --- 📊 สถิติรวม (Unified Premium Card) --- */}
+        <div className="bg-white border border-slate-200/60 rounded-[2rem] shadow-sm hover:shadow-lg transition-shadow duration-300 mb-8 flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-100 overflow-hidden">
+          
+          {/* 1. รายได้ (Revenue) */}
+          <Link href="/dashboard/shop/revenue" className="relative flex-1 p-5 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden">
+            {/* Glow Hover Effect */}
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+            
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className="text-xs sm:text-sm font-bold text-slate-500">รายได้วันนี้</span>
+              <ArrowRight size={16} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-blue-500 transition-colors" />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Banknote size={26} strokeWidth={2.5} className="text-blue-500 shrink-0" />
+                <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none truncate">
+                  ฿{Number(data.todayStats.total_revenue).toLocaleString()}
+                </h3>
+              </div>
+              <p className="text-[11px] sm:text-xs font-bold text-slate-400 ml-8">
+                {data.todayStats.total_orders} ออเดอร์ที่สำเร็จแล้ว
+              </p>
+            </div>
+          </Link>
+
+          {/* 2. โต๊ะว่าง (Tables) */}
+          <Link href="/dashboard/shop/tables" className="relative flex-1 p-5 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden">
+            {/* Glow Hover Effect */}
+            <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${isTableFull ? 'bg-rose-400/20' : 'bg-purple-400/10'}`}></div>
+            
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <span className={`text-xs sm:text-sm font-bold ${isTableFull ? 'text-rose-500' : 'text-slate-500'}`}>
+                {isTableFull ? '⚠️ โต๊ะเต็มแล้ว' : 'โต๊ะว่างหน้าร้าน'}
+              </span>
+              <ArrowRight size={16} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-purple-500 transition-colors" />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1.5">
+                <LayoutGrid size={26} strokeWidth={2.5} className={`shrink-0 ${isTableFull ? 'text-rose-500' : 'text-purple-500'}`} />
+                <div className="flex items-baseline gap-1">
+                  <h3 className={`text-3xl sm:text-4xl font-black tracking-tighter leading-none ${isTableFull ? 'text-rose-600' : 'text-slate-900'}`}>
+                    {data.tableStats.available}
+                  </h3>
+                  <span className="text-lg sm:text-2xl font-bold text-slate-300 leading-none">
+                    /{data.tableStats.total}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Link>
+
         </div>
 
-        {/* --- Recent Orders Table --- */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp size={18} className="text-slate-500" /> 
-              รายการออเดอร์ล่าสุด
+        {/* --- ตารางออเดอร์ล่าสุด --- */}
+        <div className="bg-white border border-slate-200/60 rounded-[2rem] shadow-sm overflow-hidden">
+          <div className="px-6 py-5 flex justify-between items-center">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+              <TrendingUp size={20} className="text-slate-400" /> 
+              ออเดอร์ล่าสุด
             </h2>
-            <button className="text-sm font-semibold text-slate-900 hover:text-slate-600 flex items-center gap-1 transition-colors">
-              ดูทั้งหมด <ChevronRight size={16} />
-            </button>
+            <Link href="/dashboard/shop/orders" className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-full transition-colors flex items-center gap-1">
+              ดูทั้งหมด
+            </Link>
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto pb-2">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-6 py-3 font-semibold text-slate-500">รหัส</th>
-                  <th className="px-6 py-3 font-semibold text-slate-500">เวลา</th>
-                  <th className="px-6 py-3 font-semibold text-slate-500">ช่องทางชำระ</th>
-                  <th className="px-6 py-3 font-semibold text-slate-500">ยอดสุทธิ</th>
-                  <th className="px-6 py-3 font-semibold text-slate-500">สถานะ</th>
-                  <th className="px-6 py-3"></th>
+                <tr className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  <th className="px-6 py-3 pb-4">Order ID</th>
+                  <th className="px-6 py-3 pb-4">เวลา</th>
+                  <th className="px-6 py-3 pb-4">การชำระเงิน</th>
+                  <th className="px-6 py-3 pb-4">ยอดสุทธิ</th>
+                  <th className="px-6 py-3 pb-4 text-right">สถานะ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-50">
                 {data.recentOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                      ไม่มีรายการออเดอร์ในขณะนี้
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 mb-3">
+                        <span className="text-2xl opacity-50">🍽️</span>
+                      </div>
+                      <p className="text-slate-400 font-bold">ยังไม่มีออเดอร์ในวันนี้</p>
                     </td>
                   </tr>
                 ) : (
                   data.recentOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4 font-medium text-slate-900">
+                    <tr key={order.id} className="hover:bg-slate-50/80 transition-colors group">
+                      <td className="px-6 py-4 font-black text-slate-800">
                         #{order.id.toString().padStart(4, '0')}
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
-                        {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                      <td className="px-6 py-4 font-semibold text-slate-400 text-xs sm:text-sm">
+                        {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
                       </td>
                       <td className="px-6 py-4">
-                        {order.payment_method === 'qr' ? (
-                          <div className="flex items-center gap-1.5 text-slate-600">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span> โอนเงิน
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-slate-600">
-                            <span className="w-2 h-2 rounded-full bg-amber-500"></span> เงินสด
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${order.payment_method === 'qr' ? 'bg-indigo-500' : 'bg-amber-500'}`}></div>
+                          <span className="font-bold text-slate-600 text-xs sm:text-sm">
+                            {order.payment_method === 'qr' ? 'โอนเงิน' : 'เงินสด'}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-slate-900">
+                      <td className="px-6 py-4 font-black text-slate-900 text-base">
                         ฿{order.total_price.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4">
-                        <OrderStatusBadge status={order.status} />
-                      </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="text-slate-400 hover:text-slate-900 transition-colors opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal size={18} />
-                        </button>
+                        <OrderStatusBadge status={order.status} />
                       </td>
                     </tr>
                   ))
@@ -233,65 +282,60 @@ export default function ShopDashboardPage() {
         </div>
 
       </div>
-    </div>
-  );
-}
 
-// --- Sub Components ---
-
-function StatCard({ title, value, subtitle, icon: Icon, alert, trend }: any) {
-  return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-slate-300 transition-colors">
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2.5 bg-slate-50 text-slate-600 rounded-xl border border-slate-100 group-hover:bg-slate-100 transition-colors">
-          <Icon size={20} strokeWidth={2.5} />
-        </div>
-        {trend === 'up' && (
-          <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-            <ArrowUpRight size={14} /> วันนี้
-          </div>
+      {/* --- 🚪 MODAL: ยืนยันการออกจากระบบ --- */}
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white rounded-[2rem] shadow-2xl shadow-slate-900/10 w-full max-w-[340px] p-8 text-center border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <LogOut size={28} strokeWidth={2.5} className="ml-1" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">ออกจากระบบ?</h3>
+              <p className="text-slate-500 font-medium mb-8 text-sm leading-relaxed">
+                เซสชันการทำงานของคุณจะถูกปิดลง<br/>คุณต้องเข้าสู่ระบบใหม่ในครั้งถัดไป
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button onClick={confirmLogout} className="w-full py-3.5 bg-slate-900 text-white hover:bg-slate-800 rounded-xl font-bold shadow-md transition-all active:scale-95">
+                  ยืนยันออกจากระบบ
+                </button>
+                <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl font-bold transition-colors">
+                  ยกเลิก
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-      
-      <div>
-        <h3 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">{value}</h3>
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className={`text-xs mt-1 font-medium ${alert ? 'text-amber-600' : 'text-slate-500'}`}>
-          {subtitle}
-        </p>
-      </div>
+      </AnimatePresence>
 
-      {/* Decorative background flair if alert is true */}
-      {alert && (
-        <div className="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-amber-50 blur-2xl pointer-events-none"></div>
-      )}
     </div>
   );
 }
 
 function OrderStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    pending: 'bg-amber-100/50 text-amber-700 border-amber-200',
-    cooking: 'bg-blue-100/50 text-blue-700 border-blue-200',
-    delivery: 'bg-purple-100/50 text-purple-700 border-purple-200',
-    done: 'bg-emerald-100/50 text-emerald-700 border-emerald-200',
-    cancel: 'bg-slate-100 text-slate-600 border-slate-200',
+    pending: 'bg-amber-50 text-amber-600 ring-amber-200/50', 
+    checking_slip: 'bg-sky-50 text-sky-600 ring-sky-200/50',
+    cooking: 'bg-blue-50 text-blue-600 ring-blue-200/50', 
+    delivery: 'bg-purple-50 text-purple-600 ring-purple-200/50',
+    done: 'bg-emerald-50 text-emerald-600 ring-emerald-200/50', 
+    cancel: 'bg-slate-50 text-slate-500 ring-slate-200/50',
   };
-
   const labels: Record<string, string> = {
-    pending: 'รอดำเนินการ',
-    cooking: 'กำลังปรุง',
-    delivery: 'กำลังจัดส่ง',
-    done: 'เสร็จสิ้น',
-    cancel: 'ยกเลิก',
+    pending: 'รอรับออเดอร์', checking_slip: 'รอตรวจสลิป', cooking: 'กำลังปรุง',
+    delivery: 'กำลังจัดส่ง', done: 'เสร็จสิ้น', cancel: 'ยกเลิก',
   };
-
-  const className = styles[status] || 'bg-slate-100 text-slate-600 border-slate-200';
-  const label = labels[status] || status;
-
+  
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${className}`}>
-      {label}
+    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-black ring-1 inset-ring ${styles[status] || 'bg-slate-50 text-slate-600 ring-slate-200'}`}>
+      {labels[status] || status}
     </span>
   );
 }

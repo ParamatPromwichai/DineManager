@@ -17,20 +17,21 @@ export async function GET() {
       LIMIT 3
     `);
 
-    // 3. คิวที่เหลือ
-    const [queue]: any = await db.query(
-      'SELECT remaining_queue FROM queue_status WHERE id = 1'
+    // 🚨 3. คิวที่รอขณะนี้ (แก้ให้นับจากออเดอร์ที่กำลังปรุงและกำลังส่งจริงๆ)
+    const [queueResult]: any = await db.query(
+      `SELECT COUNT(*) as queueCount FROM orders WHERE status IN ('cooking', 'delivery')`
     );
+    const remainingQueue = queueResult[0]?.queueCount || 0;
 
-    // 4. เมนูแนะนำ (Top 4)
+    // 4. เมนูแนะนำ
     const [recommended]: any = await db.query(
-      'SELECT id, name, price, image FROM menus WHERE is_recommended = 1 LIMIT 4'
+      'SELECT id, name, price, image FROM menus WHERE is_recommended = 1 ORDER BY id DESC'
     );
 
     return NextResponse.json({
       shop: shop, 
       popularMenus,
-      remainingQueue: queue[0]?.remaining_queue ?? 0,
+      remainingQueue: remainingQueue, // 👈 ส่งตัวเลขที่นับได้สดๆ ร้อนๆ ไปให้หน้าบ้าน
       recommendedMenus: recommended,
     });
 

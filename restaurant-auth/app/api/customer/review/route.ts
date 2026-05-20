@@ -16,12 +16,15 @@ export async function GET(req: Request) {
       [order_id]
     );
 
+    // ✅ ปรับจาก 404 เป็น 200 และส่ง null เพื่อให้ Log หน้าบ้านสะอาด
     if (reviews && reviews.length > 0) {
-      return NextResponse.json(reviews[0]);
+      return NextResponse.json(reviews[0], { status: 200 });
     } else {
-      return NextResponse.json({ message: 'Not reviewed yet' }, { status: 404 });
+      return NextResponse.json(null, { status: 200 });
     }
+
   } catch (error) {
+    console.error('Review GET Error:', error);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
 }
@@ -36,13 +39,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }
 
-    // 1. 🧹 ลบรีวิวเก่าของ Order นี้ทิ้งทั้งหมด (แก้ปัญหาเวลากดแก้ไข จะได้ไม่เกิดข้อมูลซ้ำซ้อน)
+    // 1. 🧹 ลบรีวิวเก่าของ Order นี้ทิ้งทั้งหมดเพื่อป้องกันข้อมูลซ้ำซ้อนเวลาแก้ไข
     await db.query(`DELETE FROM reviews WHERE order_id = ?`, [order_id]);
 
-    // 2. 📝 บันทึกรีวิวใหม่แยกตามแต่ละเมนู (เพื่อให้หน้าเมนูอาหารนำไปคำนวณดาวได้)
+    // 2. 📝 บันทึกรีวิวใหม่แยกตามแต่ละเมนู (เพื่อนำไปคำนวณดาวเฉลี่ยในหน้าเมนู)
     if (items && items.length > 0) {
       for (const item of items) {
-        // ออเดอร์นั้นอาจมีหลายเมนู เราก็บันทึกรีวิวนี้ลงไปในทุกเมนูที่สั่ง
         if (item.menu_id) {
           await db.query(
             `INSERT INTO reviews (order_id, menu_id, rating, comment, created_at) 
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      // เผื่อกรณีเกิดข้อผิดพลาดหา items ไม่เจอ ก็ยังบันทึกเข้าตาราง reviews ได้อยู่
+      // กรณีฉุกเฉินถ้าไม่มี items ส่งมา อย่างน้อยก็บันทึกเข้าตารางโดยผูกกับ order_id
       await db.query(
         `INSERT INTO reviews (order_id, rating, comment, created_at) 
          VALUES (?, ?, ?, NOW())`,
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'บันทึกรีวิวสำเร็จ', success: true }, { status: 201 });
 
   } catch (error) {
-    console.error('Error submitting review:', error);
+    console.error('Review POST Error:', error);
     return NextResponse.json({ message: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' }, { status: 500 });
   }
 }

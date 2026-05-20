@@ -16,6 +16,7 @@ export async function GET(
       );
     }
 
+    // 1. ดึงข้อมูลออเดอร์
     const [orders]: any = await db.query(
       `SELECT * FROM orders WHERE id = ?`,
       [orderId]
@@ -28,13 +29,27 @@ export async function GET(
       );
     }
 
+    const order = orders[0];
+
+    // 2. ดึงรายการอาหารพร้อม "รูปภาพ" จากตาราง menus
     const [items]: any = await db.query(
-      `SELECT * FROM order_items WHERE order_id = ?`,
+      `SELECT oi.*, m.image 
+       FROM order_items oi
+       LEFT JOIN menus m ON oi.menu_id = m.id
+       WHERE oi.order_id = ?`,
       [orderId]
     );
-
-    const order = orders[0];
     order.items = items;
+
+    // 3. นับจำนวนคิวออเดอร์ที่สั่งก่อนหน้าและยังทำไม่เสร็จ (Cooking หรือ Delivery)
+    const [precedingOrders]: any = await db.query(
+      `SELECT COUNT(*) as queueCount 
+       FROM orders 
+       WHERE (status = 'cooking' OR status = 'delivery') 
+       AND id < ?`,
+      [orderId]
+    );
+    const queueCount = precedingOrders[0]?.queueCount || 0;
 
     /* =============================
         ✅ คำนวณระยะทาง + เวลา
@@ -44,7 +59,6 @@ export async function GET(
       `SELECT latitude, longitude FROM shops LIMIT 1`
     );
 
-    // 🛠️ 1. เพิ่มการเช็คว่ามีข้อมูลร้านค้าหรือไม่ (ป้องกัน Error undefined)
     let storeLat = NaN;
     let storeLng = NaN;
 
@@ -60,7 +74,7 @@ export async function GET(
     let deliveryTime = 0;
 
     /* =============================
-       ✅ คำนวณเวลาทำอาหาร
+        ✅ คำนวณเวลาทำอาหาร (รวมเผื่อคิว)
     ============================= */
 
     // นับจำนวนเมนูรวมทั้งหมด
@@ -69,10 +83,13 @@ export async function GET(
       0
     );
 
-    // ทุก 1 เมนู = 5 นาที
-    const cookingTime = 5 * Math.ceil(totalQuantity / 1);
+    // คำนวณเวลาพื้นฐาน: ทุก 1 เมนู = 5 นาที
+    const baseCookingTime = 5 * Math.ceil(totalQuantity / 1);
+    
+    // บวกเวลาเผื่อคิว: คิวละ 5 นาที
+    const queueDelay = queueCount;
+    const totalCookingTime = baseCookingTime + queueDelay;
 
-    // 🛠️ 2. เช็คว่ามีพิกัดร้านค้าและพิกัดลูกค้าครบถ้วนก่อนคำนวณระยะทาง
     if (
       !isNaN(storeLat) &&
       !isNaN(storeLng) &&
@@ -86,26 +103,23 @@ export async function GET(
         customerLng
       );
 
-      const speed = 40;
+      const speed = 40; // ความเร็วเฉลี่ยกม./ชม.
       deliveryTime = (distance / speed) * 60;
 
-      // เวลารวมทั้งหมด
-      const totalTime = cookingTime + deliveryTime;
+      // เวลารวมทั้งหมด (ทำอาหาร + คิว + ส่ง)
+      const totalTime = totalCookingTime + deliveryTime;
 
-      order.cooking_time_min = cookingTime;
+      order.cooking_time_min = totalCookingTime;
       order.delivery_time_min = Math.ceil(deliveryTime);
       order.total_time_min = Math.ceil(totalTime);
     } else {
-      // 🛠️ กรณีไม่มีพิกัดร้านค้าหรือลูกค้า ให้เซ็ตค่า default ไว้
-      order.cooking_time_min = cookingTime;
+      order.cooking_time_min = totalCookingTime;
       order.delivery_time_min = 0;
-      order.total_time_min = cookingTime;
+      order.total_time_min = totalCookingTime;
     }
 
-    console.log(order.latitude, order.longitude);
-
     order.distance_km = Number(distance.toFixed(2));
-    order.delivery_time_min = Math.ceil(deliveryTime);
+    order.queue_count = queueCount; // ส่งจำนวนคิวไปให้หน้าบ้านเผื่อใช้แสดงผล
 
     return NextResponse.json(order);
 

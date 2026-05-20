@@ -150,3 +150,14 @@ INSERT INTO reviews (user_id, menu_id, rating, comment) VALUES
 
 
 ALTER TABLE orders ADD COLUMN slip_image LONGTEXT NULL;
+
+ALTER TABLE orders 
+MODIFY COLUMN status ENUM('pending', 'checking_slip', 'cooking', 'delivery', 'done', 'cancel') DEFAULT 'pending';
+
+ALTER TABLE shops
+ADD COLUMN bank_name VARCHAR(100),
+ADD COLUMN account_number VARCHAR(50),
+ADD COLUMN account_name VARCHAR(100),
+ADD COLUMN qr_image VARCHAR(255);
+
+ALTER TABLE orders ADD COLUMN delivery_fee DECIMAL(10,2) DEFAULT 0 AFTER total_price;

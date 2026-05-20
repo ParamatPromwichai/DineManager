@@ -1,0 +1,184 @@
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BellRing, Check, X, Clock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+type OrderItem = { menu_name: string; quantity: number };
+type Order = { id: number; status: string; total_price: number; payment_method: string; items: OrderItem[] };
+
+export default function GlobalOrderNotification() {
+  const router = useRouter();
+  const [newOrder, setNewOrder] = useState<Order | null>(null);
+  const [timeLeft, setTimeLeft] = useState(60);
+  
+  const notifiedOrders = useRef<Set<number>>(new Set());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // 🚨 1. เพิ่ม audioRef เพื่อเก็บ Object เสียงไว้สั่งหยุดทีหลัง
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const checkNewOrders = async () => {
+    try {
+      const res = await fetch('/api/shop/orders');
+      if (!res.ok) return;
+      const orders: Order[] = await res.json();
+
+      const pendingOrders = orders.filter(o => o.status === 'pending');
+      
+      for (const order of pendingOrders) {
+        if (!notifiedOrders.current.has(order.id)) {
+          
+          // 🚨 2. ตั้งค่าให้เสียงเล่นวนลูป (Loop) ไม่หยุด
+          const audio = new Audio('/sounds/notification.mp3');
+          audio.loop = true; 
+          audio.play().catch(e => console.log('เบราว์เซอร์บล็อคเสียง:', e));
+          
+          // เก็บเสียงลง Ref เพื่อเอาไว้สั่งหยุดตอนกดปุ่ม
+          audioRef.current = audio;
+
+          notifiedOrders.current.add(order.id);
+          setTimeLeft(60); 
+          setNewOrder(order);
+          break; 
+        }
+      }
+    } catch (error) {
+      console.error('Error checking new orders');
+    }
+  };
+
+  // 🚨 3. ฟังก์ชันสำหรับสั่ง "หยุดเสียง"
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // รีเซ็ตเสียงกลับไปที่ 0 วินาที
+      audioRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (newOrder && timeLeft > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && newOrder) {
+      handleAction('cancel'); // ถ้าหมดเวลา 60วิ ให้ยกเลิกอัตโนมัติ
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [newOrder, timeLeft]);
+
+  useEffect(() => {
+    const interval = setInterval(checkNewOrders, 10000);
+    return () => {
+      clearInterval(interval);
+      stopAudio(); // 🚨 หยุดเสียงถ้าหน้าต่างนี้ถูกปิดหรือเปลี่ยนหน้า
+    };
+  }, []);
+
+  const handleAction = async (action: 'accept' | 'cancel') => {
+    if (!newOrder) return;
+    
+    // 🚨 4. สั่งหยุดเสียงทันทีที่แอดมินกดรับ/ปฏิเสธ หรือเมื่อหมดเวลา
+    stopAudio();
+    
+    let newStatus = 'cancel';
+    if (action === 'accept') {
+      newStatus = newOrder.payment_method === 'qr' ? 'checking_slip' : 'cooking';
+    }
+    
+    try {
+      await fetch('/api/shop/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: newOrder.id, status: newStatus })
+      });
+      
+      setNewOrder(null);
+      setTimeLeft(60);
+      if (timerRef.current) clearInterval(timerRef.current);
+      
+      router.refresh(); 
+    } catch (error) {
+      alert('เกิดข้อผิดพลาด');
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {newOrder && (
+        <motion.div 
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9, y: -20 }}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-sm"
+        >
+          <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-2xl border border-slate-700 relative overflow-hidden">
+            
+            <motion.div 
+              initial={{ width: '100%' }}
+              animate={{ width: '0%' }}
+              transition={{ duration: 60, ease: 'linear' }}
+              className="absolute bottom-0 left-0 h-1 bg-red-500"
+            />
+
+            <div className="flex items-start gap-4">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-20"></span>
+                <BellRing size={24} className="animate-bounce" />
+              </div>
+
+              <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-white">ออเดอร์ใหม่เข้า! 🎉</h3>
+                  <div className={`flex items-center gap-1 text-sm font-black ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-amber-500'}`}>
+                    <Clock size={14} /> {timeLeft}s
+                  </div>
+                </div>
+                
+                <p className="text-sm text-slate-400 mt-1">
+                  Order <span className="text-white font-bold">#{newOrder.id}</span> • ยอด <span className="text-emerald-400 font-bold">฿{newOrder.total_price}</span>
+                </p>
+
+                <div className="mt-2 inline-block px-2 py-1 rounded-md text-[10px] font-bold tracking-wider bg-slate-800 text-slate-300">
+                  {newOrder.payment_method === 'qr' ? '💳 โอนเงิน (รอตรวจสลิป)' : '💵 เงินสด (ชำระปลายทาง)'}
+                </div>
+
+                <div className="mt-3 bg-slate-800 rounded-lg p-3 text-sm border border-slate-700/50">
+                  {newOrder.items.slice(0, 2).map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-slate-300 mb-1 last:mb-0">
+                      <span>{item.menu_name}</span>
+                      <span className="font-bold text-white">x{item.quantity}</span>
+                    </div>
+                  ))}
+                  {newOrder.items.length > 2 && (
+                    <div className="text-xs text-slate-500 mt-2 text-center pt-2 border-t border-slate-700">และอื่นๆ อีก {newOrder.items.length - 2} รายการ</div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <button 
+                    onClick={() => handleAction('cancel')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-red-400 transition-colors text-sm font-bold"
+                  >
+                    <X size={16} strokeWidth={3} /> ปฏิเสธ
+                  </button>
+                  <button 
+                    onClick={() => handleAction('accept')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all"
+                  >
+                    <Check size={16} strokeWidth={3} /> รับออเดอร์
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
