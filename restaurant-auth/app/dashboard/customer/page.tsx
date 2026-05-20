@@ -215,7 +215,7 @@ export default function CustomerHome() {
                   {dashboardData.shop.is_open ? 'เปิดให้บริการ' : 'ปิดให้บริการ'}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'bold' }}>
-                  <Clock size={14} /> ปิด {dashboardData.shop.close_time.substring(0, 5)} น.
+                  <Clock size={14} /> ปิด {dashboardData.shop.close_time?.substring(0, 5) || '--:--'} น.
                 </span>
               </div>
               <div style={{ height: '1px', background: '#E0EFFF', margin: '15px 0' }} />
