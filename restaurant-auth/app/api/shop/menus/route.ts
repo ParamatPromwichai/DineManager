@@ -83,13 +83,44 @@ export async function PUT(req: Request) {
   }
 }
 
-// ⭐ สลับเมนูแนะนำ (ใช้ PATCH กรณีแก้ฟิลด์เดียวแบบไม่ส่งรูป)
+// ⭐ สลับเมนูแนะนำ และ 🔴 สถานะของหมด (PATCH)
 export async function PATCH(req: Request) {
   try {
-    const { id, is_recommended } = await req.json();
-    await db.query(`UPDATE menus SET is_recommended = ? WHERE id = ?`, [is_recommended, id]);
+    const body = await req.json();
+    const { id, is_recommended, is_sold_out } = body;
+
+    if (!id) {
+      return NextResponse.json({ message: 'ระบุ ID ไม่ถูกต้อง' }, { status: 400 });
+    }
+
+    // สร้างชุดคำสั่ง Update ให้ยืดหยุ่น (เผื่อส่งมาแค่อย่างใดอย่างหนึ่ง)
+    let updateFields = [];
+    let queryParams = [];
+
+    if (is_recommended !== undefined) {
+      updateFields.push('is_recommended = ?');
+      queryParams.push(is_recommended);
+    }
+
+    if (is_sold_out !== undefined) {
+      updateFields.push('is_sold_out = ?');
+      queryParams.push(is_sold_out);
+    }
+
+    // ถ้าไม่ได้ส่งอะไรมาให้แก้เลย
+    if (updateFields.length === 0) {
+      return NextResponse.json({ message: 'ไม่มีข้อมูลให้อัปเดต' }, { status: 400 });
+    }
+
+    queryParams.push(id); // ใส่ id เป็นพารามิเตอร์ตัวสุดท้ายสำหรับ WHERE clause
+
+    const updateQuery = `UPDATE menus SET ${updateFields.join(', ')} WHERE id = ?`;
+    
+    await db.query(updateQuery, queryParams);
+
     return NextResponse.json({ message: 'อัปเดตสถานะสำเร็จ' });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 });
   }
 }

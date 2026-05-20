@@ -2,332 +2,195 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { RefreshCw, Users, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 
-// --- Types ---
+// --- Types ให้ตรงกับฐานข้อมูลเป๊ะๆ ---
 type Table = {
   id: number;
   name: string;
   capacity: number;
+  is_occupied: number; // 0 = ว่าง, 1 = ไม่ว่าง
 };
 
-type Reservation = {
-  id: number;
-  table_id: number;
-  reservation_time: string;
-  status: string;
-};
-
-export default function CustomerReservePage() {
+export default function TableStatusPage() {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
 
   const [userId, setUserId] = useState<number | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  // Data State
+  const [tables, setTables] = useState<Table[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // 🛡️ เช็คการเข้าสู่ระบบ
   useEffect(() => {
     const id = localStorage.getItem("user_id");
-
-    console.log("Reserve user_id:", id);
-
     if (!id) {
       router.push('/login');
       return;
     }
-
-
-
-
-
-
-
-
-
-
-
-
     setUserId(Number(id));
     setCheckingAuth(false);
-  }, []);
-  // Data State
-  const [tables, setTables] = useState<Table[]>([]);
-  const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
+  }, [router]);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    pax: 2,
-    date: '',
-    time: '',
-    table_id: null as number | null
-  });
-
-  // ✅ 1. Separate data loading function (to reuse after booking)
+  // 🔄 ฟังก์ชันโหลดข้อมูลสถานะโต๊ะ
   const loadData = async () => {
+    setIsRefreshing(true);
     try {
-      // A. Load tables and reservations
-      const [tableRes, resRes] = await Promise.all([
-        fetch('/api/tables'),
-        fetch('/api/reservations')
-      ]);
-
-      if (tableRes.ok) setTables(await tableRes.json());
-      if (resRes.ok) setExistingReservations(await resRes.json());
-
+      const res = await fetch('/api/tables');
+      if (res.ok) {
+        setTables(await res.json());
+      }
+      setLastUpdated(new Date());
     } catch (err) {
-      console.error("Failed to load data", err);
+      console.error("Failed to load tables", err);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-
-  // ✅ 2. Load data on initial page load
+  // โหลดข้อมูลครั้งแรก และตั้งเวลา Auto-refresh ทุกๆ 30 วินาที
   useEffect(() => {
     if (!userId) return;
-
+    
     loadData();
+    const interval = setInterval(() => {
+      loadData();
+    }, 30000); // 30 วินาทีอัปเดตทีนึง
 
-    fetch('/api/customer/profile')
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Guest');
-      })
-      .then(profile => {
-        setFormData(prev => ({
-          ...prev,
-          name: profile.username || prev.name,
-          phone: profile.phone || prev.phone
-        }));
-      })
-      .catch(() => {
-        console.log("User is guest or not logged in.");
-      });
-
+    return () => clearInterval(interval);
   }, [userId]);
 
+  if (checkingAuth) return null;
 
-
-
-  // Function to check if a table is occupied
-  const isTableOccupied = (tableId: number) => {
-    if (!formData.date || !formData.time) return false;
-    const selectedDateTime = new Date(`${formData.date} ${formData.time}`).getTime();
-
-    return existingReservations.some(res => {
-      if (res.table_id !== tableId) return false;
-      if (['cancelled', 'completed'].includes(res.status)) return false;
-
-      const resTime = new Date(res.reservation_time).getTime();
-      const diff = Math.abs(selectedDateTime - resTime);
-      return diff < (2 * 60 * 60 * 1000); // Conflict if less than 2 hours
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name || !formData.phone || !formData.date || !formData.time) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-      return;
-    }
-    if (!formData.table_id) {
-      alert('กรุณาเลือกโต๊ะที่ต้องการนั่ง');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const datetime = `${formData.date} ${formData.time}:00`;
-
-      // 1. Send Booking Data
-      const res = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          pax: formData.pax,
-          datetime: datetime,
-          table_id: formData.table_id
-        }),
-      });
-
-      if (res.ok) {
-        // ✅ 2. Try to update profile (Wrapped in try-catch to ignore Guest errors)
-        try {
-          const profileRes = await fetch('/api/customer/profile', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: formData.phone, address: '' }),
-          });
-          // We don't need to check profileRes.ok here, 
-          // if it fails (400/401), we just move on.
-        } catch (ignoredError) {
-          console.log("Guest booking: Profile update skipped");
-        }
-
-        alert('🎉 จองโต๊ะสำเร็จ! ทางร้านจะเตรียมโต๊ะไว้ให้ครับ');
-
-        // ✅ 3. Clear selected table and reload data (Stay on same page)
-        setFormData(prev => ({
-          ...prev,
-          table_id: null, // Clear selected table
-          // date: '',    // Uncomment to clear date
-          // time: ''     // Uncomment to clear time
-        }));
-
-        loadData(); // 🔄 Reload data immediately (New booking becomes red/occupied)
-
-      } else {
-        alert('เกิดข้อผิดพลาด หรือโต๊ะอาจถูกแย่งจองไปแล้ว');
-        loadData(); // Reload in case of conflict
-      }
-    } catch (error) {
-      console.error(error);
-      alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // คำนวณสรุปจำนวนโต๊ะ
+  const occupiedCount = tables.filter(t => t.is_occupied === 1).length;
+  const availableCount = tables.length - occupiedCount;
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '100px', maxWidth: '600px', margin: '0 auto' }}>
+    // 🌟 เปลี่ยนพื้นหลังเป็นสีฟ้าอ่อน (Premium Blue & White)
+    <div style={{ padding: '20px', paddingBottom: '100px', minHeight: '100dvh', background: '#F4F8FF', fontFamily: 'sans-serif' }}>
+      
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        
+        {/* 🌟 Header */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 25, position: 'relative' }}>
 
-      <div style={{ textAlign: 'center', marginBottom: 30 }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#333' }}>📅 จองโต๊ะล่วงหน้า</h1>
-        <p style={{ color: '#666' }}>เลือกเวลาและโต๊ะที่ต้องการ</p>
-      </div>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-        {/* Part 1: Date & Time */}
-        <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: 15, fontWeight: 'bold', color: '#2563eb' }}>
-            ⏰ เลือกเวลาที่ต้องการ
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: 5, fontSize: '0.9rem', color: '#555' }}>วันที่</label>
-              <input
-                required type="date"
-                value={formData.date}
-                onChange={e => {
-                  setFormData({ ...formData, date: e.target.value, table_id: null });
-                }}
-                style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #ddd' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: 5, fontSize: '0.9rem', color: '#555' }}>เวลา</label>
-              <input
-                required type="time"
-                value={formData.time}
-                onChange={e => {
-                  setFormData({ ...formData, time: e.target.value, table_id: null });
-                }}
-                style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #ddd' }}
-              />
-            </div>
+          
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: '900', color: '#1E3A8A', margin: '0 0 6px 0' }}>
+              📊 สถานะโต๊ะปัจจุบัน
+            </h1>
+            <p style={{ color: '#64748B', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.9rem', fontWeight: 'bold' }}>
+              <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} color="#60A5FA" /> 
+              อัปเดตล่าสุด: <span style={{ color: '#2563EB' }}>{lastUpdated.toLocaleTimeString('th-TH')}</span>
+            </p>
           </div>
         </div>
 
-        {/* Part 2: Contact Info */}
-        <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: 15, fontWeight: 'bold', color: '#2563eb' }}>
-            👤 ข้อมูลติดต่อ & จำนวนคน
-          </h3>
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: 'block', marginBottom: 5 }}>ชื่อผู้จอง</label>
-            <input
-              required type="text" placeholder="ชื่อลูกค้า"
-              value={formData.name}
-              onChange={e => setFormData({ ...formData, name: e.target.value })}
-              style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #ddd' }}
-            />
+        {/* 🚥 สรุปสถานะ (Legend) */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 15, marginBottom: 25, flexWrap: 'wrap' }}>
+          <div style={{ background: '#ffffff', padding: '10px 20px', borderRadius: '16px', border: '1px solid #DCE8FF', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(37,99,235,0.03)' }}>
+            <CheckCircle2 size={20} color="#10B981" />
+            <span style={{ fontWeight: 'bold', color: '#1E3A8A' }}>ว่าง ({availableCount})</span>
           </div>
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: 'block', marginBottom: 5 }}>เบอร์โทรศัพท์</label>
-            <input
-              required type="tel" placeholder="08x-xxx-xxxx"
-              value={formData.phone}
-              onChange={e => setFormData({ ...formData, phone: e.target.value })}
-              style={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #ddd' }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: 5 }}>จำนวนคน (ท่าน)</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-              <button type="button" onClick={() => setFormData(prev => ({ ...prev, pax: Math.max(1, prev.pax - 1), table_id: null }))} style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #ddd', cursor: 'pointer' }}>-</button>
-              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', width: 40, textAlign: 'center' }}>{formData.pax}</span>
-              <button type="button" onClick={() => setFormData(prev => ({ ...prev, pax: prev.pax + 1, table_id: null }))} style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #ddd', cursor: 'pointer' }}>+</button>
-            </div>
+          <div style={{ background: '#ffffff', padding: '10px 20px', borderRadius: '16px', border: '1px solid #DCE8FF', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(37,99,235,0.03)' }}>
+            <XCircle size={20} color="#EF4444" />
+            <span style={{ fontWeight: 'bold', color: '#1E3A8A' }}>ไม่ว่าง ({occupiedCount})</span>
           </div>
         </div>
 
-        {/* Part 3: Select Table */}
-        <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: 15, fontWeight: 'bold', color: '#2563eb' }}>
-            🪑 เลือกโต๊ะที่ต้องการ
-          </h3>
-
-          {(!formData.date || !formData.time) && (
-            <p style={{ color: '#f59e0b', marginBottom: 10 }}>⚠️ กรุณาเลือกวันและเวลาด้านบนก่อน เพื่อเช็คโต๊ะว่าง</p>
+        {/* 🪑 Grid แสดงโต๊ะ */}
+        <div style={{ background: '#ffffff', padding: 25, borderRadius: '24px', boxShadow: '0 4px 20px rgba(37,99,235,0.05)', border: '1px solid #DCE8FF' }}>
+          
+          {tables.length === 0 && !isRefreshing && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#93C5FD' }}>
+              <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>ยังไม่มีข้อมูลโต๊ะในระบบ</p>
+            </div>
           )}
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-            gap: 10
+            gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))',
+            gap: 16
           }}>
-            {tables
-              .filter(table => table.capacity >= formData.pax)
-              .map(table => {
-                const isOccupied = isTableOccupied(table.id);
-                const isSelected = formData.table_id === table.id;
+            {tables.map(table => {
+              const isOccupied = table.is_occupied === 1;
 
-                return (
-                  <button
-                    key={table.id}
-                    type="button"
-                    disabled={isOccupied || !formData.date || !formData.time}
-                    onClick={() => setFormData({ ...formData, table_id: table.id })}
-                    style={{
-                      height: 90,
-                      border: isSelected ? '2px solid #2563eb' : '1px solid #ddd',
-                      background: isOccupied ? '#fee2e2' : (isSelected ? '#eff6ff' : '#fff'),
-                      borderRadius: 8,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      cursor: isOccupied ? 'not-allowed' : 'pointer',
-                      opacity: isOccupied ? 0.7 : 1,
-                      position: 'relative'
-                    }}
-                  >
-                    <span style={{ fontWeight: 'bold', color: isOccupied ? '#b91c1c' : '#333' }}>{table.name}</span>
-                    <span style={{ fontSize: '0.8rem', color: '#666' }}>👤 {table.capacity}</span>
-                    {isOccupied ? <span style={{ fontSize: '0.7rem', color: '#b91c1c', fontWeight: 'bold' }}>⛔ ถูกจอง</span> : (isSelected && <span style={{ fontSize: '0.8rem', color: '#2563eb' }}>✓ เลือก</span>)}
-                  </button>
-                );
-              })}
+              return (
+                <div
+                  key={table.id}
+                  style={{
+                    height: 115,
+                    border: isOccupied ? '2px solid #FECACA' : '2px solid #A7F3D0',
+                    background: isOccupied ? '#FEF2F2' : '#ECFDF5',
+                    borderRadius: '16px',
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    position: 'relative',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.02)',
+                    cursor: 'default'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 15px rgba(0,0,0,0.05)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.02)';
+                  }}
+                >
+                  <span style={{ fontWeight: '900', fontSize: '1.25rem', color: isOccupied ? '#991B1B' : '#065F46', marginBottom: 6 }}>
+                    {table.name}
+                  </span>
+                  
+                  <span style={{ fontSize: '0.85rem', color: isOccupied ? '#DC2626' : '#059669', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'bold', background: isOccupied ? '#FEE2E2' : '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>
+                    <Users size={14} strokeWidth={2.5} /> {table.capacity}
+                  </span>
+
+                  {/* Badge มุมขวาบน */}
+                  <div style={{ 
+                    position: 'absolute', top: -8, right: -8, 
+                    background: isOccupied ? '#EF4444' : '#10B981', 
+                    color: 'white', borderRadius: '50%', padding: '5px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                  }}>
+                    {isOccupied ? <XCircle size={14} strokeWidth={3} /> : <CheckCircle2 size={14} strokeWidth={3} />}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {tables.filter(t => t.capacity >= formData.pax).length === 0 && (
-            <p style={{ color: 'red', marginTop: 10 }}>ไม่มีโต๊ะที่รองรับ {formData.pax} ท่านได้</p>
-          )}
+          
+          {/* ปุ่มกดอัปเดตแบบ Manual */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 30 }}>
+            <button 
+              onClick={loadData}
+              disabled={isRefreshing}
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', 
+                background: isRefreshing ? '#F8FAFC' : '#EFF6FF', 
+                color: isRefreshing ? '#94A3B8' : '#1D4ED8', 
+                border: `1px solid ${isRefreshing ? '#E2E8F0' : '#BFDBFE'}`, 
+                borderRadius: '24px', fontSize: '0.95rem', fontWeight: 'bold', 
+                cursor: isRefreshing ? 'not-allowed' : 'pointer', 
+                transition: 'all 0.2s',
+                boxShadow: isRefreshing ? 'none' : '0 4px 12px rgba(37,99,235,0.1)'
+              }}
+              onMouseOver={(e) => { if(!isRefreshing) e.currentTarget.style.background = '#DBEAFE'; }}
+              onMouseOut={(e) => { if(!isRefreshing) e.currentTarget.style.background = '#EFF6FF'; }}
+            >
+              <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} strokeWidth={2.5} /> 
+              {isRefreshing ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}
+            </button>
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          style={{
-            marginTop: 10, padding: '15px', background: isSubmitting ? '#9ca3af' : '#2563eb',
-            color: 'white', border: 'none', borderRadius: 12, fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer'
-          }}
-        >
-          {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ยืนยันการจอง ✅'}
-        </button>
-
-      </form>
+      </div>
     </div>
   );
 }
