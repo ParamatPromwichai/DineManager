@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     // ❌ ลบโค้ด insert user message ออก (ให้ Python จัดการแทน)
 
     // 🔥🔥🔥 เรียก Flask ไปเลย
-    const flaskRes = await fetch("http://localhost:5001/chat", {
+    const flaskRes = await fetch("https://chatbotdine-manager.vercel.app/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
