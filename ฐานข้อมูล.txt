@@ -17,6 +17,8 @@ CREATE TABLE shops (
   close_time TIME
 );
 
+
+
 CREATE TABLE menus (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -164,3 +166,59 @@ ALTER TABLE orders ADD COLUMN delivery_fee DECIMAL(10,2) DEFAULT 0 AFTER total_p
 ALTER TABLE users 
 ADD COLUMN name VARCHAR(255) NULL,
 ADD COLUMN email VARCHAR(255) NULL;
+
+
+
+
+-- 1. ลบตาราง shops เดิมทิ้งเพื่อเคลียร์ปัญหา Foreign Key
+DROP TABLE IF EXISTS shops;
+
+-- 2. สร้างตาราง shops ใหม่ให้ถูกต้อง (รวมคอลัมน์บัญชีธนาคารมาให้ครบ)
+CREATE TABLE shops (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  is_open BOOLEAN DEFAULT TRUE,
+  open_time TIME,
+  close_time TIME,
+  bank_name VARCHAR(100),
+  account_number VARCHAR(50),
+  account_name VARCHAR(100),
+  qr_image VARCHAR(255)
+);
+
+-- 3. เพิ่มข้อมูลร้านค้าเริ่มต้น (id = 1)
+INSERT INTO shops (
+  id, 
+  name, 
+  is_open, 
+  open_time, 
+  close_time, 
+  bank_name, 
+  account_number, 
+  account_name
+) VALUES (
+  1, 
+  'ร้านอาหารของฉัน', 
+  TRUE, 
+  '09:00:00', 
+  '21:00:00', 
+  'กสิกรไทย', 
+  '123-4-56789-0', 
+  'ชื่อบัญชี เจ้าของร้าน'
+);
+ALTER TABLE shops
+ADD COLUMN latitude DECIMAL(10,7) NULL,
+ADD COLUMN longitude DECIMAL(10,7) NULL;
+
+
+ALTER TABLE menus 
+ADD COLUMN is_sold_out BOOLEAN DEFAULT FALSE;
+
+
+CREATE TABLE chats (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    sender ENUM('user', 'bot') NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
