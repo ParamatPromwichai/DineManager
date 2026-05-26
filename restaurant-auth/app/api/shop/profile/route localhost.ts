@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { put } from '@vercel/blob'; // 1. เปลี่ยนมาใช้ put จาก Vercel Blob
+import { writeFile } from 'fs/promises';
+import path from 'path';
 
 export async function PUT(req: Request) {
   try {
@@ -45,18 +46,19 @@ export async function PUT(req: Request) {
       latitude, longitude
     ];
 
-    // 2. จัดการอัปโหลดไฟล์ QR Code (ถ้ามีการแนบมา) ขึ้น Vercel Blob
+    // จัดการอัปโหลดไฟล์ (ถ้ามีการแนบมา)
     if (qrFile && typeof qrFile !== 'string') {
+      const bytes = await qrFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const filename = `qr-${uniqueSuffix}-${qrFile.name.replace(/\s+/g, '_')}`;
+      const filepath = path.join(process.cwd(), 'public/images/shopqr', filename);
       
-      // อัปโหลดไฟล์ตรงๆ ไม่ต้องแปลงเป็น Buffer
-      const blob = await put(filename, qrFile, {
-        access: 'public',
-      });
+      await writeFile(filepath, buffer);
       
       updateQuery += `, qr_image = ?`;
-      queryParams.push(blob.url); // ใช้ URL ที่ได้จาก Vercel
+      queryParams.push(`/images/shopqr/${filename}`);
     }
 
     updateQuery += ` WHERE id = 1`; // ระบุ ID ร้าน

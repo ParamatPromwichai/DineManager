@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { db } from '@/lib/db';
 
 export async function POST(req: Request) {
+  // รับแค่ข้อมูล User (ไม่มี shopName แล้ว)
   const { username, password, role } = await req.json();
 
   if (!username || !password || !role) {
@@ -14,16 +15,25 @@ export async function POST(req: Request) {
   const hash = await bcrypt.hash(password, 10);
 
   try {
+    // บันทึกข้อมูลลงตาราง users อย่างเดียว
     await db.query(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
       [username, hash, role]
     );
+
     return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' });
-  } catch (err) {
-    // 1. ปริ้นท์ Error ตัวจริงออกทาง Terminal
+    
+  } catch (err: any) {
     console.error("Database Error:", err); 
     
-    // 2. ส่งค่า Error กลับไปให้หน้าเว็บเพื่อดูชั่วคราว
+    // ดักจับ Error กรณีตั้งชื่อ Username ซ้ำ
+    if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
+      return NextResponse.json(
+        { message: 'ชื่อผู้ใช้งาน (Username) นี้มีคนใช้แล้ว กรุณาใช้ชื่ออื่น' }, 
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { message: 'เกิดข้อผิดพลาดที่ Database', error: String(err) }, 
       { status: 500 }
