@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { put } from '@vercel/blob'; // เปลี่ยนมานำเข้าฟังก์ชัน put จาก Vercel Blob แทน fs และ path
+import { writeFile } from 'fs/promises';
+import path from 'path';
 
 // ➕ เพิ่มเมนูใหม่ (POST)
 export async function POST(req: Request) {
@@ -14,17 +15,19 @@ export async function POST(req: Request) {
 
     // ถ้าร้านค้ามีการอัปโหลดไฟล์รูป
     if (imageFile) {
-      // สร้างชื่อไฟล์ไม่ให้ซ้ำกัน
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
+      // สร้างชื่อไฟล์ไม่ให้ซ้ำกัน โดยใช้เวลาปัจจุบันต่อหน้าชื่อไฟล์
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const filename = `${uniqueSuffix}-${imageFile.name}`;
       
-      // อัปโหลดไฟล์ตรงๆ ไปที่ Vercel Blob โดยส่งตัวแปร imageFile ไปได้เลย ไม่ต้องแปลงเป็น Buffer แล้ว
-      const blob = await put(filename, imageFile, {
-        access: 'public', // เปิดสิทธิ์เข้าถึงเป็น Public เพื่อให้ดึง URL ไปแสดงรูปบนหน้าเว็บได้
-      });
+      // เซฟรูปลงในโฟลเดอร์ public/images/menu
+      const filepath = path.join(process.cwd(), 'public/images/menu', filename);
+      await writeFile(filepath, buffer);
       
-      // ดึง URL ของภาพที่อัปโหลดสำเร็จเพื่อไปบันทึกลง Database
-      imageUrl = blob.url;
+      // URL ที่จะบันทึกลง Database
+      imageUrl = `/images/menu/${filename}`;
     }
 
     await db.query(
@@ -53,16 +56,19 @@ export async function PUT(req: Request) {
 
     // ถ้ามีการเลือกรูปใหม่ ส่งมาอัปเดต
     if (imageFile) {
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const filename = `${uniqueSuffix}-${imageFile.name}`;
       
-      // อัปโหลดไฟล์ใหม่ขึ้น Vercel Blob
-      const blob = await put(filename, imageFile, {
-        access: 'public',
-      });
+      const filepath = path.join(process.cwd(), 'public/images/menu', filename);
+      await writeFile(filepath, buffer);
+      
+      const imageUrl = `/images/menu/${filename}`;
       
       updateQuery += `, image = ?`; // อัปเดตคอลัมน์ภาพด้วย
-      queryParams.push(blob.url);
+      queryParams.push(imageUrl);
     }
 
     updateQuery += ` WHERE id = ?`;
@@ -87,6 +93,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ message: 'ระบุ ID ไม่ถูกต้อง' }, { status: 400 });
     }
 
+    // สร้างชุดคำสั่ง Update ให้ยืดหยุ่น (เผื่อส่งมาแค่อย่างใดอย่างหนึ่ง)
     let updateFields = [];
     let queryParams = [];
 
@@ -100,11 +107,12 @@ export async function PATCH(req: Request) {
       queryParams.push(is_sold_out);
     }
 
+    // ถ้าไม่ได้ส่งอะไรมาให้แก้เลย
     if (updateFields.length === 0) {
       return NextResponse.json({ message: 'ไม่มีข้อมูลให้อัปเดต' }, { status: 400 });
     }
 
-    queryParams.push(id);
+    queryParams.push(id); // ใส่ id เป็นพารามิเตอร์ตัวสุดท้ายสำหรับ WHERE clause
 
     const updateQuery = `UPDATE menus SET ${updateFields.join(', ')} WHERE id = ?`;
     

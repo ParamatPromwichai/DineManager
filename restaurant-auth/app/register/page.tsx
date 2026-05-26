@@ -8,13 +8,12 @@ export default function RegisterPage() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('customer');
+  const [role, setRole] = useState('customer'); // เริ่มต้นเป็นลูกค้า
   const [loading, setLoading] = useState(false);
 
   async function handleRegister() {
     if (!username || !password) {
       alert('กรุณากรอกข้อมูลให้ครบ');
-      console.log("ใส่รหัสให้ถูกด้วย");
       return;
     }
 
@@ -29,6 +28,7 @@ export default function RegisterPage() {
         username,
         password,
         role,
+        // ตัด shopName ทิ้งไปแล้ว ส่งแค่นี้พอ
       }),
     });
 
@@ -40,7 +40,7 @@ export default function RegisterPage() {
       alert('สมัครสมาชิกสำเร็จ');
       router.push('/login');
     } else {
-      alert(data.message);
+      alert(data.message || 'เกิดข้อผิดพลาดในการสมัคร');
     }
   }
 
@@ -48,12 +48,44 @@ export default function RegisterPage() {
     <div style={{ maxWidth: 400, margin: '50px auto' }}>
       <h1>สมัครสมาชิก</h1>
 
+      {/* ส่วนปุ่มกดสลับระหว่าง ลูกค้า กับ ร้านค้า */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button 
+          onClick={() => setRole('customer')}
+          style={{ 
+            flex: 1, 
+            padding: '10px', 
+            backgroundColor: role === 'customer' ? '#0070f3' : '#e0e0e0', 
+            color: role === 'customer' ? 'white' : 'black',
+            border: 'none',
+            cursor: 'pointer',
+            borderRadius: '5px'
+          }}
+        >
+          สำหรับลูกค้า
+        </button>
+        <button 
+          onClick={() => setRole('shop')}
+          style={{ 
+            flex: 1, 
+            padding: '10px', 
+            backgroundColor: role === 'shop' ? '#0070f3' : '#e0e0e0', 
+            color: role === 'shop' ? 'white' : 'black',
+            border: 'none',
+            cursor: 'pointer',
+            borderRadius: '5px'
+          }}
+        >
+          สำหรับร้านค้า
+        </button>
+      </div>
+
       <input
         type="text"
         placeholder="Username"
         value={username}
         onChange={e => setUsername(e.target.value)}
-        style={{ width: '100%', marginBottom: 10 }}
+        style={{ width: '100%', marginBottom: 10, padding: '8px' }}
       />
 
       <input
@@ -61,25 +93,21 @@ export default function RegisterPage() {
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ width: '100%', marginBottom: 10 }}
+        style={{ width: '100%', marginBottom: 10, padding: '8px' }}
       />
 
-      <select
-        value={role}
-        onChange={e => setRole(e.target.value)}
-        style={{ width: '100%', marginBottom: 10 }}
-      >
-        <option value="customer">ลูกค้า</option>
-        <option value="shop">ร้านค้า</option>
-        <option value="admin">แอดมิน</option>
-      </select>
+      {/* ตัดช่องกรอกชื่อร้านออกไปแล้ว หน้าตาจะคลีนขึ้น */}
 
-      <button onClick={handleRegister} disabled={loading}>
+      <button 
+        onClick={handleRegister} 
+        disabled={loading} 
+        style={{ width: '100%', padding: '10px', marginTop: '10px', cursor: 'pointer' }}
+      >
         {loading ? 'กำลังสมัคร...' : 'สมัครสมาชิก'}
       </button>
 
-      <p style={{ marginTop: 10 }}>
-        มีบัญชีอยู่แล้ว? <a href="/login">เข้าสู่ระบบ</a>
+      <p style={{ marginTop: 10, textAlign: 'center' }}>
+        มีบัญชีอยู่แล้ว? <a href="/login" style={{ color: '#0070f3' }}>เข้าสู่ระบบ</a>
       </p>
     </div>
   );
