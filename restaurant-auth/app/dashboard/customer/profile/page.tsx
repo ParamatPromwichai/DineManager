@@ -44,12 +44,15 @@ export default function CustomerProfile() {
   }, [router]);
 
   /* =========================
-     🔥 LOAD PROFILE
+     🔥 LOAD PROFILE (ปรับดึงข้อมูลจาก Header)
   ========================= */
   useEffect(() => {
     if (!userId) return;
 
-    fetch(`/api/customer/profile?user_id=${userId}`)
+    // ✅ แก้ไขจุดที่ 1: เปลี่ยนมาแนบ user-id ไปที่ Headers แทนการส่งผ่าน URL query string
+    fetch('/api/customer/profile', {
+      headers: { 'user-id': String(userId) }
+    })
       .then(res => res.json())
       .then(data => {
         const fetchedData = {
@@ -57,7 +60,7 @@ export default function CustomerProfile() {
           email: data.email || '',
           phone: data.phone || '',
           address: data.address || '',
-          location: (data.latitude && data.longitude) ? { lat: data.latitude, lng: data.longitude } : null
+          location: (data.latitude && data.longitude) ? { lat: Number(data.latitude), lng: Number(data.longitude) } : null
         };
         
         // อัปเดตข้อมูลที่แสดงบนฟอร์ม
@@ -104,7 +107,7 @@ export default function CustomerProfile() {
   }
 
   /* =========================
-     💾 SAVE
+     💾 SAVE (ปรับการส่งข้อมูลไปตาราง User)
   ========================= */
   async function handleSave() {
     if (!phone || !address) {
@@ -114,11 +117,14 @@ export default function CustomerProfile() {
 
     setIsSaving(true);
     try {
+      // ✅ แก้ไขจุดที่ 2: แนบ user-id ไปใน Headers ของ PUT และถอดออกจากกล่อง Body JSON
       const res = await fetch('/api/customer/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'user-id': String(userId)
+        },
         body: JSON.stringify({
-          user_id: userId,
           phone,
           address,
           location,
@@ -127,11 +133,14 @@ export default function CustomerProfile() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        // อัปเดต initial data เป็นค่าปัจจุบันเพื่อรีเซ็ตปุ่มบันทึก
+        alert('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้วครับ!');
+        // อัปเดต initial data เป็นค่าปัจจุบันเพื่อรีเซ็ตปุ่มบันทึกให้กดไม่ได้ชั่วคราว
         setInitialData({ name, email, phone, address, location });
       } else {
-        alert('เกิดข้อผิดพลาดในการบันทึก');
+        alert(data.message || 'เกิดข้อผิดพลาดในการบันทึก');
       }
     } catch (error) {
       alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
@@ -183,7 +192,7 @@ export default function CustomerProfile() {
   return (
     <div style={{ minHeight: '100dvh', background: '#F4F8FF', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
       
-      {/* 🌟 Header (ย้ายปุ่มมาไว้ด้านขวา) */}
+      {/* 🌟 Header */}
       <div style={{ 
         background: '#ffffff', padding: '16px 20px', borderBottom: '1px solid #DCE8FF', 
         boxShadow: '0 2px 10px rgba(37,99,235,0.03)', display: 'flex', alignItems: 'center', 
@@ -205,7 +214,7 @@ export default function CustomerProfile() {
             style={{ 
               background: '#FEF2F2', color: '#EF4444', border: '1px solid #FEE2E2', 
               padding: '10px', borderRadius: '12px', cursor: 'pointer', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
+              display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center'
             }}
           >
             <LogOut size={18} />

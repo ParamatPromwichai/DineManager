@@ -6,8 +6,13 @@ import { db } from '@/lib/db';
 ========================= */
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('user_id') || 1;
+    // ✅ 1. เปลี่ยนมาดึง user-id จาก Headers ที่ฝั่งหน้าบ้านส่งมาให้
+    const userId = req.headers.get('user-id');
+
+    // ถ้าไม่มี user-id ส่งมา บล็อคเลย ไม่ให้ดึงข้อมูลมั่ว
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
 
     // ดึงข้อมูลครบทุกฟิลด์ รวม name และ email
     const [rows]: any = await db.query(
@@ -37,9 +42,15 @@ export async function GET(req: Request) {
 ========================= */
 export async function PUT(req: Request) {
   try {
+    // ✅ 2. ดึง user-id จาก Headers (ลบการดึง user_id จาก body และลบการฟิกซ์ || 1 ทิ้ง)
+    const userId = req.headers.get('user-id');
+
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { phone, address, location, user_id, name, email } = body;
-    const userId = user_id || 1; 
+    const { phone, address, location, name, email } = body;
 
     // บังคับกรอกทั้งเบอร์โทรและที่อยู่
     if (!phone || !address) {
@@ -59,7 +70,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    // อัปเดตข้อมูลครบทุกฟิลด์ลงฐานข้อมูล
+    // อัปเดตข้อมูลครบทุกฟิลด์ลงฐานข้อมูล ตาม ID ของคนที่ล็อกอินเท่านั้น
     await db.query(
       `UPDATE users
        SET
