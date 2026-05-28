@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { put } from '@vercel/blob'; // เปลี่ยนมานำเข้าฟังก์ชัน put จาก Vercel Blob แทน fs และ path
+import { put } from '@vercel/blob';
 
 // ➕ เพิ่มเมนูใหม่ (POST)
 export async function POST(req: Request) {
@@ -8,22 +8,18 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const name = formData.get('name') as string;
     const price = Number(formData.get('price'));
-    const imageFile = formData.get('image') as File | null; // ดึงไฟล์ภาพออกมา
+    const imageFile = formData.get('image') as File | null;
 
     let imageUrl = null;
 
-    // ถ้าร้านค้ามีการอัปโหลดไฟล์รูป
-    if (imageFile) {
-      // สร้างชื่อไฟล์ไม่ให้ซ้ำกัน
+    if (imageFile && typeof imageFile === 'object' && imageFile.name) {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const filename = `${uniqueSuffix}-${imageFile.name}`;
       
-      // อัปโหลดไฟล์ตรงๆ ไปที่ Vercel Blob โดยส่งตัวแปร imageFile ไปได้เลย ไม่ต้องแปลงเป็น Buffer แล้ว
       const blob = await put(filename, imageFile, {
-        access: 'public', // เปิดสิทธิ์เข้าถึงเป็น Public เพื่อให้ดึง URL ไปแสดงรูปบนหน้าเว็บได้
+        access: 'public',
       });
       
-      // ดึง URL ของภาพที่อัปโหลดสำเร็จเพื่อไปบันทึกลง Database
       imageUrl = blob.url;
     }
 
@@ -34,7 +30,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: 'เพิ่มเมนูสำเร็จ' }, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error("POST Menu Error:", error);
     return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 });
   }
 }
@@ -46,22 +42,26 @@ export async function PUT(req: Request) {
     const id = formData.get('id');
     const name = formData.get('name') as string;
     const price = Number(formData.get('price'));
-    const imageFile = formData.get('image') as File | null;
+    const imageFile = formData.get('image'); // ไม่ฟิกซ์ Type ตรงนี้เพื่อให้เช็คได้ชัวร์ขึ้น
+
+    if (!id) {
+      return NextResponse.json({ message: 'ไม่พบ ID ของเมนู' }, { status: 400 });
+    }
 
     let updateQuery = `UPDATE menus SET name = ?, price = ?`;
     let queryParams: any[] = [name, price];
 
-    // ถ้ามีการเลือกรูปใหม่ ส่งมาอัปเดต
-    if (imageFile) {
+    // ✅ ตรวจสอบว่าเป็น "ไฟล์ภาพจริงๆ" ไม่ใช่ข้อความ "null" หรือ "undefined"
+    if (imageFile && typeof imageFile === 'object' && 'name' in imageFile) {
+      const file = imageFile as File;
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      const filename = `${uniqueSuffix}-${imageFile.name}`;
+      const filename = `${uniqueSuffix}-${file.name}`;
       
-      // อัปโหลดไฟล์ใหม่ขึ้น Vercel Blob
-      const blob = await put(filename, imageFile, {
+      const blob = await put(filename, file, {
         access: 'public',
       });
       
-      updateQuery += `, image = ?`; // อัปเดตคอลัมน์ภาพด้วย
+      updateQuery += `, image = ?`; 
       queryParams.push(blob.url);
     }
 
@@ -72,7 +72,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ message: 'แก้ไขเมนูสำเร็จ' });
   } catch (error) {
-    console.error(error);
+    console.error("PUT Menu Error:", error);
     return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 });
   }
 }
@@ -112,7 +112,35 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ message: 'อัปเดตสถานะสำเร็จ' });
   } catch (error) {
-    console.error(error);
+    console.error("PATCH Menu Error:", error);
     return NextResponse.json({ message: 'เกิดข้อผิดพลาด' }, { status: 500 });
+  }
+}
+
+// 🗑️ ลบเมนู (DELETE) - 🌟 เพิ่มเข้ามาใหม่
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ message: 'ไม่พบ ID ของเมนูที่ต้องการลบ' }, { status: 400 });
+    }
+
+    await db.query(`DELETE FROM menus WHERE id = ?`, [id]);
+
+    return NextResponse.json({ message: 'ลบเมนูสำเร็จ' });
+  } catch (error) {
+    console.error("DELETE Menu Error:", error);
+    
+    // 💡 ดักจับ Error กรณีที่เมนูนี้เคยถูกสั่งไปแล้ว (ติด Foreign Key ใน order_items)
+    if (String(error).includes('foreign key constraint fails')) {
+      return NextResponse.json(
+        { message: 'ไม่สามารถลบได้ เนื่องจากเมนูนี้อยู่ในประวัติการสั่งซื้อของลูกค้าแล้ว แนะนำให้เปลี่ยนเป็น "สถานะของหมด" แทนครับ' }, 
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการลบเมนู' }, { status: 500 });
   }
 }

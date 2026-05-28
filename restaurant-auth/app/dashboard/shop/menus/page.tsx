@@ -98,7 +98,7 @@ export default function ManageMenusPage() {
     }
   };
 
-  // 💾 บันทึกข้อมูล
+  // 💾 บันทึกข้อมูล (ปรับปรุงการแจ้งเตือน Error)
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formPrice) return alert('กรุณากรอกชื่อและราคาให้ครบถ้วน');
@@ -111,27 +111,45 @@ export default function ManageMenusPage() {
       formData.append('price', formPrice.toString());
       if (imageFile) formData.append('image', imageFile); 
 
-      const res = await fetch('/api/shop/menus', { method: isEditing ? 'PUT' : 'POST', body: formData });
-      if (!res.ok) throw new Error('บันทึกไม่สำเร็จ');
+      const res = await fetch('/api/shop/menus', { 
+        method: isEditing ? 'PUT' : 'POST', 
+        body: formData 
+      });
+      
+      // ✅ ถ้า Backend ส่ง Error กลับมา ให้แจ้งเตือนสาเหตุที่แท้จริง
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'บันทึกไม่สำเร็จ');
+      }
 
       setIsModalOpen(false);
       fetchMenus(); 
-    } catch (error) {
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    } catch (error: any) {
+      alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 🗑️ ลบข้อมูล
+  // 🗑️ ลบข้อมูล (ปรับปรุงการแจ้งเตือน Error)
   const handleDelete = async (id: number) => {
     if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบเมนูนี้?')) return;
     try {
-      const res = await fetch('/api/shop/menus', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-      if (!res.ok) throw new Error('ลบไม่สำเร็จ');
+      const res = await fetch('/api/shop/menus', { 
+        method: 'DELETE', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ id }) 
+      });
+      
+      // ✅ แสดงคำแนะนำหากเมนูนั้นเคยถูกสั่งซื้อไปแล้ว (ป้องกัน Database พัง)
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'ลบไม่สำเร็จ');
+      }
+      
       fetchMenus();
-    } catch (error) {
-      alert('เกิดข้อผิดพลาดในการลบเมนู');
+    } catch (error: any) {
+      alert(error.message || 'เกิดข้อผิดพลาดในการลบเมนู');
     }
   };
 

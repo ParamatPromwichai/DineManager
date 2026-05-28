@@ -46,7 +46,13 @@ export default function OrderHistoryPage() {
 
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/customer/orders');
+        // ✅ แก้ไขตรงนี้: แนบ user-id ไปที่ headers ตอนดึงข้อมูล
+        const res = await fetch('/api/customer/orders', {
+          headers: {
+            'user-id': userId || ''
+          }
+        });
+        
         if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
         const data = await res.json();
         setOrders(data);

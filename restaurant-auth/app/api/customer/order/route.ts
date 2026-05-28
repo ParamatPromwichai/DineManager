@@ -3,6 +3,16 @@ import { db } from '@/lib/db';
 
 export async function POST(req: Request) {
   try {
+    // ✅ 1. ดึง userId จาก Header แทนการฟิกซ์เลข 1
+    const userIdHeader = req.headers.get('user-id');
+    
+    // ตรวจสอบความถูกต้องของ userId
+    if (!userIdHeader) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const userId = Number(userIdHeader);
+
     const { 
       items, 
       paymentMethod, 
@@ -14,8 +24,6 @@ export async function POST(req: Request) {
       deliveryFee,   // รับค่าส่งมาจากหน้าบ้าน
       totalPrice     
     } = await req.json();
-
-    const userId = 1; // demo (ในอนาคตควรดึงจาก session/token)
 
     // Validation
     if (!items || items.length === 0) {
@@ -41,7 +49,7 @@ export async function POST(req: Request) {
        (user_id, total_price, delivery_fee, payment_method, phone, address, latitude, longitude, payment_status, slip_image)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userId,
+        userId, // 👈 ใช้ userId ตัวจริงจาก Header
         finalTotal,
         finalDeliveryFee, // 👈 บันทึกค่าจัดส่งลง Database
         paymentMethod,
@@ -82,7 +90,14 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const userId = 1; // demo
+    // ✅ 2. แก้ฟิกซ์ userId ในฝั่ง PUT ด้วย
+    const userIdHeader = req.headers.get('user-id');
+    
+    if (!userIdHeader) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = Number(userIdHeader);
     const { phone, address, location } = await req.json();
 
     if (!phone || !address) {
@@ -101,12 +116,13 @@ export async function PUT(req: Request) {
         address,
         location?.lat || null,
         location?.lng || null,
-        userId,
+        userId, // 👈 อัปเดตข้อมูลของ userId ตัวจริง
       ]
     );
 
     return NextResponse.json({ message: 'บันทึกข้อมูลเรียบร้อย' });
   } catch (error) {
+    console.error("PUT Profile Error:", error);
     return NextResponse.json({ message: 'Database Error' }, { status: 500 });
   }
 }

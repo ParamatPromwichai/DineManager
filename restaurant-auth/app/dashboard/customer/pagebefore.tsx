@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Store, Clock, Zap, Star, Utensils, ShoppingCart, CreditCard, 
   MapPin, Plus, Minus, Flame, Maximize2, PlusCircle, PenLine, 
-  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation
+  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer
 } from 'lucide-react';
 
 // --- Type Definitions ---
@@ -85,10 +85,6 @@ export default function CustomerHome() {
   const [distance, setDistance] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
-  // 🗺️ Map States (เพิ่มเข้ามาใหม่)
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [tempLocation, setTempLocation] = useState<Location | null>(null);
-
   // State สำหรับ Popup ตัวเลือก
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
 
@@ -103,11 +99,10 @@ export default function CustomerHome() {
     const fetchData = async () => {
       try {
         const [homeRes, menusRes, profileRes] = await Promise.all([
-          fetch('/api/customer/home', { headers: { 'user-id': String(userId) } }),
-          fetch('/api/customer/menus', { headers: { 'user-id': String(userId) } }),
-          fetch('/api/customer/profile', { headers: { 'user-id': String(userId) } })
+          fetch('/api/customer/home'),
+          fetch('/api/customer/menus'),
+          fetch('/api/customer/profile')
         ]);
-
         if (homeRes.ok && menusRes.ok) {
           const homeData = await homeRes.json();
           const menusData = await menusRes.json();
@@ -126,11 +121,8 @@ export default function CustomerHome() {
           if (profileData?.phone) setPhone(profileData.phone);
           if (profileData?.address) setAddress(profileData.address);
           if (profileData?.latitude && profileData?.longitude) {
-  setLocation({ 
-    lat: Number(profileData.latitude), 
-    lng: Number(profileData.longitude) 
-  });
-}
+            setLocation({ lat: profileData.latitude, lng: profileData.longitude });
+          }
         }
       } catch (error) { console.error(error); } finally { setLoading(false); }
     };
@@ -171,19 +163,8 @@ export default function CustomerHome() {
   function requestLocation() {
     if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ location'); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setTempLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
+      pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง')
-    );
-  }
-
-  // ฟังก์ชันหาตำแหน่งปัจจุบัน (สำหรับใช้ในแผนที่)
-  function requestLocationForMap() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      pos => setTempLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
     );
   }
 
@@ -203,24 +184,11 @@ export default function CustomerHome() {
     if (cart.length === 0) return;
     setIsSubmitting(true);
     try {
-      await fetch('/api/customer/profile', { 
-        method: 'PUT', 
-        headers: { 
-          'Content-Type': 'application/json',
-          'user-id': String(userId)
-        }, 
-        body: JSON.stringify({ phone, address, location }) 
-      });
-
+      await fetch('/api/customer/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, address, location }) });
       const res = await fetch('/api/customer/order', { 
-        method: 'POST', 
-        headers: { 
-          'Content-Type': 'application/json',
-          'user-id': String(userId)
-        }, 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ items: cart, phone, address, location, paymentMethod, subTotal, deliveryFee, totalPrice: total, slipImage }) 
       });
-
       if (!res.ok) throw new Error('Order failed');
       alert('สั่งอาหารสำเร็จ ขอบคุณที่ใช้บริการครับ!');
       setCart([]); setShowPayment(false); setSlipImage(null); setPaymentMethod('');
@@ -230,14 +198,15 @@ export default function CustomerHome() {
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
 
   return (
-    <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 && !showPayment ? 'pb-48' : 'pb-24'}`}>
+    // 🎨 Theme: พื้นหลังโทนสว่างอมฟ้า ให้ความรู้สึกสะอาด (Blue-White)
+    <div style={{ padding: '20px 20px 160px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       
       {dashboardData && (
         <>
           {/* 🏪 Shop Status Card */}
           <section style={{ marginBottom: 25 }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
-              <Store size={22} color="#2563eb" /> Status ร้านค้า
+              <Store size={22} color="#2563eb" /> สถานะร้านค้า
             </h3>
             <div style={{ background: '#ffffff', padding: 20, borderRadius: 16, marginTop: 12, border: '1px solid #DCE8FF', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -378,36 +347,18 @@ export default function CustomerHome() {
       {showPayment && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}>
           <div style={{ background: '#ffffff', padding: 25, width: '100%', maxWidth: '450px', borderRadius: 28, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: 10, color: '#1E3A8A' }}>
-                <CreditCard size={24} color="#2563EB" /> ชำระเงิน
-              </h3>
-              <button onClick={() => setShowPayment(false)} style={{ background: '#F4F8FF', border: 'none', borderRadius: '50%', padding: 8, cursor: 'pointer', color: '#2563EB' }}>
-                <X size={20} />
-              </button>
-            </div>
+            <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: '1.3rem', fontWeight: '900', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#1E3A8A' }}>
+              <CreditCard size={24} color="#2563EB" /> ชำระเงิน
+            </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
               <input type="tel" placeholder="เบอร์โทรศัพท์ติดต่อ *" value={phone} onChange={e => setPhone(e.target.value)} style={{ padding: 14, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
               <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} style={{ padding: 14, minHeight: 80, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
             </div>
 
-            {/* 🎯 แก้ไข: เปลี่ยนปุ่มโลเคชันเป็น 2 ปุ่มให้เลือกได้ */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
-                <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
-              </button>
-              <button 
-                onClick={() => { 
-                  // หากไม่มีโลเคชันเดิม ให้ตั้งค่าเริ่มต้น (ในที่นี้คือ สกลนคร)
-                  setTempLocation(location || { lat: 17.1664, lng: 104.1486 }); 
-                  setShowMapModal(true); 
-                }} 
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (แก้)' : 'ปักหมุดแผนที่'}
-              </button>
-            </div>
+            <button onClick={requestLocation} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, padding: '12px', fontSize: '0.95rem', width: '100%', background: location ? '#ECFDF5' : '#EFF6FF', border: `1px dashed ${location ? '#10B981' : '#2563EB'}`, color: location ? '#059669' : '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
+              <MapPin size={18} /> {location ? '✅ ปักหมุดพิกัดแล้ว' : '📍 แนบพิกัดเพื่อคำนวณค่าส่ง'}
+            </button>
 
             {/* 🧾 Receipt Summary */}
             <div style={{ background: '#F4F8FF', padding: 18, borderRadius: 16, marginBottom: 25, border: '1px solid #DCE8FF' }}>
@@ -460,73 +411,15 @@ export default function CustomerHome() {
               </div>
             )}
 
-            <button disabled={isSubmitting} onClick={handleConfirmOrder} style={{ width: '100%', padding: 15, background: isSubmitting ? '#93C5FD' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: isSubmitting ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
-              {isSubmitting ? 'กำลังสั่ง...' : 'ยืนยันสั่งอาหาร'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🗺️ Popup หน้าต่างปักหมุดแผนที่ */}
-      {showMapModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
-          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-            
-            <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Navigation size={22} color="#2563EB" /> เลือกตำแหน่งจัดส่ง
-              </h3>
-              <button onClick={() => setShowMapModal(false)} style={{ background: '#F4F8FF', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#2563EB' }}>
-                <X size={20} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button disabled={isSubmitting} onClick={() => { setShowPayment(false); setSlipImage(null); }} style={{ flex: 1, padding: 15, background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: 'bold' }}>ปิด</button>
+              <button disabled={isSubmitting} onClick={handleConfirmOrder} style={{ flex: 2, padding: 15, background: isSubmitting ? '#93C5FD' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: isSubmitting ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
+                {isSubmitting ? 'กำลังสั่ง...' : 'ยืนยันสั่งอาหาร'}
               </button>
             </div>
-            
-            {/* พื้นที่แสดงแผนที่ */}
-            <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
-               
-               {/* ปุ่มดึงตำแหน่งปัจจุบันมาลงแผนที่ */}
-               <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
-                 <button onClick={requestLocationForMap} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
-                    <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
-                 </button>
-               </div>
-
-               {/* ตัวแผนที่ (เพื่อความง่าย ใช้ Google Maps iframe แบบ View-only ไปก่อน) */}
-               <iframe 
-                  width="100%" 
-                  height="100%" 
-                  frameBorder="0" 
-                  scrolling="no" 
-                  src={`https://maps.google.com/maps?q=${tempLocation?.lat || 17.1664},${tempLocation?.lng || 104.1486}&z=16&output=embed`}
-               />
-               
-               {/* จุดกึ่งกลาง (Pin จำลองการเลื่อนแผนที่) */}
-               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -100%)', zIndex: 400, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                 <MapPin size={42} color="#EF4444" fill="#EF4444" strokeWidth={1.5} />
-               </div>
-            </div>
-
-            <div style={{ padding: 20 }}>
-               <div style={{ marginBottom: 15, fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F8FF', padding: 12, borderRadius: 12 }}>
-                 <span>พิกัดละติจูด-ลองจิจูด:</span>
-                 <strong style={{ color: '#1E3A8A' }}>
-  {tempLocation ? `${Number(tempLocation.lat).toFixed(4)}, ${Number(tempLocation.lng).toFixed(4)}` : 'กำลังค้นหา...'}
-</strong>
-               </div>
-               <button 
-                 onClick={() => { 
-                   if(tempLocation) setLocation(tempLocation); 
-                   setShowMapModal(false); 
-                 }}
-                 style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}
-               >
-                 ยืนยันตำแหน่งนี้
-               </button>
-            </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
