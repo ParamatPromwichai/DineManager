@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession ของ NextAuth
 import { RefreshCw, Users, CheckCircle2, XCircle, LayoutGrid } from 'lucide-react';
 
 // --- Types ให้ตรงกับฐานข้อมูลเป๊ะๆ ---
@@ -15,24 +16,24 @@ type Table = {
 export default function TableStatusPage() {
   const router = useRouter();
 
-  const [userId, setUserId] = useState<number | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  // 🚨 2. เรียกใช้ Session เพื่อตรวจสอบสิทธิ์
+  const { data: session, status } = useSession();
 
   // Data State
   const [tables, setTables] = useState<Table[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 🛡️ เช็คการเข้าสู่ระบบ
+  // 🛡️ 3. ตรวจสอบสิทธิ์ว่าเป็นร้านค้าหรือไม่
   useEffect(() => {
-    const id = localStorage.getItem("user_id");
-    if (!id) {
-      router.push('/login');
-      return;
+    if (status === 'unauthenticated') {
+      router.replace('/login/shop'); // ถ้าไม่ได้ล็อกอิน ให้ไปหน้าล็อกอินร้านค้า
+    } else if (status === 'authenticated') {
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role'); // ถ้าไม่ใช่ร้านค้า ให้เตะออก
+      }
     }
-    setUserId(Number(id));
-    setCheckingAuth(false);
-  }, [router]);
+  }, [status, session, router]);
 
   // 🔄 ฟังก์ชันโหลดข้อมูลสถานะโต๊ะ
   const loadData = async () => {
@@ -50,9 +51,9 @@ export default function TableStatusPage() {
     }
   };
 
-  // โหลดข้อมูลครั้งแรก และตั้งเวลา Auto-refresh ทุกๆ 30 วินาที
+  // 🚨 4. โหลดข้อมูลเมื่อผ่านการตรวจสอบสิทธิ์แล้วเท่านั้น
   useEffect(() => {
-    if (!userId) return;
+    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return;
     
     loadData();
     const interval = setInterval(() => {
@@ -60,9 +61,24 @@ export default function TableStatusPage() {
     }, 30000); // 30 วินาทีอัปเดตทีนึง
 
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [status, session]);
 
-  if (checkingAuth) return null;
+  // ⏳ 5. โชว์สถานะโหลดระหว่างรอเช็ค Session ป้องกันการกระพริบ
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#64748b' }}>
+          <RefreshCw size={32} color="#2563eb" className="animate-spin" />
+          <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>กำลังตรวจสอบสิทธิ์...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ป้องกันหน้าเว็บแสดงผลหากไม่มีสิทธิ์
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
+    return null; 
+  }
 
   // คำนวณสรุปจำนวนโต๊ะ
   const occupiedCount = tables.filter(t => t.is_occupied === 1).length;
