@@ -1,180 +1,203 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession ของ NextAuth
-import { RefreshCw, Users, CheckCircle2, XCircle, LayoutGrid } from 'lucide-react';
+import { 
+  TrendingUp, Calendar, Wallet, Receipt, 
+  Loader2, ChevronRight, BarChart3
+} from 'lucide-react';
 
-// --- Types ให้ตรงกับฐานข้อมูลเป๊ะๆ ---
-type Table = {
-  id: number;
-  name: string;
-  capacity: number;
-  is_occupied: number; // 0 = ว่าง, 1 = ไม่ว่าง
-};
-
-export default function TableStatusPage() {
+export default function ShopRevenuePage() {
   const router = useRouter();
-
-  // 🚨 2. เรียกใช้ Session เพื่อตรวจสอบสิทธิ์
   const { data: session, status } = useSession();
 
-  // Data State
-  const [tables, setTables] = useState<Table[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // --- States ---
+  const [type, setType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [dateParam, setDateParam] = useState<string>('');
+  
+  const [data, setData] = useState({ total: 0, orders: 0 });
+  const [loading, setLoading] = useState(true);
 
-  // 🛡️ 3. ตรวจสอบสิทธิ์ว่าเป็นร้านค้าหรือไม่
+  // 🛡️ 1. ตรวจสอบสิทธิ์ (เข้าได้เฉพาะร้านค้า)
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.replace('/login/shop'); // ถ้าไม่ได้ล็อกอิน ให้ไปหน้าล็อกอินร้านค้า
-    } else if (status === 'authenticated') {
-      if ((session.user as any)?.role !== 'shop') {
-        router.replace('/login/shop?error=wrong_role'); // ถ้าไม่ใช่ร้านค้า ให้เตะออก
-      }
+      router.replace('/login/shop');
+    } else if (status === 'authenticated' && (session?.user as any)?.role !== 'shop') {
+      router.replace('/login/shop?error=wrong_role');
     }
   }, [status, session, router]);
 
-  // 🔄 ฟังก์ชันโหลดข้อมูลสถานะโต๊ะ
-  const loadData = async () => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch('/api/tables');
-      if (res.ok) {
-        setTables(await res.json());
-      }
-      setLastUpdated(new Date());
-    } catch (err) {
-      console.error("Failed to load tables", err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  // 🗓️ 2. ตั้งค่า Default Date ตามประเภท (รายวัน/สัปดาห์/เดือน)
+  useEffect(() => {
+    const now = new Date();
+    // ชดเชย Timezone ของไทย เพื่อไม่ให้วันที่เพี้ยน
+    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
 
-  // 🚨 4. โหลดข้อมูลเมื่อผ่านการตรวจสอบสิทธิ์แล้วเท่านั้น
+    if (type === 'daily') {
+      setDateParam(localNow.toISOString().split('T')[0]); // YYYY-MM-DD
+    } else if (type === 'monthly') {
+      setDateParam(localNow.toISOString().substring(0, 7)); // YYYY-MM
+    } else if (type === 'weekly') {
+      // คำนวณหา ISO Week แบบง่ายๆ (YYYY-Www)
+      const d = new Date(localNow.getTime());
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const week1 = new Date(d.getFullYear(), 0, 4);
+      const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      setDateParam(`${d.getFullYear()}-W${weekNum.toString().padStart(2, '0')}`);
+    }
+  }, [type]);
+
+  // 🚀 3. ดึงข้อมูลจาก API
   useEffect(() => {
     if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return;
-    
-    loadData();
-    const interval = setInterval(() => {
-      loadData();
-    }, 30000); // 30 วินาทีอัปเดตทีนึง
+    if (!dateParam) return;
 
-    return () => clearInterval(interval);
-  }, [status, session]);
+    const fetchRevenue = async () => {
+      setLoading(true);
+      try {
+        // 💡 แก้ URL API ตรงนี้ให้ตรงกับโฟลเดอร์ที่คุณสร้างไว้นะครับ
+        const res = await fetch(`/api/shop/revenue?type=${type}&date=${dateParam}`);
+        
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        } else {
+          console.error('Failed to fetch revenue');
+        }
+      } catch (error) {
+        console.error('API Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // ⏳ 5. โชว์สถานะโหลดระหว่างรอเช็ค Session ป้องกันการกระพริบ
+    fetchRevenue();
+  }, [type, dateParam, status, session]);
+
+  // ⏳ หน้าจอโหลดขณะเช็คสิทธิ์
   if (status === 'loading') {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#64748b' }}>
-          <RefreshCw size={32} color="#2563eb" className="animate-spin" />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>กำลังตรวจสอบสิทธิ์...</span>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 size={40} className="animate-spin text-blue-600 mb-4" />
+        <p className="text-slate-500 font-bold">กำลังตรวจสอบสิทธิ์...</p>
       </div>
     );
   }
 
-  // ป้องกันหน้าเว็บแสดงผลหากไม่มีสิทธิ์
-  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
-    return null; 
-  }
-
-  // คำนวณสรุปจำนวนโต๊ะ
-  const occupiedCount = tables.filter(t => t.is_occupied === 1).length;
-  const availableCount = tables.length - occupiedCount;
+  // 🛑 ป้องกันไม่ให้แอบเห็น UI ก่อนโดนเตะ
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return null;
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '100px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans pb-24">
+      
       {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 25 }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <LayoutGrid size={28} color="#2563eb" />
-          สถานะโต๊ะปัจจุบัน
-        </h1>
-        <p style={{ color: '#64748b', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.9rem' }}>
-          <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} /> 
-          อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')}
-        </p>
-      </div>
-
-      {/* สรุปสถานะ (Legend) */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 15, marginBottom: 25, flexWrap: 'wrap' }}>
-        <div style={{ background: '#fff', padding: '10px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <CheckCircle2 size={20} color="#10b981" />
-          <span style={{ fontWeight: 'bold', color: '#334155' }}>ว่าง ({availableCount})</span>
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-blue-600 text-white rounded-xl shadow-md">
+          <BarChart3 size={24} />
         </div>
-        <div style={{ background: '#fff', padding: '10px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-          <XCircle size={20} color="#ef4444" />
-          <span style={{ fontWeight: 'bold', color: '#334155' }}>ไม่ว่าง ({occupiedCount})</span>
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">รายงานยอดขาย</h1>
+          <p className="text-sm font-semibold text-slate-500">ดูยอดขายและจำนวนออเดอร์ของร้านค้า</p>
         </div>
       </div>
 
-      {/* Grid แสดงโต๊ะ */}
-      <div style={{ background: '#fff', padding: 25, borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+      {/* ควบคุมการดูข้อมูล (Filter) */}
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          
+          {/* ปุ่มสลับประเภท */}
+          <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+            <button 
+              onClick={() => setType('daily')}
+              className={`flex-1 sm:px-6 py-2 rounded-lg font-bold text-sm transition-all ${type === 'daily' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              รายวัน
+            </button>
+            <button 
+              onClick={() => setType('weekly')}
+              className={`flex-1 sm:px-6 py-2 rounded-lg font-bold text-sm transition-all ${type === 'weekly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              รายสัปดาห์
+            </button>
+            <button 
+              onClick={() => setType('monthly')}
+              className={`flex-1 sm:px-6 py-2 rounded-lg font-bold text-sm transition-all ${type === 'monthly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              รายเดือน
+            </button>
+          </div>
+
+          {/* Input เลือกวันที่ */}
+          <div className="relative w-full sm:w-auto">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Calendar size={18} className="text-slate-400" />
+            </div>
+            <input 
+              type={type === 'daily' ? 'date' : type === 'monthly' ? 'month' : 'week'}
+              value={dateParam}
+              onChange={(e) => setDateParam(e.target.value)}
+              className="w-full sm:w-[200px] pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+          </div>
+
+        </div>
+      </div>
+
+      {/* สรุปข้อมูล (Stats Cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {tables.length === 0 && !isRefreshing && (
-          <p style={{ textAlign: 'center', color: '#94a3b8' }}>ยังไม่มีข้อมูลโต๊ะในระบบ</p>
-        )}
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-          gap: 15
-        }}>
-          {tables.map(table => {
-            const isOccupied = table.is_occupied === 1;
-
-            return (
-              <div
-                key={table.id}
-                style={{
-                  height: 110,
-                  border: isOccupied ? '2px solid #fca5a5' : '2px solid #86efac',
-                  background: isOccupied ? '#fef2f2' : '#f0fdf4',
-                  borderRadius: '12px',
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  transition: 'all 0.3s ease',
-                  position: 'relative',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                }}
-              >
-                <span style={{ fontWeight: '900', fontSize: '1.2rem', color: isOccupied ? '#b91c1c' : '#166534', marginBottom: 4 }}>
-                  {table.name}
-                </span>
-                
-                <span style={{ fontSize: '0.85rem', color: isOccupied ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'bold' }}>
-                  <Users size={14} /> {table.capacity} ท่าน
-                </span>
-
-                {/* Badge มุมขวาบน */}
-                <div style={{ 
-                  position: 'absolute', top: -8, right: -8, 
-                  background: isOccupied ? '#ef4444' : '#10b981', 
-                  color: 'white', borderRadius: '50%', padding: '4px' 
-                }}>
-                  {isOccupied ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
-                </div>
+        {/* Card: ยอดขาย */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 text-emerald-50 opacity-50 group-hover:scale-110 transition-transform duration-500">
+            <Wallet size={120} />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 text-emerald-600 font-bold mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <TrendingUp size={20} />
               </div>
-            );
-          })}
+              ยอดขายสุทธิ
+            </div>
+            {loading ? (
+              <div className="h-10 w-32 bg-slate-100 animate-pulse rounded-lg"></div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <span className="text-4xl sm:text-5xl font-black text-slate-800">
+                  {data.total.toLocaleString()}
+                </span>
+                <span className="text-xl font-bold text-slate-500 mb-1">บาท</span>
+              </div>
+            )}
+          </div>
         </div>
-        
-        {/* ปุ่มกดอัปเดตแบบ Manual */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 25 }}>
-          <button 
-            onClick={loadData}
-            disabled={isRefreshing}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold', cursor: isRefreshing ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
-          >
-            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} /> 
-            {isRefreshing ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}
-          </button>
+
+        {/* Card: ออเดอร์ */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 text-blue-50 opacity-50 group-hover:scale-110 transition-transform duration-500">
+            <Receipt size={120} />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 text-blue-600 font-bold mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Receipt size={20} />
+              </div>
+              จำนวนออเดอร์สำเร็จ
+            </div>
+            {loading ? (
+              <div className="h-10 w-24 bg-slate-100 animate-pulse rounded-lg"></div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <span className="text-4xl sm:text-5xl font-black text-slate-800">
+                  {data.orders.toLocaleString()}
+                </span>
+                <span className="text-xl font-bold text-slate-500 mb-1">รายการ</span>
+              </div>
+            )}
+          </div>
         </div>
+
       </div>
 
     </div>
