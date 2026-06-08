@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // 👈 1. นำเข้า useRouter
+import { useRouter } from 'next/navigation'; 
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 
 // --- Type Definitions ---
@@ -37,8 +38,10 @@ type ManageModalState = {
 } | null;
 
 export default function ShopTableManager() {
-  const router = useRouter(); // 👈 เรียกใช้งาน router
-  const [isAuthorized, setIsAuthorized] = useState(false); // 🚨 State ตรวจสอบสิทธิ์
+  const router = useRouter(); 
+  
+  // 🚨 2. เรียกใช้งาน Session
+  const { data: session, status } = useSession();
 
   const [tables, setTables] = useState<Table[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -47,15 +50,16 @@ export default function ShopTableManager() {
   const [modal, setModal] = useState<ModalState>(null);
   const [manageModal, setManageModal] = useState<ManageModalState>(null);
 
-  // 🛡️ 2. ตรวจสอบสิทธิ์ก่อนเป็นอันดับแรก
+  // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-      router.replace('/login'); // ไม่มีสิทธิ์ เตะกลับหน้าล็อกอิน
-    } else {
-      setIsAuthorized(true); // มีสิทธิ์ ให้ผ่านได้
+    if (status === 'unauthenticated') {
+      router.replace('/login/shop'); // ไม่มีสิทธิ์ เตะกลับหน้าล็อกอินร้านค้า
+    } else if (status === 'authenticated') {
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role'); // Role ไม่ใช่ร้านค้า เตะออก
+      }
     }
-  }, [router]);
+  }, [status, session, router]);
 
   const fetchData = async () => {
     try {
@@ -68,9 +72,9 @@ export default function ShopTableManager() {
     } catch (err) { console.error(err); }
   };
 
-  // 🚨 3. เริ่มโหลดข้อมูล "หลังจาก" ผ่านการตรวจสอบสิทธิ์แล้วเท่านั้น
+  // 🚨 4. โหลดข้อมูลเมื่อผ่านการตรวจสอบสิทธิ์แล้วว่าเป็นร้านค้า
   useEffect(() => {
-    if (!isAuthorized) return; 
+    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchData();
     const interval = setInterval(() => {
@@ -78,7 +82,7 @@ export default function ShopTableManager() {
       setCurrentTime(new Date());
     }, 5000);
     return () => clearInterval(interval);
-  }, [isAuthorized]);
+  }, [status, session]);
 
   // --- Logic คำนวณสถานะ ---
   const getTableStatus = (table: Table) => {
@@ -173,13 +177,21 @@ export default function ShopTableManager() {
     }
   };
 
-  // ⏳ 4. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ ป้องกันการแอบเห็น UI ก่อนโดนเตะ
-  if (!isAuthorized) {
+  // ⏳ 5. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ (อยู่หลัง Hooks ทั้งหมด)
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-bold text-slate-400 tracking-wider">กำลังตรวจสอบสิทธิ์...</span>
+        </div>
       </div>
     );
+  }
+
+  // ป้องกันหน้ากระพริบกรณีที่เตะ User ออก
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
+    return null; 
   }
 
   return (

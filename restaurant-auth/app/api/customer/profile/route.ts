@@ -1,18 +1,24 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth'; // ➕ นำเข้า getServerSession
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // ➕ นำเข้า authOptions
 
 /* =========================
    GET : โหลดข้อมูลโปรไฟล์ (รวม Name และ Email)
 ========================= */
 export async function GET(req: Request) {
   try {
-    // ✅ 1. เปลี่ยนมาดึง user-id จาก Headers ที่ฝั่งหน้าบ้านส่งมาให้
-    const userId = req.headers.get('user-id');
+    // ✅ 1. ดึง session จาก NextAuth เพื่อหาคนล็อกอินปัจจุบัน
+    const session = await getServerSession(authOptions);
 
-    // ถ้าไม่มี user-id ส่งมา บล็อคเลย ไม่ให้ดึงข้อมูลมั่ว
-    if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // ถ้าไม่มี session บล็อคเลย ไม่ให้ดึงข้อมูลมั่ว
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
+
+    const userId = (session.user as any).id;
 
     // ดึงข้อมูลครบทุกฟิลด์ รวม name และ email
     const [rows]: any = await db.query(
@@ -42,12 +48,14 @@ export async function GET(req: Request) {
 ========================= */
 export async function PUT(req: Request) {
   try {
-    // ✅ 2. ดึง user-id จาก Headers (ลบการดึง user_id จาก body และลบการฟิกซ์ || 1 ทิ้ง)
-    const userId = req.headers.get('user-id');
+    // ✅ 2. ดึง session จาก NextAuth แทน Headers
+    const session = await getServerSession(authOptions);
 
-    if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
+
+    const userId = (session.user as any).id;
 
     const body = await req.json();
     const { phone, address, location, name, email } = body;

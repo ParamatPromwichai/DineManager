@@ -2,11 +2,19 @@
 
 import { useEffect, useState, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Store, Clock, Zap, Star, Utensils, ShoppingCart, CreditCard, 
-  MapPin, Plus, Minus, Flame, Maximize2, PlusCircle, PenLine, 
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import {
+  Store, Clock, Zap, Star, Utensils, ShoppingCart, CreditCard,
+  MapPin, Plus, Minus, Flame, Maximize2, PlusCircle, PenLine,
   UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// โหลด MapPicker ฝั่ง Client เท่านั้น
+const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+  ssr: false,
+  loading: () => <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>กำลังโหลดแผนที่...</div>
+});
 
 // --- Type Definitions ---
 type Menu = {
@@ -39,8 +47,8 @@ type DashboardData = {
   recommendedMenus: Menu[];
 };
 
-type CartItem = Menu & { 
-  cartItemId: string; 
+type CartItem = Menu & {
+  cartItemId: string;
   quantity: number;
   originalName: string;
 };
@@ -52,20 +60,22 @@ type Location = {
 
 // 🧮 ฟังก์ชันคำนวณระยะทาง
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; 
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-  return R * c; 
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export default function CustomerHome() {
   const router = useRouter();
-  const [userId, setUserId] = useState<number | null>(null);
   
+  // ➕ 2. ใช้ useSession แทน localStorage
+  const { data: session, status } = useSession();
+
   // --- States ---
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
@@ -85,39 +95,42 @@ export default function CustomerHome() {
   const [distance, setDistance] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
-  // 🗺️ Map States (เพิ่มเข้ามาใหม่)
+  // 🗺️ Map States 
   const [showMapModal, setShowMapModal] = useState(false);
   const [tempLocation, setTempLocation] = useState<Location | null>(null);
 
   // State สำหรับ Popup ตัวเลือก
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
 
+  // ➕ 3. เช็คสถานะการล็อกอิน ถ้ายังไม่ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
-    const id = localStorage.getItem("user_id");
-    if (!id) { router.push('/login'); return; }
-    setUserId(Number(id));
-  }, [router]);
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
+  // ➕ 4. ดึงข้อมูลเมื่อล็อกอินผ่านแล้ว (ลบ headers 'user-id' ออก)
   useEffect(() => {
-    if (!userId) return;
+    if (status !== 'authenticated') return;
+
     const fetchData = async () => {
       try {
         const [homeRes, menusRes, profileRes] = await Promise.all([
-          fetch('/api/customer/home', { headers: { 'user-id': String(userId) } }),
-          fetch('/api/customer/menus', { headers: { 'user-id': String(userId) } }),
-          fetch('/api/customer/profile', { headers: { 'user-id': String(userId) } })
+          fetch('/api/customer/home'), 
+          fetch('/api/customer/menus'),
+          fetch('/api/customer/profile')
         ]);
 
         if (homeRes.ok && menusRes.ok) {
           const homeData = await homeRes.json();
           const menusData = await menusRes.json();
-          
+
           homeData.recommendedMenus = homeData.recommendedMenus.filter((recMenu: Menu) => {
             const actualMenu = menusData.find((m: Menu) => m.id === recMenu.id);
             const isSoldOut = actualMenu ? actualMenu.is_sold_out : recMenu.is_sold_out;
             return Number(isSoldOut) !== 1 && String(isSoldOut).toLowerCase() !== 'true';
           });
-          
+
           setDashboardData(homeData);
           setAllMenus(menusData);
         }
@@ -126,16 +139,20 @@ export default function CustomerHome() {
           if (profileData?.phone) setPhone(profileData.phone);
           if (profileData?.address) setAddress(profileData.address);
           if (profileData?.latitude && profileData?.longitude) {
-  setLocation({ 
-    lat: Number(profileData.latitude), 
-    lng: Number(profileData.longitude) 
-  });
-}
+            setLocation({
+              lat: Number(profileData.latitude),
+              lng: Number(profileData.longitude)
+            });
+          }
         }
-      } catch (error) { console.error(error); } finally { setLoading(false); }
+      } catch (error) { 
+        console.error(error); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchData();
-  }, [userId]);
+  }, [status]);
 
   useEffect(() => {
     if (location?.lat && location?.lng && dashboardData?.shop?.latitude && dashboardData?.shop?.longitude) {
@@ -157,7 +174,7 @@ export default function CustomerHome() {
       if (found) return prev.map(i => i.cartItemId === newItem.cartItemId ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, newItem];
     });
-    setSelectedMenuForOption(null); 
+    setSelectedMenuForOption(null);
   }
 
   function removeFromCart(cartItemId: string) {
@@ -203,35 +220,39 @@ export default function CustomerHome() {
     if (cart.length === 0) return;
     setIsSubmitting(true);
     try {
-      await fetch('/api/customer/profile', { 
-        method: 'PUT', 
-        headers: { 
-          'Content-Type': 'application/json',
-          'user-id': String(userId)
-        }, 
-        body: JSON.stringify({ phone, address, location }) 
+      // ➕ ลบ headers 'user-id' ออกให้หมด
+      await fetch('/api/customer/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ phone, address, location })
       });
 
-      const res = await fetch('/api/customer/order', { 
-        method: 'POST', 
-        headers: { 
-          'Content-Type': 'application/json',
-          'user-id': String(userId)
-        }, 
-        body: JSON.stringify({ items: cart, phone, address, location, paymentMethod, subTotal, deliveryFee, totalPrice: total, slipImage }) 
+      const res = await fetch('/api/customer/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ items: cart, phone, address, location, paymentMethod, subTotal, deliveryFee, totalPrice: total, slipImage })
       });
 
       if (!res.ok) throw new Error('Order failed');
       alert('สั่งอาหารสำเร็จ ขอบคุณที่ใช้บริการครับ!');
       setCart([]); setShowPayment(false); setSlipImage(null); setPaymentMethod('');
-    } catch (error) { alert('เกิดข้อผิดพลาด'); } finally { setIsSubmitting(false); }
+    } catch (error) { 
+      alert('เกิดข้อผิดพลาด'); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   }
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
+  // ➕ 5. เพิ่ม status === 'loading' ของ next-auth
+  if (status === 'loading' || loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
 
   return (
     <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 && !showPayment ? 'pb-48' : 'pb-24'}`}>
-      
+
       {dashboardData && (
         <>
           {/* 🏪 Shop Status Card */}
@@ -263,7 +284,7 @@ export default function CustomerHome() {
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A', margin: 0 }}>
                   <Star size={22} color="#F59E0B" fill="#F59E0B" /> เมนูแนะนำวันนี้
                 </h3>
-                <button 
+                <button
                   onClick={() => router.push('/dashboard/customer/menus')}
                   style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '6px 12px', borderRadius: 20, color: '#1D4ED8', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
@@ -297,7 +318,7 @@ export default function CustomerHome() {
         <div style={{ background: '#ffffff', borderRadius: 20, border: '1px solid #DCE8FF', overflow: 'hidden', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.03)' }}>
           {allMenus.slice(0, 6).map((menu, idx) => {
             const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
-            
+
             return (
               <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: idx === 5 ? 'none' : '1px solid #EBF1FF' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 15, opacity: isMenuSoldOut ? 0.6 : 1 }}>
@@ -309,14 +330,14 @@ export default function CustomerHome() {
                     <div style={{ color: isMenuSoldOut ? '#94a3b8' : '#2563EB', fontWeight: '900', fontSize: '0.9rem' }}>{menu.price} ฿</div>
                   </div>
                 </div>
-                
+
                 {isMenuSoldOut ? (
                   <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                     หมด
                   </span>
                 ) : (
-                  <button 
-                    onClick={() => setSelectedMenuForOption(menu)} 
+                  <button
+                    onClick={() => setSelectedMenuForOption(menu)}
                     style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                   >
                     <Plus size={20} strokeWidth={3} />
@@ -330,7 +351,7 @@ export default function CustomerHome() {
 
       {/* --- 📝 Popup เลือก Options --- */}
       {selectedMenuForOption && (
-        <MenuOptionModal 
+        <MenuOptionModal
           menu={selectedMenuForOption}
           onClose={() => setSelectedMenuForOption(null)}
           onConfirm={handleConfirmAddToCart}
@@ -356,11 +377,11 @@ export default function CustomerHome() {
                   <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                  <button onClick={() => removeFromCart(item.cartItemId)} style={{ background:'transparent', border:'none', padding: '6px 12px', cursor:'pointer', color:'#EF4444', display: 'flex', alignItems: 'center' }}>
+                  <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
                     <Minus size={14} strokeWidth={3} />
                   </button>
                   <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                  <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background:'transparent', border:'none', padding: '6px 12px', cursor:'pointer', color:'#2563EB', display: 'flex', alignItems: 'center' }}>
+                  <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
                     <Plus size={14} strokeWidth={3} />
                   </button>
                 </div>
@@ -392,20 +413,18 @@ export default function CustomerHome() {
               <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} style={{ padding: 14, minHeight: 80, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
             </div>
 
-            {/* 🎯 แก้ไข: เปลี่ยนปุ่มโลเคชันเป็น 2 ปุ่มให้เลือกได้ */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
               <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
                 <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
               </button>
-              <button 
-                onClick={() => { 
-                  // หากไม่มีโลเคชันเดิม ให้ตั้งค่าเริ่มต้น (ในที่นี้คือ สกลนคร)
-                  setTempLocation(location || { lat: 17.1664, lng: 104.1486 }); 
-                  setShowMapModal(true); 
-                }} 
+              <button
+                onClick={() => {
+                  setTempLocation(location || { lat: 17.1664, lng: 104.1486 });
+                  setShowMapModal(true);
+                }}
                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
               >
-                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (แก้)' : 'ปักหมุดแผนที่'}
+                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุดเอง)' : 'ปักหมุดแผนที่'}
               </button>
             </div>
 
@@ -445,11 +464,11 @@ export default function CustomerHome() {
                 ) : (
                   <div style={{ padding: 30, background: '#EBF1FF', color: '#93C5FD', borderRadius: 12 }}><ImageOff size={32} /></div>
                 )}
-                
+
                 <div style={{ marginTop: 15, fontSize: '0.9rem', color: '#1E40AF', width: '100%', background: '#fff', padding: 12, borderRadius: 12, border: '1px solid #DCE8FF' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>ธนาคาร:</span> <strong>{dashboardData?.shop.bank_name || '-'}</strong></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>เลขบัญชี:</span> <strong style={{ color: '#2563EB', fontSize: '1rem' }}>{dashboardData?.shop.account_number || '-'}</strong></div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ชื่อบัญชี:</span> <strong>{dashboardData?.shop.account_name || '-'}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>ธนาคาร:</span> <strong>{dashboardData?.shop.bank_name || '-'}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>เลขบัญชี:</span> <strong style={{ color: '#2563EB', fontSize: '1rem' }}>{dashboardData?.shop.account_number || '-'}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ชื่อบัญชี:</span> <strong>{dashboardData?.shop.account_name || '-'}</strong></div>
                 </div>
 
                 <label style={{ marginTop: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 15px', background: slipImage ? '#ECFDF5' : '#1E3A8A', color: slipImage ? '#059669' : '#fff', borderRadius: 12, cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', width: '100%', border: slipImage ? '1px solid #10B981' : 'none' }}>
@@ -471,7 +490,7 @@ export default function CustomerHome() {
       {showMapModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
           <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-            
+
             <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Navigation size={22} color="#2563EB" /> เลือกตำแหน่งจัดส่ง
@@ -480,48 +499,40 @@ export default function CustomerHome() {
                 <X size={20} />
               </button>
             </div>
-            
+
             {/* พื้นที่แสดงแผนที่ */}
             <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
-               
-               {/* ปุ่มดึงตำแหน่งปัจจุบันมาลงแผนที่ */}
-               <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
-                 <button onClick={requestLocationForMap} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
-                    <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
-                 </button>
-               </div>
 
-               {/* ตัวแผนที่ (เพื่อความง่าย ใช้ Google Maps iframe แบบ View-only ไปก่อน) */}
-               <iframe 
-                  width="100%" 
-                  height="100%" 
-                  frameBorder="0" 
-                  scrolling="no" 
-                  src={`https://maps.google.com/maps?q=${tempLocation?.lat || 17.1664},${tempLocation?.lng || 104.1486}&z=16&output=embed`}
-               />
-               
-               {/* จุดกึ่งกลาง (Pin จำลองการเลื่อนแผนที่) */}
-               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -100%)', zIndex: 400, pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                 <MapPin size={42} color="#EF4444" fill="#EF4444" strokeWidth={1.5} />
-               </div>
+              {/* ปุ่มดึงตำแหน่งปัจจุบันมาลงแผนที่ */}
+              <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
+                <button onClick={requestLocationForMap} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
+                  <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
+                </button>
+              </div>
+
+              <MapPicker
+                tempLocation={tempLocation}
+                setTempLocation={setTempLocation}
+                setAddress={setAddress}
+              />
             </div>
 
             <div style={{ padding: 20 }}>
-               <div style={{ marginBottom: 15, fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F8FF', padding: 12, borderRadius: 12 }}>
-                 <span>พิกัดละติจูด-ลองจิจูด:</span>
-                 <strong style={{ color: '#1E3A8A' }}>
-  {tempLocation ? `${Number(tempLocation.lat).toFixed(4)}, ${Number(tempLocation.lng).toFixed(4)}` : 'กำลังค้นหา...'}
-</strong>
-               </div>
-               <button 
-                 onClick={() => { 
-                   if(tempLocation) setLocation(tempLocation); 
-                   setShowMapModal(false); 
-                 }}
-                 style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}
-               >
-                 ยืนยันตำแหน่งนี้
-               </button>
+              <div style={{ marginBottom: 15, fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F8FF', padding: 12, borderRadius: 12 }}>
+                <span>พิกัดละติจูด-ลองจิจูด:</span>
+                <strong style={{ color: '#1E3A8A' }}>
+                  {tempLocation ? `${Number(tempLocation.lat).toFixed(4)}, ${Number(tempLocation.lng).toFixed(4)}` : 'กำลังค้นหา...'}
+                </strong>
+              </div>
+              <button
+                onClick={() => {
+                  if (tempLocation) setLocation(tempLocation);
+                  setShowMapModal(false);
+                }}
+                style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}
+              >
+                ยืนยันตำแหน่งนี้
+              </button>
             </div>
           </div>
         </div>
@@ -533,7 +544,7 @@ export default function CustomerHome() {
 
 // 🚀 MenuOptionModal (ปรับธีม น้ำเงิน-ขาว)
 const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClose: () => void, onConfirm: (item: CartItem) => void }) => {
-  const [optionSpicy, setOptionSpicy] = useState('ปกติ'); 
+  const [optionSpicy, setOptionSpicy] = useState('ปกติ');
   const [optionSize, setOptionSize] = useState('ธรรมดา');
   const [optionAddons, setOptionAddons] = useState<string[]>([]);
   const [optionNote, setOptionNote] = useState('');
@@ -543,7 +554,7 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
     if (optionSize === 'พิเศษ') price += 10;
     if (optionAddons.includes('ไข่ดาว')) price += 10;
     if (optionAddons.includes('ไข่เจียว')) price += 15;
-    return Math.round(price); 
+    return Math.round(price);
   }, [menu.price, optionSize, optionAddons]);
 
   function toggleAddon(addon: string) {
@@ -555,7 +566,7 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
     let sizeText = optionSize === 'พิเศษ' ? '(พิเศษ)' : '';
     let spicyText = `[เผ็ด${optionSpicy}]`;
     let noteText = optionNote ? ` *${optionNote}*` : '';
-    
+
     const customName = `${menu.name} ${sizeText} ${spicyText}${addonsText}${noteText}`.trim();
     const cartItemId = `${menu.id}-${customName}`;
 
@@ -579,9 +590,9 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
   });
 
   return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 1100 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 1100 }}>
       <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: '32px 32px 0 0', padding: '25px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 -10px 25px rgba(37, 99, 235, 0.15)' }}>
-        
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
           <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: '#1E3A8A' }}>{menu.name}</h2>
           <button onClick={onClose} style={{ background: '#F4F8FF', border: 'none', cursor: 'pointer', color: '#2563EB', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -629,17 +640,17 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
             <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
               <PenLine size={18} color="#2563EB" /> หมายเหตุเพิ่มเติม
             </h4>
-            <input 
-              type="text" 
-              placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..." 
-              value={optionNote} 
+            <input
+              type="text"
+              placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..."
+              value={optionNote}
               onChange={(e) => setOptionNote(e.target.value)}
               style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #BFDBFE', outline: 'none', background: '#F4F8FF', boxSizing: 'border-box', fontSize: '0.95rem', color: '#1E3A8A' }}
             />
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleConfirm}
           style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', marginTop: 30, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)' }}
         >

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { 
   Plus, Edit, Trash2, Star, CheckCircle2, XCircle, 
   ImageOff, UploadCloud, Save, X, Zap, RefreshCw, 
@@ -32,7 +33,10 @@ const bulkCategories = [
 
 export default function ManageMenusPage() {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  
+  // 🚨 2. ใช้ useSession ตรวจสอบสถานะการล็อกอิน
+  const { data: session, status } = useSession();
+
   const [menus, setMenus] = useState<Menu[]>([]);
   
   // Modal & Form States
@@ -48,15 +52,16 @@ export default function ManageMenusPage() {
   // 🔽 State สำหรับเปิด/ปิดแผงจัดการด่วน (ค่าเริ่มต้น false = พับไว้)
   const [isBulkSectionOpen, setIsBulkSectionOpen] = useState(false);
 
-  // 🛡️ เช็คสิทธิ์
+  // 🛡️ 3. เช็คสิทธิ์และควบคุมการเข้าถึง
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-      router.replace('/login');
-    } else {
-      setIsAuthorized(true);
+    if (status === 'unauthenticated') {
+      router.replace('/login/shop');
+    } else if (status === 'authenticated') {
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role');
+      }
     }
-  }, [router]);
+  }, [status, session, router]);
 
   // 🚀 โหลดข้อมูล
   const fetchMenus = async () => {
@@ -69,10 +74,12 @@ export default function ManageMenusPage() {
     }
   };
 
+  // 🚨 4. โหลดข้อมูลเมื่อยืนยันแล้วว่าเป็นร้านค้า
   useEffect(() => {
-    if (!isAuthorized) return;
-    fetchMenus();
-  }, [isAuthorized]);
+    if (status === 'authenticated' && (session.user as any)?.role === 'shop') {
+      fetchMenus();
+    }
+  }, [status, session]);
 
   // 📝 จัดการ Modal
   const handleOpenAdd = () => {
@@ -98,7 +105,7 @@ export default function ManageMenusPage() {
     }
   };
 
-  // 💾 บันทึกข้อมูล (ปรับปรุงการแจ้งเตือน Error)
+  // 💾 บันทึกข้อมูล
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formPrice) return alert('กรุณากรอกชื่อและราคาให้ครบถ้วน');
@@ -116,7 +123,6 @@ export default function ManageMenusPage() {
         body: formData 
       });
       
-      // ✅ ถ้า Backend ส่ง Error กลับมา ให้แจ้งเตือนสาเหตุที่แท้จริง
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'บันทึกไม่สำเร็จ');
@@ -131,7 +137,7 @@ export default function ManageMenusPage() {
     }
   };
 
-  // 🗑️ ลบข้อมูล (ปรับปรุงการแจ้งเตือน Error)
+  // 🗑️ ลบข้อมูล
   const handleDelete = async (id: number) => {
     if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบเมนูนี้?')) return;
     try {
@@ -141,7 +147,6 @@ export default function ManageMenusPage() {
         body: JSON.stringify({ id }) 
       });
       
-      // ✅ แสดงคำแนะนำหากเมนูนั้นเคยถูกสั่งซื้อไปแล้ว (ป้องกัน Database พัง)
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'ลบไม่สำเร็จ');
@@ -203,7 +208,8 @@ export default function ManageMenusPage() {
     }
   };
 
-  if (!isAuthorized) {
+  // ⏳ หน้าจอ Loading ระหว่างรอเช็คสถานะจาก NextAuth
+  if (status === 'loading') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#64748b' }}>
@@ -212,6 +218,11 @@ export default function ManageMenusPage() {
         </div>
       </div>
     );
+  }
+
+  // ป้องกันหน้ากระพริบกรณีที่เตะ User ออก
+  if (status !== 'authenticated' || (session.user as any)?.role !== 'shop') {
+    return null; 
   }
 
   const iconBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' };

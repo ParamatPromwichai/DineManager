@@ -7,7 +7,6 @@ import { db } from '@/lib/db';
 export async function POST(req: Request) {
   const { username, password, recaptchaToken } = await req.json();
   
-  // 🌐 ดึง IP และข้อมูลเบราว์เซอร์
   const ip = req.headers.get('x-forwarded-for') || 'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
 
   const secretKey = process.env.RECAPTCHA_SECRET_KEY;
   if (!secretKey) {
-    console.error("🚨 Missing RECAPTCHA_SECRET_KEY in .env file");
     return NextResponse.json({ message: 'การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด' }, { status: 500 });
   }
 
@@ -46,19 +44,16 @@ export async function POST(req: Request) {
     const user = users[0];
 
     if (user.is_locked) {
-      return NextResponse.json(
-        { message: 'บัญชีของคุณถูกระงับชั่วคราวเนื่องจากเข้าสู่ระบบผิดพลาดหลายครั้ง กรุณาติดต่อ Admin' }, 
-        { status: 403 }
-      );
+      return NextResponse.json({ message: 'บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อ Admin' }, { status: 403 });
     }
 
-    // ✅ ตรวจสอบสิทธิ์ (ถ้าไม่ใช่ลูกค้า ให้ถือว่า User Not Found ในเชิงคอนเซปต์เพราะล็อกอินผิดที่)
-    if (user.role !== 'customer') {
+    // ✅ ตรวจสอบสิทธิ์: อนุญาตเฉพาะ "ร้านค้า" (shop) เท่านั้น!
+    if (user.role !== 'shop') {
       await db.query(
         'INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
         [username, user.id, 'failed_user_not_found', ip, userAgent]
       );
-      return NextResponse.json({ message: 'หน้านี้สำหรับลูกค้าเข้าสู่ระบบเท่านั้น' }, { status: 403 });
+      return NextResponse.json({ message: 'หน้านี้สำหรับร้านค้าเข้าสู่ระบบเท่านั้น' }, { status: 403 });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -72,10 +67,7 @@ export async function POST(req: Request) {
         isNowLocked = true; 
       }
 
-      await db.query(
-        'UPDATE users SET failed_attempts = ?, is_locked = ? WHERE id = ?',
-        [newFailedAttempts, isNowLocked, user.id]
-      );
+      await db.query('UPDATE users SET failed_attempts = ?, is_locked = ? WHERE id = ?', [newFailedAttempts, isNowLocked, user.id]);
 
       await db.query(
         'INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
@@ -83,24 +75,19 @@ export async function POST(req: Request) {
       );
 
       if (isNowLocked) {
-        return NextResponse.json({ message: 'คุณใส่รหัสผิดเกินกำหนด บัญชีถูกระงับ กรุณาติดต่อแอดมิน' }, { status: 403 });
+        return NextResponse.json({ message: 'คุณใส่รหัสผิดเกินกำหนด บัญชีถูกระงับ' }, { status: 403 });
       }
 
       return NextResponse.json({ message: `รหัสผ่านไม่ถูกต้อง (เหลือโอกาสอีก ${MAX_ATTEMPTS - newFailedAttempts} ครั้ง)` }, { status: 401 });
     }
 
     await db.query('UPDATE users SET failed_attempts = 0 WHERE id = ?', [user.id]);
-
     await db.query(
       'INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
       [username, user.id, 'success', ip, userAgent]
     );
 
-    return NextResponse.json({ 
-      message: 'เข้าสู่ระบบสำเร็จ',
-      user_id: user.id,
-      role: user.role
-    }, { status: 200 });
+    return NextResponse.json({ message: 'เข้าสู่ระบบสำเร็จ', user_id: user.id, role: user.role }, { status: 200 });
 
   } catch (err: any) {
     console.error("Database Error:", err); 

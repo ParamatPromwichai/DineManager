@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { motion } from 'framer-motion';
 import { RefreshCw, Users, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 
 // --- Types ให้ตรงกับฐานข้อมูลเป๊ะๆ ---
@@ -15,24 +17,20 @@ type Table = {
 export default function TableStatusPage() {
   const router = useRouter();
 
-  const [userId, setUserId] = useState<number | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  // ➕ 2. ใช้ useSession ตรวจสอบสถานะแทน localStorage
+  const { data: session, status } = useSession();
 
   // Data State
   const [tables, setTables] = useState<Table[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 🛡️ เช็คการเข้าสู่ระบบ
+  // 🛡️ 3. เช็คการเข้าสู่ระบบ ถ้าไม่ได้ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
-    const id = localStorage.getItem("user_id");
-    if (!id) {
+    if (status === 'unauthenticated') {
       router.push('/login');
-      return;
     }
-    setUserId(Number(id));
-    setCheckingAuth(false);
-  }, [router]);
+  }, [status, router]);
 
   // 🔄 ฟังก์ชันโหลดข้อมูลสถานะโต๊ะ
   const loadData = async () => {
@@ -50,9 +48,9 @@ export default function TableStatusPage() {
     }
   };
 
-  // โหลดข้อมูลครั้งแรก และตั้งเวลา Auto-refresh ทุกๆ 30 วินาที
+  // 🔄 4. โหลข้อมูลครั้งแรก และตั้งเวลา Auto-refresh เมื่อตรวจสอบสิทธิ์ผ่านแล้ว
   useEffect(() => {
-    if (!userId) return;
+    if (status !== 'authenticated') return;
     
     loadData();
     const interval = setInterval(() => {
@@ -60,27 +58,36 @@ export default function TableStatusPage() {
     }, 30000); // 30 วินาทีอัปเดตทีนึง
 
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [status]);
 
-  if (checkingAuth) return null;
+  // ➕ 5. แสดงหน้าจอระหว่างกำลังเช็ค Session ของ NextAuth
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#F4F8FF', gap: 15 }}>
+        <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <p style={{ color: '#1E3A8A', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</p>
+        <style dangerouslySetInnerHTML={{__html: `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}} />
+      </div>
+    );
+  }
+
+  // ป้องกันไม่ให้กระพริบหน้าจอถ้าระบบยังไม่ยืนยันสิทธิ์
+  if (status !== 'authenticated') return null;
 
   // คำนวณสรุปจำนวนโต๊ะ
   const occupiedCount = tables.filter(t => t.is_occupied === 1).length;
   const availableCount = tables.length - occupiedCount;
 
   return (
-    // 🌟 เปลี่ยนพื้นหลังเป็นสีฟ้าอ่อน (Premium Blue & White)
     <div style={{ padding: '20px', paddingBottom: '100px', minHeight: '100dvh', background: '#F4F8FF', fontFamily: 'sans-serif' }}>
       
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         
         {/* 🌟 Header */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 25, position: 'relative' }}>
-
-          
           <div style={{ flex: 1, textAlign: 'center' }}>
             <h1 style={{ fontSize: '1.6rem', fontWeight: '900', color: '#1E3A8A', margin: '0 0 6px 0' }}>
-              📊 สถานะโต๊ะปัจจุบัน
+              📊 Status โต๊ะปัจจุบัน
             </h1>
             <p style={{ color: '#64748B', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.9rem', fontWeight: 'bold' }}>
               <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} color="#60A5FA" /> 

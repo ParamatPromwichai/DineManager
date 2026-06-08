@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า useSession และ signOut
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Mail, Phone, MapPin, Save, LogOut, 
@@ -11,10 +12,10 @@ import {
 export default function CustomerProfile() {
   const router = useRouter();
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  // ➕ 2. ดึงข้อมูล Session จาก NextAuth
+  const { data: session, status } = useSession();
+
   const [isSaving, setIsSaving] = useState(false);
-  
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
 
@@ -33,26 +34,21 @@ export default function CustomerProfile() {
   /* =========================
      🔐 CHECK LOGIN
   ========================= */
+  // ➕ 3. เช็คสถานะการล็อกอินด้วย status จาก NextAuth
   useEffect(() => {
-    const id = localStorage.getItem('user_id');
-    if (!id) {
+    if (status === 'unauthenticated') {
       router.push('/login');
-      return;
     }
-    setUserId(id);
-    setCheckingAuth(false);
-  }, [router]);
+  }, [status, router]);
 
   /* =========================
-     🔥 LOAD PROFILE (ปรับดึงข้อมูลจาก Header)
+     🔥 LOAD PROFILE
   ========================= */
   useEffect(() => {
-    if (!userId) return;
+    if (status !== 'authenticated') return;
 
-    // ✅ แก้ไขจุดที่ 1: เปลี่ยนมาแนบ user-id ไปที่ Headers แทนการส่งผ่าน URL query string
-    fetch('/api/customer/profile', {
-      headers: { 'user-id': String(userId) }
-    })
+    // ➕ 4. ลบการส่ง Headers: {'user-id'} ออก เพราะ Backend ใช้ Session แล้ว
+    fetch('/api/customer/profile')
       .then(res => res.json())
       .then(data => {
         const fetchedData = {
@@ -77,7 +73,7 @@ export default function CustomerProfile() {
         console.error('โหลดข้อมูลโปรไฟล์ไม่สำเร็จ');
       });
 
-  }, [userId]);
+  }, [status]);
 
   /* =========================
      📍 LOCATION
@@ -107,7 +103,7 @@ export default function CustomerProfile() {
   }
 
   /* =========================
-     💾 SAVE (ปรับการส่งข้อมูลไปตาราง User)
+     💾 SAVE
   ========================= */
   async function handleSave() {
     if (!phone || !address) {
@@ -117,12 +113,11 @@ export default function CustomerProfile() {
 
     setIsSaving(true);
     try {
-      // ✅ แก้ไขจุดที่ 2: แนบ user-id ไปใน Headers ของ PUT และถอดออกจากกล่อง Body JSON
+      // ➕ 5. ลบการส่ง Headers: {'user-id'} ออกตอน Save เช่นกัน
       const res = await fetch('/api/customer/profile', {
         method: 'PUT',
         headers: { 
-          'Content-Type': 'application/json',
-          'user-id': String(userId)
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           phone,
@@ -152,10 +147,9 @@ export default function CustomerProfile() {
   /* =========================
      🚪 LOGOUT
   ========================= */
+  // ➕ 6. ใช้ฟังก์ชัน signOut ของ NextAuth แทนการเคลียร์ localStorage เอง
   function handleLogout() {
-    localStorage.removeItem('user_id');
-    document.cookie = 'token=; path=/; max-age=0';
-    router.push('/login');
+    signOut({ callbackUrl: '/login' });
   }
 
   /* =========================
@@ -171,7 +165,8 @@ export default function CustomerProfile() {
   /* =========================
      ⏳ LOADING SCREEN
   ========================= */
-  if (checkingAuth) {
+  // ➕ 7. ใช้ status === 'loading' แทน checkingAuth
+  if (status === 'loading') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#F4F8FF', gap: 15 }}>
         <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>

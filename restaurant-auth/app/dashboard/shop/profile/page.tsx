@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // 👈 1. นำเข้า useRouter
+import { useRouter } from 'next/navigation'; 
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { Store, Landmark, UploadCloud, CreditCard, Building, UserSquare2, QrCode, Clock, MapPin, Type, Navigation, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ShopProfilePage() {
-  const router = useRouter(); // 👈 2. เรียกใช้ router
-  const [isAuthorized, setIsAuthorized] = useState(false); // 🚨 State ตรวจสอบสิทธิ์
+  const router = useRouter(); 
+  
+  // 🚨 2. เรียกใช้ Session เพื่อตรวจสอบสิทธิ์
+  const { data: session, status } = useSession();
 
   const [shop, setShop] = useState({
     name: '',
@@ -29,19 +32,20 @@ export default function ShopProfilePage() {
   // สร้าง State สำหรับเช็คว่า "มีการเปลี่ยนแปลงข้อมูลหรือยัง?"
   const [isDirty, setIsDirty] = useState(false);
 
-  // 🛡️ 3. ตรวจสอบสิทธิ์ก่อนเป็นอันดับแรก
+  // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-      router.replace('/login'); // ไม่มีสิทธิ์ เตะกลับหน้าล็อกอิน
-    } else {
-      setIsAuthorized(true); // มีสิทธิ์ ให้ผ่านได้
+    if (status === 'unauthenticated') {
+      router.replace('/login/shop'); // ไม่มีสิทธิ์ เตะกลับหน้าล็อกอินร้านค้า
+    } else if (status === 'authenticated') {
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role'); // Role ไม่ใช่ร้านค้า เตะออก
+      }
     }
-  }, [router]);
+  }, [status, session, router]);
 
   // ดึงข้อมูลร้าน (ทำงานเมื่อได้รับสิทธิ์แล้ว)
   useEffect(() => {
-    if (!isAuthorized) return;
+    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return;
 
     fetch('/api/customer/home')
       .then(res => res.json())
@@ -65,7 +69,7 @@ export default function ShopProfilePage() {
           setIsDirty(false);
         } 
       });
-  }, [isAuthorized]);
+  }, [status, session]);
 
   // ดักจับการปิดแท็บ หรือรีเฟรชหน้าเว็บ
   useEffect(() => {
@@ -153,7 +157,7 @@ export default function ShopProfilePage() {
   };
 
   // ⏳ 4. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ ป้องกันการแอบเห็น UI ก่อนโดนเตะ
-  if (!isAuthorized) {
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
         <div className="flex flex-col items-center gap-4">
@@ -162,6 +166,11 @@ export default function ShopProfilePage() {
         </div>
       </div>
     );
+  }
+
+  // ป้องกันหน้ากระพริบกรณีที่เตะ User ออก
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
+    return null; 
   }
 
   return (

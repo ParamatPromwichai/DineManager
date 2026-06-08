@@ -2,30 +2,38 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
 import { Send, Trash2, ArrowLeft, Bot, User } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
+  
+  // ➕ 2. ดึงข้อมูล session จาก NextAuth แทน localStorage
+  const { data: session, status } = useSession();
+
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
-  const [userId, setUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const AUTO_CLEAR_TIME = 15 * 60 * 1000;
 
-  useEffect(() => {
-    const id = localStorage.getItem("user_id");
-    if (!id) {
-      router.push("/login");
-      return;
-    }
-    setUserId(Number(id));
-  }, [router]);
+  // ➕ 3. ดึง userId จาก session
+  const userId = (session?.user as any)?.id;
 
+  // ➕ 4. เช็คสถานะล็อกอิน ถ้ายังไม่ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
-    if (!userId) return;
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  // ➕ 5. ดึงประวัติแชทเมื่อล็อกอินสำเร็จ
+  useEffect(() => {
+    // ต้องรอให้ session โหลดเสร็จก่อนและต้องมี userId
+    if (status !== "authenticated" || !userId) return;
+
     const fetchHistory = async () => {
       try {
         const res = await fetch(`/api/chat?user_id=${userId}`);
@@ -38,7 +46,7 @@ export default function ChatPage() {
       }
     };
     fetchHistory();
-  }, [userId]);
+  }, [status, userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -114,7 +122,8 @@ export default function ChatPage() {
     }
   };
 
-  if (loading) return (
+  // รวม Loading ของระบบแชทกับ NextAuth เข้าด้วยกัน
+  if (status === "loading" || loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#F4F8FF', gap: 15 }}>
       <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
       <p style={{ color: '#1E3A8A', fontWeight: 'bold' }}>กำลังโหลดหน้าต่างแชท...</p>
@@ -123,17 +132,16 @@ export default function ChatPage() {
   );
 
   return (
-    // 🌟 แก้ไขตรงนี้: ขึงบนสุด (top: 0) และไปหยุดก่อนถึง Navbar (bottom: 70px)
     <div style={{ 
       position: "fixed",
       top: 0,
       left: 0,
       right: 0,
-      bottom: "70px", /* 👈 ปรับตัวเลข 70px นี้ให้เท่ากับความสูงของ Navbar ร้านคุณ ถ้ามันยังห่างไปให้ลดเลขลง เช่น 60px */
+      bottom: "70px", 
       backgroundColor: "#F4F8FF", 
       display: "flex",
       flexDirection: "column",
-      zIndex: 10, /* 👈 ตั้ง z-index ให้น้อยกว่า Navbar (Navbar ส่วนใหญ่จะ z-index 40-50) */
+      zIndex: 10, 
       fontFamily: "sans-serif"
     }}>
       

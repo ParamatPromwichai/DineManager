@@ -20,7 +20,7 @@ export default function CustomerNavbar() {
     { href: '/dashboard/customer', label: 'หน้าแรก', Icon: Home },
     { href: '/dashboard/customer/orders', label: 'ออเดอร์', Icon: ClipboardList },
     { href: '/dashboard/customer/chat', label: 'แชทบอท', Icon: Bot },
-    { href: '/dashboard/customer/reserve', label: 'จองโต๊ะ', Icon: CalendarCheck },
+    { href: '/dashboard/customer/reserve', label: 'โต๊ะว่าง', Icon: CalendarCheck },
     { href: '/dashboard/customer/profile', label: 'โปรไฟล์', Icon: User },
   ];
 

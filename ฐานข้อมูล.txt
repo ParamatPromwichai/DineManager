@@ -236,3 +236,9 @@ CREATE TABLE login_logs (
     status ENUM('success', 'failed_wrong_password', 'failed_user_not_found') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+ALTER TABLE users 
+ADD COLUMN failed_attempts INT DEFAULT 0,
+ADD COLUMN is_locked BOOLEAN DEFAULT FALSE;
+ALTER TABLE users MODIFY password VARCHAR(255) NULL;

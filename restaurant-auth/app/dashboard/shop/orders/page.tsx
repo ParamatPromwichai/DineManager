@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation'; // 👈 1. นำเข้า useRouter
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle } from 'lucide-react';
 
 type OrderItem = {
@@ -23,8 +24,10 @@ type Order = {
 };
 
 export default function ManageOrdersPage() {
-  const router = useRouter(); // 👈 2. เรียกใช้งาน router
-  const [isAuthorized, setIsAuthorized] = useState(false); // 🚨 State ตรวจสอบสิทธิ์
+  const router = useRouter(); 
+  
+  // 🚨 2. เรียกใช้งาน Session
+  const { data: session, status } = useSession();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [slipPopupOrder, setSlipPopupOrder] = useState<Order | null>(null);
@@ -37,15 +40,16 @@ export default function ManageOrdersPage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayDate);
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
 
-  // 🛡️ 3. ตรวจสอบสิทธิ์ก่อนเป็นอันดับแรก
+  // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-      router.replace('/login'); // ไม่มีสิทธิ์ เตะกลับ
-    } else {
-      setIsAuthorized(true); // มีสิทธิ์
+    if (status === 'unauthenticated') {
+      router.replace('/login/shop');
+    } else if (status === 'authenticated') {
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role');
+      }
     }
-  }, [router]);
+  }, [status, session, router]);
 
   const fetchOrders = async () => {
     try {
@@ -57,14 +61,14 @@ export default function ManageOrdersPage() {
     }
   };
 
-  // 🚨 4. ให้เริ่มดึงข้อมูลออเดอร์ "หลังจาก" ผ่านการเช็คสิทธิ์แล้วเท่านั้น
+  // 🚨 4. ให้เริ่มดึงข้อมูลออเดอร์เฉพาะเมื่อยืนยันแล้วว่าเป็น "ร้านค้า"
   useEffect(() => {
-    if (!isAuthorized) return; 
+    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchOrders();
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
-  }, [isAuthorized]);
+  }, [status, session]);
 
   const updateStatus = async (orderId: number, newStatus: string) => {
     await fetch('/api/shop/orders', {
@@ -83,16 +87,12 @@ export default function ManageOrdersPage() {
       const isUnfinished = order.status !== 'done' && order.status !== 'cancel';
       return isSelectedDate || isUnfinished;
     }).sort((a, b) => {
-      // 🚨 เช็คว่าออเดอร์ไหนเสร็จสิ้นกระบวนการแล้ว (ส่งสำเร็จ หรือ ยกเลิก)
       const aIsFinished = a.status === 'done' || a.status === 'cancel';
       const bIsFinished = b.status === 'done' || b.status === 'cancel';
 
-      // ถ้า a เสร็จแล้ว แต่ b ยังไม่เสร็จ -> ดัน a ลงไปข้างล่าง
       if (aIsFinished && !bIsFinished) return 1;
-      // ถ้า b เสร็จแล้ว แต่ a ยังไม่เสร็จ -> ดัน b ลงไปข้างล่าง
       if (!aIsFinished && bIsFinished) return -1;
       
-      // ถ้าสถานะเป็นกลุ่มเดียวกัน (เสร็จเหมือนกัน หรือ ยังไม่เสร็จเหมือนกัน) ให้เรียงตามคิว (ID เก่ามาก่อน)
       return a.id - b.id;
     });
   }, [orders, selectedDate]);
@@ -193,7 +193,7 @@ export default function ManageOrdersPage() {
   };
 
   // ⏳ 5. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ (อยู่หลัง Hooks ทั้งหมด)
-  if (!isAuthorized) {
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -202,6 +202,11 @@ export default function ManageOrdersPage() {
         </div>
       </div>
     );
+  }
+
+  // ป้องกันหน้ากระพริบกรณีที่เตะ User ออก
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
+    return null; 
   }
 
   return (
@@ -284,7 +289,6 @@ export default function ManageOrdersPage() {
               const orderDateStr = new Date(order.created_at).toLocaleDateString('en-CA');
               const isOverdue = orderDateStr !== todayDate && order.status !== 'done' && order.status !== 'cancel';
               
-              // ทำให้ออเดอร์ที่เสร็จแล้วสีจางลงนิดหน่อย เพื่อลดความเด่น
               const isFinishedState = order.status === 'done' || order.status === 'cancel';
               
               return (

@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, MapPin, ChefHat, Bike, CheckCircle2,
@@ -47,6 +48,9 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
+  // ➕ 2. ดึงสถานะ Session
+  const { data: session, status } = useSession();
+
   const [order, setOrder] = useState<Order | null>(null);
   const [queueCount, setQueueCount] = useState<number>(0); 
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,13 @@ export default function OrderDetailPage() {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ➕ 3. เช็คสถานะล็อกอิน ถ้าไม่ได้ล็อกอินให้เด้งกลับไปหน้า login
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   // Submit Review 
   const submitReview = useCallback(async () => {
@@ -83,7 +94,9 @@ export default function OrderDetailPage() {
 
   // Fetch Data
   useEffect(() => {
-    if (!id) return;
+    // ➕ 4. ต้องรอให้ล็อกอินผ่านก่อนถึงจะดึงข้อมูล
+    if (!id || status !== 'authenticated') return;
+    
     setLoading(true);
     setError(null);
 
@@ -108,7 +121,7 @@ export default function OrderDetailPage() {
           setRating(data.rating); setComment(data.comment || ''); setHasReviewed(true);
         }
       }).catch(() => { });
-  }, [id]);
+  }, [id, status]);
 
   // Emoji Animation
   useEffect(() => {
@@ -152,7 +165,8 @@ export default function OrderDetailPage() {
   }, [order, estimatedTotalTimeMin]);
 
   // --- Loading & Error States ---
-  if (loading) {
+  // ➕ 5. โชว์ Loading ให้คลุมจังหวะที่ Session กำลังโหลดด้วย
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F4F8FF]">
         <div className="flex flex-col items-center gap-4">

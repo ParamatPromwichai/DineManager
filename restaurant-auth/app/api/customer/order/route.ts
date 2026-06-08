@@ -1,17 +1,21 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth'; // ➕ นำเข้า getServerSession
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // ➕ นำเข้า authOptions
 
 export async function POST(req: Request) {
   try {
-    // ✅ 1. ดึง userId จาก Header แทนการฟิกซ์เลข 1
-    const userIdHeader = req.headers.get('user-id');
-    
-    // ตรวจสอบความถูกต้องของ userId
-    if (!userIdHeader) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // ✅ 1. ดึงข้อมูลผู้ใช้จาก Session ของ NextAuth ตรงๆ (ปลอดภัย 100%)
+    const session = await getServerSession(authOptions);
+
+    // ตรวจสอบว่ามีการล็อกอินและมี ID หรือไม่
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
-    
-    const userId = Number(userIdHeader);
+
+    const userId = (session.user as any).id;
 
     const { 
       items, 
@@ -49,7 +53,7 @@ export async function POST(req: Request) {
        (user_id, total_price, delivery_fee, payment_method, phone, address, latitude, longitude, payment_status, slip_image)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userId, // 👈 ใช้ userId ตัวจริงจาก Header
+        userId, // 👈 ใช้ userId ตัวจริงจาก Session
         finalTotal,
         finalDeliveryFee, // 👈 บันทึกค่าจัดส่งลง Database
         paymentMethod,
@@ -90,14 +94,14 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    // ✅ 2. แก้ฟิกซ์ userId ในฝั่ง PUT ด้วย
-    const userIdHeader = req.headers.get('user-id');
-    
-    if (!userIdHeader) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // ✅ 2. เปลี่ยนมาใช้ Session ในฝั่ง PUT ด้วยเช่นกัน
+    const session = await getServerSession(authOptions);
+
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
 
-    const userId = Number(userIdHeader);
+    const userId = (session.user as any).id;
     const { phone, address, location } = await req.json();
 
     if (!phone || !address) {

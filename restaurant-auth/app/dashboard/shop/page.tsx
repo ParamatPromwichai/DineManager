@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า NextAuth hooks
 import { 
   Store, 
   TrendingUp, 
@@ -23,24 +24,26 @@ type DashboardData = {
 export default function ShopDashboardPage() {
   const router = useRouter();
   
-  // 🚨 1. เพิ่ม State สำหรับตรวจสอบการล็อกอิน
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  // 🚨 2. ใช้ useSession แทน localStorage
+  const { data: session, status } = useSession();
   
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  // 🚨 2. ตรวจสอบสิทธิ์ก่อนเป็นอันดับแรก
+  // 🚨 3. ตรวจสอบสิทธิ์ด้วย status จาก NextAuth
   useEffect(() => {
-    const userId = localStorage.getItem('user_id');
-    if (!userId) {
-      // ถ้าไม่มี user_id ให้เด้งกลับไปหน้า login ทันที
-      router.replace('/login');
-    } else {
-      setIsAuthorized(true);
+    if (status === 'unauthenticated') {
+      // ถ้าไม่ได้ล็อกอิน ให้เด้งกลับไปหน้า login ร้านค้า
+      router.replace('/login/shop');
+    } else if (status === 'authenticated') {
+      // ถ้าล็อกอินแล้ว แต่ไม่ใช่ร้านค้า ให้เตะออกไปหน้าล็อกอินร้านค้าพร้อมแจ้งเตือน
+      if ((session.user as any)?.role !== 'shop') {
+        router.replace('/login/shop?error=wrong_role');
+      }
     }
-  }, [router]);
+  }, [status, session, router]);
 
   const fetchDashboard = async () => {
     try {
@@ -54,14 +57,14 @@ export default function ShopDashboardPage() {
     }
   };
 
-  // 🚨 3. จะดึงข้อมูลก็ต่อเมื่อผ่านการตรวจสอบสิทธิ์แล้วเท่านั้น
+  // 🚨 4. จะดึงข้อมูลก็ต่อเมื่อผ่านการตรวจสอบสิทธิ์ว่าเป็นร้านค้าแล้วเท่านั้น
   useEffect(() => {
-    if (!isAuthorized) return; 
+    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchDashboard();
     const interval = setInterval(fetchDashboard, 30000); 
     return () => clearInterval(interval);
-  }, [isAuthorized]);
+  }, [status, session]);
 
   const toggleShopStatus = async () => {
     if (!data) return;
@@ -81,27 +84,29 @@ export default function ShopDashboardPage() {
     }
   };
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
     setIsLogoutModalOpen(false); 
-    // 🚨 4. ลบข้อมูลการล็อกอินออกเมื่อกดออกจากระบบ
-    localStorage.removeItem('user_id');
-    window.location.href = '/login'; 
+    // 🚨 5. ใช้ signOut ของ NextAuth ออกจากระบบ แล้วกลับไปหน้า login ร้านค้า
+    await signOut({ callbackUrl: '/login/shop' });
   };
 
   // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล
-  if (!isAuthorized || loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-sm font-bold text-slate-400 tracking-wider">
-            {!isAuthorized ? 'กำลังตรวจสอบสิทธิ์...' : 'กำลังโหลดข้อมูล...'}
+            {status === 'loading' ? 'กำลังตรวจสอบสิทธิ์...' : 'กำลังโหลดข้อมูล...'}
           </span>
         </div>
       </div>
     );
   }
   
+  // ป้องกันหน้าจอกระพริบก่อนที่จะเตะคนที่ไม่ใช่ร้านค้าออก
+  if (status !== 'authenticated' || (session.user as any)?.role !== 'shop') return null;
+
   if (!data) return <div className="p-8 text-rose-500 font-bold text-center mt-20">เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูล</div>;
 
   const isTableFull = data.tableStats.available === 0;

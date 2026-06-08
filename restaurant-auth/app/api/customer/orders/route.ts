@@ -1,15 +1,22 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth'; // ➕ นำเข้า getServerSession
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // ➕ นำเข้า authOptions
 
 export async function GET(req: Request) {
   try {
-    // 1. รับค่า user-id จาก Header แทนการฟิกซ์เลข 1
-    const userId = req.headers.get('user-id');
+    // 1. ตรวจสอบ Session ด้วย getServerSession แทนการอ่าน Header
+    const session = await getServerSession(authOptions);
 
-    // ตรวจสอบว่ามีการล็อกอินและส่ง ID มาจริงหรือไม่
-    if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // ตรวจสอบว่ามีการล็อกอินและมี ID หรือไม่
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
+
+    // ดึง userId ออกมาจาก Session
+    const userId = (session.user as any).id;
 
     // 2. ดึงออเดอร์โดยใช้ userId ที่รับมา
     const [orders]: any = await db.query(

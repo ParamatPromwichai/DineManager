@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { 
   History, 
   ChevronRight, 
@@ -14,7 +15,6 @@ import {
   CircleDollarSign,
   ClipboardList,
   SearchX,
-  ArrowLeft,
   Banknote
 } from 'lucide-react';
 
@@ -29,6 +29,9 @@ const statusConfig = {
 };
 
 export default function OrderHistoryPage() {
+  // ➕ 2. ใช้ useSession แทน localStorage
+  const { data: session, status } = useSession();
+
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -37,21 +40,22 @@ export default function OrderHistoryPage() {
   
   const router = useRouter();
 
+  // ➕ 3. เช็คสถานะการล็อกอิน ถ้ายังไม่ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
-    const userId = localStorage.getItem("user_id");
-    if (!userId) {
+    if (status === 'unauthenticated') {
       router.push('/login');
-      return;
     }
+  }, [status, router]);
+
+  // ➕ 4. ดึงข้อมูลออเดอร์เมื่อล็อกอินสำเร็จ
+  useEffect(() => {
+    // ต้องรอให้ session โหลดเสร็จก่อน
+    if (status !== 'authenticated') return;
 
     const fetchOrders = async () => {
       try {
-        // ✅ แก้ไขตรงนี้: แนบ user-id ไปที่ headers ตอนดึงข้อมูล
-        const res = await fetch('/api/customer/orders', {
-          headers: {
-            'user-id': userId || ''
-          }
-        });
+        // ❌ เอา headers 'user-id' ออก เพราะเดี๋ยว API จะเช็คจาก Cookie เอง
+        const res = await fetch('/api/customer/orders');
         
         if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
         const data = await res.json();
@@ -64,7 +68,7 @@ export default function OrderHistoryPage() {
     };
 
     fetchOrders();
-  }, [router]);
+  }, [status]);
 
   // 🔍 กรองข้อมูลออเดอร์
   const filteredOrders = useMemo(() => {
@@ -82,7 +86,8 @@ export default function OrderHistoryPage() {
   }, [orders, activeFilter]);
 
   // --- Loading State ---
-  if (loading) {
+  // ใช้ status === 'loading' ของ next-auth เพื่อโชว์ Loading ให้เนียนขึ้น
+  if (status === 'loading' || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F8FF] gap-4">
         <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>

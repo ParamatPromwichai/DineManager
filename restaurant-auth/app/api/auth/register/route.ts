@@ -4,22 +4,36 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { db } from '@/lib/db';
 
-// 🛡️ ฟังก์ชันคัดกรอง Username (ป้องกัน XSS และอักขระพิเศษ)
 const isValidUsername = (username: string) => {
-  // อนุญาตเฉพาะ a-z, A-Z, 0-9 และ _ ความยาว 3-20 ตัวอักษรเท่านั้น
   const regex = /^[a-zA-Z0-9_]{3,20}$/;
   return regex.test(username);
 };
 
 export async function POST(req: Request) {
-  // ❌ ลบ role ออกจาก req.json() ไม่รับค่าจาก Frontend เด็ดขาด
-  const { username, password } = await req.json();
+  // รับ recaptchaToken เพิ่มเข้ามา
+  const { username, password, recaptchaToken } = await req.json();
 
-  if (!username || !password) {
-    return NextResponse.json({ message: 'ข้อมูลไม่ครบ' }, { status: 400 });
+  if (!username || !password || !recaptchaToken) {
+    return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
   }
 
-  // 🛡️ ตรวจสอบ Username ก่อนไปต่อ
+  // 🤖 1. ตรวจสอบ Google reCAPTCHA v3
+  const secretKey = '6LcajQEtAAAAAKAjdBEBS8exYCgwC08jNtc64NWq'; // * ใส่ Secret Key ของคุณ
+  const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
+  
+  try {
+    const recaptchaRes = await fetch(verifyUrl, { method: 'POST' });
+    const recaptchaData = await recaptchaRes.json();
+
+    // ถ้าตรวจสอบล้มเหลว หรือได้คะแนนต่ำกว่า 0.5 (แปลว่าน่าจะเป็นบอท)
+    if (!recaptchaData.success || recaptchaData.score < 0.5) {
+      return NextResponse.json({ message: 'ตรวจพบการกระทำที่น่าสงสัย (Spam/Bot)' }, { status: 403 });
+    }
+  } catch (error) {
+    return NextResponse.json({ message: 'ระบบป้องกัน Spam ขัดข้อง' }, { status: 500 });
+  }
+
+  // 🛡️ 2. ตรวจสอบ Username
   if (!isValidUsername(username)) {
     return NextResponse.json(
       { message: 'ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ ตัวเลข หรือ _ เท่านั้น (3-20 ตัว)' }, 
@@ -27,19 +41,29 @@ export async function POST(req: Request) {
     );
   }
 
-  const hash = await bcrypt.hash(password, 10);
+  // 🛡️ 3. ตรวจสอบความปลอดภัยของรหัสผ่าน
+  const isLengthValid = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  
+  if (!isLengthValid || !hasUpper || !hasLower || !hasNumber) {
+    return NextResponse.json(
+      { message: 'รหัสผ่านไม่ตรงตามเงื่อนไขความปลอดภัย' },
+      { status: 400 }
+    );
+  }
 
-  // 🛡️ บังคับตั้งค่า role พื้นฐานด้วยตัวเองที่ฝั่ง Backend
-  // (ถ้าเป็นระบบร้านอาหาร อาจจะตั้งเป็น 'customer' หรือถ้าเป็นฝั่งร้านก็ 'shop')
+  const hash = await bcrypt.hash(password, 10);
   const defaultRole = 'customer'; 
 
   try {
     await db.query(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [username, hash, defaultRole] // ใช้ defaultRole ที่เรากำหนดเอง
+      [username, hash, defaultRole]
     );
 
-    return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' });
+    return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' }, { status: 201 });
     
   } catch (err: any) {
     console.error("Database Error:", err); 
