@@ -45,32 +45,28 @@ function ShopLoginContent() {
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login_shop' }).then(async function (token: string) {
-        try {
-          // 🚀 ยิงไปที่ API สำหรับร้านค้าโดยเฉพาะ
-          const res = await fetch('/api/auth/login-shop', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, recaptchaToken: token }),
-          });
+        
+        // 🚀 ให้ NextAuth จัดการล็อกอิน Username/Password ให้แทน
+        const res = await signIn('credentials', {
+          redirect: false,
+          username,
+          password,
+          recaptchaToken: token,
+          loginType: 'shop' // ส่งค่าไปบอก NextAuth ว่านี่คือร้านค้านะ
+        });
 
-          const data = await res.json();
-          setLoading(false);
+        setLoading(false);
 
-          if (!res.ok) {
-            alert(data.message || "Login failed");
-            pokeChef();
-            return;
-          }
-
-          // ✅ ล็อกอินรหัสผ่านสำเร็จ -> ไปหน้า Dashboard ร้านค้า
-          localStorage.setItem("user_id", data.user_id);
-          router.push('/dashboard/shop');
-
-        } catch (error) {
-          console.error(error);
-          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
-          setLoading(false);
+        // ถ้ามี Error กลับมาจาก NextAuth ให้แจ้งเตือน
+        if (res?.error) {
+          alert(res.error);
+          pokeChef();
+          return;
         }
+
+        // ✅ ล็อกอินสำเร็จ NextAuth จะสร้าง Session ให้แล้ว ไปหน้า Dashboard ได้เลย
+        router.push('/dashboard/shop');
+
       });
     });
   }
@@ -78,11 +74,6 @@ function ShopLoginContent() {
   // 🌐 ฟังก์ชัน Social Login สำหรับร้านค้า (Google)
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
-    
-    // ตั้งค่าคุกกี้ไว้เพื่อใช้ตรวจสอบสิทธิ์
-    document.cookie = "login_type=shop; path=/; max-age=120";
-    
-    // ✅ จุดสำคัญ: ระบุ callbackUrl โดยตรง เพื่อบังคับให้วิ่งไปหน้า dashboard ร้านค้า
     await signIn(provider, { callbackUrl: '/dashboard/shop' });
   };
 
@@ -122,12 +113,10 @@ function ShopLoginContent() {
         .divider:not(:empty)::before { margin-right: .5em; }
         .divider:not(:empty)::after { margin-left: .5em; }
         
-        /* ปรับให้ปุ่ม Google แสดงผลแบบเต็มแถวสวยๆ */
         .social-btn { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #334155; }
         .social-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
         .social-icon { width: 20px; height: 20px; }
 
-        /* --- CSS พ่อครัว --- */
         .mc-world { position: absolute; bottom: 5vh; left: -100px; width: 100vw; height: 120px; z-index: 5; pointer-events: none; animation: walkAcross 15s linear infinite; }
         .paused, .paused .c-arm, .paused .c-leg { animation-play-state: paused !important; }
         .chef { position: absolute; bottom: 0; width: 50px; height: 120px; pointer-events: auto; cursor: pointer; }
@@ -181,7 +170,6 @@ function ShopLoginContent() {
 
         <div className="divider">หรือเชื่อมต่อด้วย</div>
         
-        {/* ❌ เอาปุ่ม Facebook ออก และใช้ฟังก์ชันที่มี callbackUrl ตรงไปที่ /dashboard/shop */}
         <button 
           className="social-btn" 
           onClick={() => handleSocialLogin('google')} 
