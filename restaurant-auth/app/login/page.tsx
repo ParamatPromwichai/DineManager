@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import Script from 'next/script';
 import { signIn } from 'next-auth/react'; 
 
@@ -17,6 +16,7 @@ function LoginContent() {
   const [anger, setAnger] = useState(0);
   const angerTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // 🛡️ ดักจับ Error จาก URL
   useEffect(() => {
     const error = searchParams.get('error');
     if (error === 'locked') {
@@ -43,31 +43,30 @@ function LoginContent() {
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login' }).then(async function (token: string) {
+        
         try {
-          const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, recaptchaToken: token }),
+          // 🚀 ให้ NextAuth จัดการล็อกอิน Username/Password
+          const res = await signIn('credentials', {
+            redirect: false,
+            username,
+            password,
+            recaptchaToken: token,
+            loginType: 'customer' // 👈 ส่งคำว่า customer ไปให้ NextAuth
           });
 
-          const data = await res.json();
           setLoading(false);
 
-          if (!res.ok) {
-            alert(data.message || "Login failed");
+          // ถ้ามี Error กลับมาจาก NextAuth ให้แจ้งเตือน
+          if (res?.error) {
+            alert(res.error);
             pokeChef();
             return;
           }
 
-          if (data.role !== 'customer') {
-            alert("หน้านี้สำหรับลูกค้าเข้าสู่ระบบเท่านั้น!");
-            pokeChef();
-            return;
-          }
-
-          localStorage.setItem("user_id", data.user_id);
-          router.push('/dashboard/customer');
-
+          // ✅ จุดแก้ปัญหาสำคัญ: ใช้ window.location.href แทน router.push
+          // เพื่อบังคับให้โหลดหน้าใหม่และอ่านคุกกี้ Session ของ NextAuth ให้ทัน
+          window.location.href = '/dashboard/customer';
+          
         } catch (error) {
           console.error(error);
           alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
@@ -80,10 +79,7 @@ function LoginContent() {
   // 🌐 ฟังก์ชัน Social Login สำหรับลูกค้า (Google)
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
-    
-    // ✅ จุดแก้ปัญหา: บังคับให้ระบบรู้ชัดเจนว่านี่คือ "ลูกค้า" ป้องกันการเอาสถานะร้านค้ามากวน!
-    document.cookie = "login_type=customer; path=/; max-age=120";
-    
+    // ใช้ callbackUrl แทน cookie
     await signIn(provider, { callbackUrl: '/dashboard/customer' });
   };
 
@@ -117,9 +113,6 @@ function LoginContent() {
         .clean-btn { width: 100%; padding: 14px; margin-top: 10px; background: #0ea5e9; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2); }
         .clean-btn:hover:not(:disabled) { background: #0284c7; transform: translateY(-2px); }
         .clean-btn:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
-        .register-link-container { margin-top: 20px; font-size: 14px; color: #64748b; }
-        .register-link { color: #0ea5e9; text-decoration: none; font-weight: 600; transition: color 0.2s ease; }
-        .register-link:hover { color: #0284c7; text-decoration: underline; }
         .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 12px; }
         .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
         .divider:not(:empty)::before { margin-right: .5em; }
