@@ -12,4 +12,7 @@ export const db = mysql.createPool({
   },
   waitForConnections: true,
   connectionLimit: 5,
+  // 🟢 เพิ่ม 2 บรรทัดนี้ เพื่อแก้ปัญหาเวลาเพี้ยนบน Vercel
+  dateStrings: true,  // บังคับให้ส่งเวลาออกมาเป็นข้อความ (String) ป้องกันเบราว์เซอร์เอาไปบวกเวลาเพิ่มเอง
+  timezone: '+07:00', // กำกับไว้ให้การดึงข้อมูลทุกครั้งใช้มาตรฐานเวลาไทย
 });
