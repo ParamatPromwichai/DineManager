@@ -242,3 +242,19 @@ ALTER TABLE users
 ADD COLUMN failed_attempts INT DEFAULT 0,
 ADD COLUMN is_locked BOOLEAN DEFAULT FALSE;
 ALTER TABLE users MODIFY password VARCHAR(255) NULL;
+
+
+
+-- สร้างตารางสำหรับเก็บการตั้งค่าระบบ
+CREATE TABLE system_settings (
+  setting_key VARCHAR(50) PRIMARY KEY,
+  setting_value VARCHAR(255) NOT NULL,
+  description TEXT
+);
+
+-- เพิ่มค่าเริ่มต้น: กำหนดให้ใส่รหัสผิดได้สูงสุด 5 ครั้ง
+INSERT INTO system_settings (setting_key, setting_value, description) 
+VALUES ('max_failed_logins', '5', 'จำนวนครั้งที่ล็อกอินผิดได้สูงสุดก่อนบัญชีจะถูกระงับ');
+
+INSERT INTO system_settings (setting_key, setting_value, description) 
+VALUES ('maintenance_mode', 'false', 'เปิดโหมดปิดปรับปรุงระบบ (ลูกค้า/ร้านค้า จะล็อกอินไม่ได้)');
