@@ -12,9 +12,24 @@ function LoginContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 🟢 State สำหรับเช็คโหมดปรับปรุง
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [checkingSystem, setCheckingSystem] = useState(true);
 
   const [anger, setAnger] = useState(0);
   const angerTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // 🛡️ ดึงข้อมูลตั้งค่าระบบก่อนว่าเว็บปิดปรับปรุงอยู่ไหม
+  useEffect(() => {
+    fetch('/api/sysconfig')
+      .then(res => res.json())
+      .then(data => {
+        setIsMaintenance(data.maintenance_mode);
+        setCheckingSystem(false);
+      })
+      .catch(() => setCheckingSystem(false)); // ถ้า API ล่ม ให้ถือว่าไม่ได้ปิดปรับปรุงไปก่อน
+  }, []);
 
   // 🛡️ ดักจับ Error จาก URL
   useEffect(() => {
@@ -43,28 +58,23 @@ function LoginContent() {
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login' }).then(async function (token: string) {
-        
         try {
-          // 🚀 ให้ NextAuth จัดการล็อกอิน Username/Password
           const res = await signIn('credentials', {
             redirect: false,
             username,
             password,
             recaptchaToken: token,
-            loginType: 'customer' // 👈 ส่งคำว่า customer ไปให้ NextAuth
+            loginType: 'customer'
           });
 
           setLoading(false);
 
-          // ถ้ามี Error กลับมาจาก NextAuth ให้แจ้งเตือน
           if (res?.error) {
             alert(res.error);
             pokeChef();
             return;
           }
 
-          // ✅ จุดแก้ปัญหาสำคัญ: ใช้ window.location.href แทน router.push
-          // เพื่อบังคับให้โหลดหน้าใหม่และอ่านคุกกี้ Session ของ NextAuth ให้ทัน
           window.location.href = '/dashboard/customer';
           
         } catch (error) {
@@ -76,10 +86,8 @@ function LoginContent() {
     });
   }
 
-  // 🌐 ฟังก์ชัน Social Login สำหรับลูกค้า (Google)
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
-    // ใช้ callbackUrl แทน cookie
     await signIn(provider, { callbackUrl: '/dashboard/customer' });
   };
 
@@ -95,6 +103,37 @@ function LoginContent() {
   const currentFaceColor = faceColors[anger];
   const isAngry = anger > 0;
 
+  // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบ
+  if (checkingSystem) {
+    return (
+      <div className="clean-container">
+        <div className="login-box" style={{ background: 'transparent', boxShadow: 'none', border: 'none' }}>
+          <h2 className="title" style={{ fontSize: '20px' }}>กำลังเชื่อมต่อระบบ...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔴 หน้าจอแสดงผลเมื่ออยู่ใน "โหมดปิดปรับปรุง"
+  if (isMaintenance) {
+    return (
+      <div className="clean-container">
+        <div className="login-box">
+          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+          </div>
+          <h1 className="title" style={{ color: '#b45309' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
+          <p className="subtitle" style={{ color: '#d97706', lineHeight: '1.6' }}>
+            ขออภัยในความไม่สะดวก ขณะนี้ DineManager กำลังปิดปรับปรุงระบบเพื่อเพิ่มประสิทธิภาพให้ดียิ่งขึ้น กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔵 หน้าจอ Login ปกติ
   return (
     <div className="clean-container">
       <Script 
