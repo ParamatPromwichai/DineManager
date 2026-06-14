@@ -74,6 +74,10 @@ function ShopLoginContent() {
   // 🌐 ฟังก์ชัน Social Login สำหรับร้านค้า (Google)
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
+    
+    // 🟢 เพิ่มบรรทัดนี้: ฝัง Cookie เพื่อบอก Backend (NextAuth) ว่ามาจากหน้าร้านค้า
+    document.cookie = "login_type=shop; path=/; max-age=120"; 
+    
     await signIn(provider, { callbackUrl: '/dashboard/shop' });
   };
 
