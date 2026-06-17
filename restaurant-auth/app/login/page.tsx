@@ -152,6 +152,12 @@ function LoginContent() {
         .clean-btn { width: 100%; padding: 14px; margin-top: 10px; background: #0ea5e9; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2); }
         .clean-btn:hover:not(:disabled) { background: #0284c7; transform: translateY(-2px); }
         .clean-btn:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
+        
+        /* 🟢 เพิ่มสไตล์สำหรับปุ่มสมัครสมาชิกใหม่ */
+        .outline-btn { width: 100%; padding: 14px; margin-top: 10px; background: transparent; color: #0ea5e9; border: 1.5px solid #0ea5e9; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .outline-btn:hover:not(:disabled) { background: #f0f9ff; transform: translateY(-2px); }
+        .outline-btn:disabled { color: #94a3b8; border-color: #cbd5e1; cursor: not-allowed; }
+
         .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 12px; }
         .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
         .divider:not(:empty)::before { margin-right: .5em; }
@@ -213,6 +219,15 @@ function LoginContent() {
 
         <button className="clean-btn" onClick={handleLogin} disabled={loading}>
           {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+        </button>
+
+        {/* 🟢 ปุ่มสมัครสมาชิก */}
+        <button 
+          className="outline-btn" 
+          onClick={() => router.push('/register')} 
+          disabled={loading}
+        >
+          สมัครสมาชิกใหม่
         </button>
 
         <div className="divider">หรือเข้าสู่ระบบด้วย</div>
