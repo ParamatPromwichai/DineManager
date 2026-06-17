@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react'; 
 import {
   Store, Clock, Zap, Star, Utensils, ShoppingCart, CreditCard,
   MapPin, Plus, Minus, Flame, Maximize2, PlusCircle, PenLine,
-  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation
+  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation, CheckSquare
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -17,6 +17,15 @@ const MapPicker = dynamic(() => import('@/components/MapPicker'), {
 });
 
 // --- Type Definitions ---
+type MenuOption = {
+  id: number;
+  menu_id: number;
+  option_group: string;
+  option_name: string;
+  extra_price: number | string;
+  is_multiple: boolean | number;
+};
+
 type Menu = {
   id: number;
   name: string;
@@ -26,6 +35,7 @@ type Menu = {
   avg_rating?: number;
   review_count?: number;
   is_sold_out?: number | boolean | string;
+  options?: MenuOption[]; 
 };
 
 type ShopStatus = {
@@ -73,7 +83,6 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export default function CustomerHome() {
   const router = useRouter();
   
-  // ➕ 2. ใช้ useSession แทน localStorage
   const { data: session, status } = useSession();
 
   // --- States ---
@@ -91,6 +100,10 @@ export default function CustomerHome() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipImage, setSlipImage] = useState<string | null>(null);
 
+  // 🟢 State สำหรับค่าจัดส่งที่ดึงจากระบบ
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState<number>(0);
+  const [deliveryFeePerKm, setDeliveryFeePerKm] = useState<number>(0);
+
   // Delivery States
   const [distance, setDistance] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
@@ -102,14 +115,29 @@ export default function CustomerHome() {
   // State สำหรับ Popup ตัวเลือก
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
 
-  // ➕ 3. เช็คสถานะการล็อกอิน ถ้ายังไม่ล็อกอินให้เด้งไปหน้า login
+  // 🟢 State สำหรับเช็คโหมดปรับปรุง
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [checkingSystem, setCheckingSystem] = useState(true);
+
+  // 🛡️ ดึงข้อมูลตั้งค่าระบบก่อนว่าเว็บปิดปรับปรุงอยู่ไหม และดึงเรทค่าจัดส่ง
+  useEffect(() => {
+    fetch('/api/sysconfig')
+      .then(res => res.json())
+      .then(data => {
+        setIsMaintenance(data.maintenance_mode);
+        setBaseDeliveryFee(data.delivery_fee || 0);
+        setDeliveryFeePerKm(data.delivery_fee_per_km || 0);
+        setCheckingSystem(false);
+      })
+      .catch(() => setCheckingSystem(false)); 
+  }, []);
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
 
-  // ➕ 4. ดึงข้อมูลเมื่อล็อกอินผ่านแล้ว (ลบ headers 'user-id' ออก)
   useEffect(() => {
     if (status !== 'authenticated') return;
 
@@ -125,10 +153,13 @@ export default function CustomerHome() {
           const homeData = await homeRes.json();
           const menusData = await menusRes.json();
 
-          homeData.recommendedMenus = homeData.recommendedMenus.filter((recMenu: Menu) => {
-            const actualMenu = menusData.find((m: Menu) => m.id === recMenu.id);
-            const isSoldOut = actualMenu ? actualMenu.is_sold_out : recMenu.is_sold_out;
-            return Number(isSoldOut) !== 1 && String(isSoldOut).toLowerCase() !== 'true';
+          // 🟢 แก้ไขตรงนี้: แมปข้อมูลให้สมบูรณ์ โดยดึงเมนูแนะนำทั้งหมดมาจาก menusData โดยตรงเลย 
+          // จะได้แน่ใจว่า options และฟิลด์อื่นๆ ถูกติดมาครบถ้วน 100%
+          homeData.recommendedMenus = menusData.filter((m: Menu) => {
+            // เช็คว่าเป็นเมนูแนะนำ และไม่ได้หมดสต๊อก
+            const isRec = Number(m.is_recommended) === 1 || String(m.is_recommended).toLowerCase() === 'true';
+            const isSoldOut = Number(m.is_sold_out) === 1 || String(m.is_sold_out).toLowerCase() === 'true';
+            return isRec && !isSoldOut;
           });
 
           setDashboardData(homeData);
@@ -154,15 +185,19 @@ export default function CustomerHome() {
     fetchData();
   }, [status]);
 
+  // 🧮 คำนวณระยะทางและค่าจัดส่งใหม่
   useEffect(() => {
     if (location?.lat && location?.lng && dashboardData?.shop?.latitude && dashboardData?.shop?.longitude) {
       const dist = calculateDistance(location.lat, location.lng, Number(dashboardData.shop.latitude), Number(dashboardData.shop.longitude));
       setDistance(dist);
-      let fee = 10;
-      if (dist > 2) fee += Math.ceil(dist - 2) * 5;
+      
+      let fee = baseDeliveryFee; 
+      if (dist > 2) {
+        fee += Math.ceil(dist - 2) * deliveryFeePerKm; 
+      }
       setDeliveryFee(fee);
     }
-  }, [location, dashboardData]);
+  }, [location, dashboardData, baseDeliveryFee, deliveryFeePerKm]);
 
   const subTotal = useMemo(() => cart.reduce((sum, i) => sum + i.price * i.quantity, 0), [cart]);
   const total = subTotal + (location ? deliveryFee : 0);
@@ -196,7 +231,6 @@ export default function CustomerHome() {
     );
   }
 
-  // ฟังก์ชันหาตำแหน่งปัจจุบัน (สำหรับใช้ในแผนที่)
   function requestLocationForMap() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -220,7 +254,6 @@ export default function CustomerHome() {
     if (cart.length === 0) return;
     setIsSubmitting(true);
     try {
-      // ➕ ลบ headers 'user-id' ออกให้หมด
       await fetch('/api/customer/profile', {
         method: 'PUT',
         headers: {
@@ -247,8 +280,25 @@ export default function CustomerHome() {
     }
   }
 
-  // ➕ 5. เพิ่ม status === 'loading' ของ next-auth
-  if (status === 'loading' || loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
+  if (checkingSystem || status === 'loading' || loading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
+  }
+
+  if (isMaintenance) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4F8FF', padding: 20 }}>
+        <div style={{ background: '#fff', padding: 40, borderRadius: 20, textAlign: 'center', boxShadow: '0 10px 40px rgba(37, 99, 235, 0.1)', maxWidth: 400 }}>
+          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#b45309', margin: '0 0 10px 0' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
+          <p style={{ color: '#d97706', lineHeight: '1.6', margin: 0 }}>ขออภัยในความไม่สะดวก ขณะนี้ระบบกำลังปิดปรับปรุง กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 && !showPayment ? 'pb-48' : 'pb-24'}`}>
@@ -414,7 +464,7 @@ export default function CustomerHome() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
                 <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
               </button>
               <button
@@ -422,9 +472,9 @@ export default function CustomerHome() {
                   setTempLocation(location || { lat: 17.1664, lng: 104.1486 });
                   setShowMapModal(true);
                 }}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
               >
-                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุดเอง)' : 'ปักหมุดแผนที่'}
+                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุด)' : 'ปักหมุดแผนที่'}
               </button>
             </div>
 
@@ -542,32 +592,94 @@ export default function CustomerHome() {
   );
 }
 
-// 🚀 MenuOptionModal (ปรับธีม น้ำเงิน-ขาว)
+// 🚀 MenuOptionModal
 const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClose: () => void, onConfirm: (item: CartItem) => void }) => {
-  const [optionSpicy, setOptionSpicy] = useState('ปกติ');
-  const [optionSize, setOptionSize] = useState('ธรรมดา');
-  const [optionAddons, setOptionAddons] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, MenuOption[]>>({});
   const [optionNote, setOptionNote] = useState('');
 
-  const calculatedOptionPrice = useMemo(() => {
-    let price = Number(menu.price);
-    if (optionSize === 'พิเศษ') price += 10;
-    if (optionAddons.includes('ไข่ดาว')) price += 10;
-    if (optionAddons.includes('ไข่เจียว')) price += 15;
-    return Math.round(price);
-  }, [menu.price, optionSize, optionAddons]);
+  // 🗂️ จัดกลุ่มตัวเลือก (เช่น จับกลุ่ม "ขนาด" มารวมกัน)
+  const groupedOptions = useMemo(() => {
+    if (!menu.options || menu.options.length === 0) return {};
+    const groups: Record<string, MenuOption[]> = {};
+    menu.options.forEach(opt => {
+      if (!groups[opt.option_group]) groups[opt.option_group] = [];
+      groups[opt.option_group].push(opt);
+    });
+    return groups;
+  }, [menu.options]);
 
-  function toggleAddon(addon: string) {
-    setOptionAddons(prev => prev.includes(addon) ? prev.filter(a => a !== addon) : [...prev, addon]);
+  // 🟢 1. ดักตั้งค่าเริ่มต้น (Auto-Select) ให้ตัวเลือกแบบ Radio บังคับเลือก
+  useEffect(() => {
+    if (!menu.options) return;
+    
+    const initialSelections: Record<string, MenuOption[]> = {};
+    Object.entries(groupedOptions).forEach(([groupName, options]) => {
+      const isMultiple = Boolean(Number(options[0].is_multiple));
+      
+      // ถ้าเป็น Radio (เลือกได้ข้อเดียว) ให้ยัดข้อแรกใส่ไปเลย จะได้ไม่ Error เวลาลูกค้าไม่กด
+      if (!isMultiple && options.length > 0) {
+        initialSelections[groupName] = [options[0]];
+      }
+    });
+
+    setSelectedOptions(initialSelections);
+  }, [menu, groupedOptions]);
+
+  // ✨ ฟังก์ชันเมื่อผู้ใช้กดเลือก/ยกเลิก ตัวเลือก
+  function toggleOption(group: string, option: MenuOption) {
+    setSelectedOptions(prev => {
+      const currentSelected = prev[group] || [];
+      const isMultiple = Boolean(Number(option.is_multiple));
+
+      if (isMultiple) {
+        // เช็คบ็อกซ์: กดซ้ำเพื่อเอาออกได้
+        const isSelected = currentSelected.some(o => o.id === option.id);
+        if (isSelected) {
+          return { ...prev, [group]: currentSelected.filter(o => o.id !== option.id) };
+        } else {
+          return { ...prev, [group]: [...currentSelected, option] };
+        }
+      } else {
+        // เรดิโอ: บังคับสลับข้ออย่างเดียว
+        return { ...prev, [group]: [option] };
+      }
+    });
   }
 
-  function handleConfirm() {
-    let addonsText = optionAddons.length > 0 ? ` +${optionAddons.join('+')}` : '';
-    let sizeText = optionSize === 'พิเศษ' ? '(พิเศษ)' : '';
-    let spicyText = `[เผ็ด${optionSpicy}]`;
-    let noteText = optionNote ? ` *${optionNote}*` : '';
+  // 🧮 คำนวณราคา (ราคาตั้งต้น + ราคาออปชันทั้งหมดที่เลือก)
+  const calculatedOptionPrice = useMemo(() => {
+    let price = Number(menu.price);
+    Object.values(selectedOptions).flat().forEach(opt => {
+      price += Number(opt.extra_price || 0);
+    });
+    return Math.round(price);
+  }, [menu.price, selectedOptions]);
 
-    const customName = `${menu.name} ${sizeText} ${spicyText}${addonsText}${noteText}`.trim();
+  // ✅ ยืนยันการสั่งซื้อและจัดรูปแบบชื่อ
+  function handleConfirm() {
+    // 🟢 2. ตรวจสอบการ Validation ว่ากลุ่มที่เป็น Radio โดนเลือกครบไหม
+    for (const [groupName, options] of Object.entries(groupedOptions)) {
+      const isMultiple = Boolean(Number(options[0].is_multiple));
+      if (!isMultiple) {
+        if (!selectedOptions[groupName] || selectedOptions[groupName].length === 0) {
+          alert(`กรุณาเลือกตัวเลือกในหมวดหมู่ "${groupName}" ด้วยครับ`);
+          return; // หยุดการทำงานถ้าไม่เลือก
+        }
+      }
+    }
+
+    let customName = menu.name;
+    
+    // เอาตัวเลือกที่เลือกมาเรียงต่อกันให้สวยงาม (เช่น [พิเศษ, ไข่ดาว])
+    Object.entries(selectedOptions).forEach(([group, opts]) => {
+      if (opts.length > 0) {
+        const optionNames = opts.map(o => o.option_name).join(', ');
+        customName += ` [${optionNames}]`;
+      }
+    });
+
+    if (optionNote) customName += ` *${optionNote}*`;
+
     const cartItemId = `${menu.id}-${customName}`;
 
     onConfirm({
@@ -601,41 +713,38 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 25 }}>
-          {/* ความเผ็ด */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <Flame size={18} color="#2563EB" /> ระดับความเผ็ด <span style={{ color: '#EF4444' }}>*</span>
-            </h4>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {['ไม่ใส่พริก', 'น้อย', 'ปกติ', 'มาก'].map(level => (
-                <button key={level} onClick={() => setOptionSpicy(level)} style={pillStyle(optionSpicy === level)}>{level}</button>
-              ))}
-            </div>
-          </div>
+          
+          {/* 🔄 เรนเดอร์ออปชันแบบ Dynamic ดึงจากฐานข้อมูลมาวนลูป */}
+          {Object.entries(groupedOptions).map(([groupName, options]) => {
+            const isMultiple = Boolean(Number(options[0].is_multiple));
+            
+            return (
+              <div key={groupName}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
+                  {isMultiple ? <CheckSquare size={18} color="#2563EB" /> : <CheckCircle2 size={18} color="#2563EB" />} 
+                  {groupName} {!isMultiple && <span style={{ color: '#EF4444' }}>*</span>}
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {options.map(opt => {
+                    const isSelected = selectedOptions[groupName]?.some(o => o.id === opt.id);
+                    const priceText = Number(opt.extra_price) > 0 ? ` (+${opt.extra_price} ฿)` : '';
+                    
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => toggleOption(groupName, opt)}
+                        style={pillStyle(isSelected)}
+                      >
+                        {opt.option_name}{priceText}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
 
-          {/* ขนาด */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <Maximize2 size={18} color="#2563EB" /> เลือกขนาด
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setOptionSize('ธรรมดา')} style={pillStyle(optionSize === 'ธรรมดา')}>ธรรมดา</button>
-              <button onClick={() => setOptionSize('พิเศษ')} style={pillStyle(optionSize === 'พิเศษ')}>พิเศษ (+10 ฿)</button>
-            </div>
-          </div>
-
-          {/* ท็อปปิ้ง */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <PlusCircle size={18} color="#2563EB" /> เพิ่มท็อปปิ้ง
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => toggleAddon('ไข่ดาว')} style={pillStyle(optionAddons.includes('ไข่ดาว'))}>+ ไข่ดาว (+10 ฿)</button>
-              <button onClick={() => toggleAddon('ไข่เจียว')} style={pillStyle(optionAddons.includes('ไข่เจียว'))}>+ ไข่เจียว (+15 ฿)</button>
-            </div>
-          </div>
-
-          {/* หมายเหตุ */}
+          {/* หมายเหตุ (ยังคงอยู่เหมือนเดิม) */}
           <div>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
               <PenLine size={18} color="#2563EB" /> หมายเหตุเพิ่มเติม

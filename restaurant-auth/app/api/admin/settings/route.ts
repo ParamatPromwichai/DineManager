@@ -32,22 +32,23 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { max_failed_logins, maintenance_mode } = body;
+    const { max_failed_logins, maintenance_mode, delivery_fee, delivery_fee_per_km } = body;
 
-    // อัปเดตจำนวนครั้งล็อกอินผิด
     if (max_failed_logins !== undefined) {
-      await db.query(
-        'UPDATE system_settings SET setting_value = ? WHERE setting_key = "max_failed_logins"',
-        [max_failed_logins.toString()]
-      );
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "max_failed_logins"', [max_failed_logins.toString()]);
     }
 
-    // อัปเดตโหมดซ่อมบำรุง (รับค่ามาเป็น 'true' หรือ 'false')
     if (maintenance_mode !== undefined) {
-      await db.query(
-        'UPDATE system_settings SET setting_value = ? WHERE setting_key = "maintenance_mode"',
-        [maintenance_mode.toString()]
-      );
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "maintenance_mode"', [maintenance_mode.toString()]);
+    }
+
+    if (delivery_fee !== undefined) {
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "delivery_fee"', [delivery_fee.toString()]);
+    }
+
+    // 🟢 อัปเดตค่าจัดส่งตามระยะทาง (ต่อกิโลเมตร)
+    if (delivery_fee_per_km !== undefined) {
+      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "delivery_fee_per_km"', [delivery_fee_per_km.toString()]);
     }
 
     return NextResponse.json({ message: 'บันทึกการตั้งค่าระบบเรียบร้อย' });

@@ -5,10 +5,26 @@ import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Utensils, Star, Plus, Minus, ShoppingCart, 
   CreditCard, MapPin, ImageOff, X, Flame, Maximize2, 
-  PlusCircle, PenLine, UploadCloud, CheckCircle2, Search, SlidersHorizontal
+  PlusCircle, PenLine, UploadCloud, CheckCircle2, Search, SlidersHorizontal, CheckSquare, Zap, Navigation
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// 🟢 โหลด MapPicker ฝั่ง Client เท่านั้น
+const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+  ssr: false,
+  loading: () => <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>กำลังโหลดแผนที่...</div>
+});
 
 // --- Types ---
+type MenuOption = {
+  id: number;
+  menu_id: number;
+  option_group: string;
+  option_name: string;
+  extra_price: number | string;
+  is_multiple: boolean | number;
+};
+
 type Menu = {
   id: number;
   name: string;
@@ -17,6 +33,7 @@ type Menu = {
   avg_rating: number;   
   review_count: number; 
   is_sold_out?: number | boolean | string; 
+  options?: MenuOption[]; 
 };
 
 type ShopStatus = {
@@ -83,15 +100,31 @@ export default function AllMenusPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipImage, setSlipImage] = useState<string | null>(null);
 
+  // 🟢 State สำหรับค่าจัดส่งที่ดึงจากระบบ
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState<number>(0);
+  const [deliveryFeePerKm, setDeliveryFeePerKm] = useState<number>(0);
+
   // Delivery States
   const [distance, setDistance] = useState<number>(0);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
 
-  // States สำหรับ Popup
+  // 🟢 🗺️ Map States สำหรับควบคุมป๊อปอัปแผนที่
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [tempLocation, setTempLocation] = useState<Location | null>(null);
+
+  // States สำหรับ Popup ตัวเลือกอาหาร
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
 
   // 1. Fetch Data
   useEffect(() => {
+    // ดึงเรทตั้งค่าระบบจัดส่งชั่วคราว
+    fetch('/api/sysconfig')
+      .then(res => res.json())
+      .then(data => {
+        setBaseDeliveryFee(data.delivery_fee || 0);
+        setDeliveryFeePerKm(data.delivery_fee_per_km || 0);
+      }).catch(err => console.error(err));
+
     fetch('/api/customer/menus')
       .then(res => res.json())
       .then((data: Menu[]) => {
@@ -103,23 +136,30 @@ export default function AllMenusPage() {
     fetch('/api/customer/profile').then(res => res.json()).then(data => {
       if (data?.phone) setPhone(data.phone);
       if (data?.address) setAddress(data.address);
-      if (data?.latitude && data?.longitude) setLocation({ lat: data.latitude, lng: data.longitude });
+      if (data?.latitude && data?.longitude) {
+        const userLoc = { lat: Number(data.latitude), lng: Number(data.longitude) };
+        setLocation(userLoc);
+        setTempLocation(userLoc);
+      }
     }).catch(err => console.error(err));
   }, []);
 
-  // 🚚 คำนวณค่าจัดส่ง
+  // 🚚 คำนวณค่าจัดส่งอิงตามสูตรใหม่ระบบหลังบ้าน
   useEffect(() => {
     if (location?.lat && location?.lng && shopData?.latitude && shopData?.longitude) {
       const dist = calculateDistance(location.lat, location.lng, Number(shopData.latitude), Number(shopData.longitude));
       setDistance(dist);
-      let fee = 10;
-      if (dist > 2) fee += Math.ceil(dist - 2) * 5;
+      
+      let fee = baseDeliveryFee; 
+      if (dist > 2) {
+        fee += Math.ceil(dist - 2) * deliveryFeePerKm; 
+      }
       setDeliveryFee(fee);
     } else {
       setDeliveryFee(0);
       setDistance(0);
     }
-  }, [location, shopData]);
+  }, [location, shopData, baseDeliveryFee, deliveryFeePerKm]);
 
   // 💰 คำนวณยอดเงินรวม
   const subTotal = useMemo(() => cart.reduce((sum, i) => sum + i.price * i.quantity, 0), [cart]);
@@ -148,8 +188,19 @@ export default function AllMenusPage() {
   function requestLocation() {
     if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ location'); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      pos => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setTempLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
       () => alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง')
+    );
+  }
+
+  // ฟังก์ชันหาตำแหน่งปัจจุบัน (สำหรับใช้ในแผนที่)
+  function requestLocationForMap() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => setTempLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
     );
   }
 
@@ -198,25 +249,19 @@ export default function AllMenusPage() {
   const filteredAndSortedMenus = useMemo(() => {
     let result = [...menus];
 
-    // 1. ค้นหาตามชื่อ
     if (searchQuery.trim() !== '') {
       result = result.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
-    // 2. คัดกรองตามเงื่อนไข Tab ที่เลือก
     if (activeFilter === 'popular') {
-      // ยอดฮิต: เรียงตามรีวิวเยอะสุด
       result.sort((a, b) => b.review_count - a.review_count);
     } else if (activeFilter === 'rating') {
-      // เรตติ้งดี: เอาเฉพาะ 4.5 ดาวขึ้นไป
       result = result.filter(m => m.avg_rating >= 4.5);
       result.sort((a, b) => b.avg_rating - a.avg_rating);
     } else if (activeFilter === 'price') {
-      // ราคาประหยัด: เรียงจากถูกไปแพง
       result.sort((a, b) => a.price - b.price);
     }
 
-    // 3. กฎเหล็ก: ดันเมนูที่หมด (Sold Out) ไปไว้ท้ายสุดเสมอ ไม่ว่าจะกรองอะไรอยู่ก็ตาม
     return result.sort((a, b) => {
       const aSoldOut = Number(a.is_sold_out) === 1 || String(a.is_sold_out).toLowerCase() === 'true';
       const bSoldOut = Number(b.is_sold_out) === 1 || String(b.is_sold_out).toLowerCase() === 'true';
@@ -228,7 +273,7 @@ export default function AllMenusPage() {
   return (
     <div style={{ padding: '20px 20px 140px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       
-      {/* 🌟 Header & ปุ่มย้อนกลับ */}
+      {/* Header & ปุ่มย้อนกลับ */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
         <button 
           onClick={() => router.push('/dashboard/customer')} 
@@ -241,7 +286,7 @@ export default function AllMenusPage() {
         </h1>
       </div>
 
-      {/* 🔍 ช่องค้นหาอัจฉริยะ (Search Bar) */}
+      {/* ช่องค้นหา */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={18} color="#93C5FD" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
@@ -258,35 +303,15 @@ export default function AllMenusPage() {
         </div>
       </div>
 
-      {/* 🧭 แถบตัวกรองดีไซน์ Horizontal Slide */}
+      {/* แถบตัวกรอง */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 12, marginBottom: 20, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
-        <button 
-          onClick={() => setActiveFilter('all')} 
-          style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'all' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'all' ? '#2563EB' : '#fff', color: activeFilter === 'all' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}
-        >
-          🍛 ทั้งหมด
-        </button>
-        <button 
-          onClick={() => setActiveFilter('popular')} 
-          style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'popular' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'popular' ? '#2563EB' : '#fff', color: activeFilter === 'popular' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}
-        >
-          🔥 ยอดฮิต (รีวิวเยอะ)
-        </button>
-        <button 
-          onClick={() => setActiveFilter('rating')} 
-          style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'rating' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'rating' ? '#2563EB' : '#fff', color: activeFilter === 'rating' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}
-        >
-          ⭐ เรตติ้งสูง (4.5+)
-        </button>
-        <button 
-          onClick={() => setActiveFilter('price')} 
-          style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'price' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'price' ? '#2563EB' : '#fff', color: activeFilter === 'price' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}
-        >
-          💰 ราคาประหยัด
-        </button>
+        <button onClick={() => setActiveFilter('all')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'all' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'all' ? '#2563EB' : '#fff', color: activeFilter === 'all' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>🍛 ทั้งหมด</button>
+        <button onClick={() => setActiveFilter('popular')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'popular' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'popular' ? '#2563EB' : '#fff', color: activeFilter === 'popular' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>🔥 ยอดฮิต (รีวิวเยอะ)</button>
+        <button onClick={() => setActiveFilter('rating')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'rating' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'rating' ? '#2563EB' : '#fff', color: activeFilter === 'rating' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>⭐ เรตติ้งสูง (4.5+)</button>
+        <button onClick={() => setActiveFilter('price')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'price' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'price' ? '#2563EB' : '#fff', color: activeFilter === 'price' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>💰 ราคาประหยัด</button>
       </div>
 
-      {/* --- Grid เมนูอาหาร --- */}
+      {/* Grid เมนูอาหาร */}
       {filteredAndSortedMenus.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
           {filteredAndSortedMenus.map(menu => {
@@ -316,9 +341,7 @@ export default function AllMenusPage() {
                     <span style={{ color: isMenuSoldOut ? '#94a3b8' : '#2563EB', fontWeight: '900', fontSize: '1.1rem' }}>{Number(menu.price).toLocaleString()} ฿</span>
                     
                     {isMenuSoldOut ? (
-                      <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        หมด
-                      </span>
+                      <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold' }}>หมด</span>
                     ) : (
                       <button 
                         onClick={() => setSelectedMenuForOption(menu)} 
@@ -368,11 +391,11 @@ export default function AllMenusPage() {
                   <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                  <button onClick={() => removeFromCart(item.cartItemId)} style={{ background:'transparent', border:'none', padding: '6px 12px', cursor:'pointer', color:'#EF4444', display: 'flex', alignItems: 'center' }}>
+                  <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
                     <Minus size={14} strokeWidth={3} />
                   </button>
                   <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                  <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background:'transparent', border:'none', padding: '6px 12px', cursor:'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
+                  <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
                     <Plus size={14} strokeWidth={3} />
                   </button>
                 </div>
@@ -399,9 +422,22 @@ export default function AllMenusPage() {
               <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} style={{ padding: 14, minHeight: 80, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
             </div>
 
-            <button onClick={requestLocation} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, padding: '12px', fontSize: '0.95rem', width: '100%', background: location ? '#ECFDF5' : '#EFF6FF', border: `1px dashed ${location ? '#10B981' : '#2563EB'}`, color: location ? '#059669' : '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
-              <MapPin size={18} /> {location ? '✅ ปักหมุดพิกัดแล้ว' : '📍 แนบพิกัดเพื่อคำนวณค่าส่ง'}
-            </button>
+            {/* 🟢 เปลี่ยนปุ่มแบบเก่าเป็นปุ่มแบบ 2 ทางเลือก (พิกัดปัจจุบัน / ปักหมุดแผนที่แมนนวล) */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+              <button type="button" onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
+                <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempLocation(location || { lat: 17.1664, lng: 104.1486 });
+                  setShowMapModal(true);
+                }}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุด)' : 'ปักหมุดแผนที่'}
+              </button>
+            </div>
 
             {/* 🧾 Receipt Summary */}
             <div style={{ background: '#F4F8FF', padding: 18, borderRadius: 16, marginBottom: 25, border: '1px solid #DCE8FF' }}>
@@ -463,36 +499,140 @@ export default function AllMenusPage() {
           </div>
         </div>
       )}
+
+      {/* 🟢 🗺️ Popup หน้าต่างปักหมุดแผนที่เสริมเข้ามาท้ายสุด */}
+      {showMapModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+
+            <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Navigation size={22} color="#2563EB" /> เลือกตำแหน่งจัดส่ง
+              </h3>
+              <button onClick={() => setShowMapModal(false)} style={{ background: '#F4F8FF', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#2563EB' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* พื้นที่แสดงแผนที่ */}
+            <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
+              {/* ปุ่มดึงตำแหน่งปัจจุบันมาลงแผนที่ */}
+              <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
+                <button onClick={requestLocationForMap} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
+                  <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
+                </button>
+              </div>
+
+              <MapPicker
+                tempLocation={tempLocation}
+                setTempLocation={setTempLocation}
+                setAddress={setAddress}
+              />
+            </div>
+
+            <div style={{ padding: 20 }}>
+              <div style={{ marginBottom: 15, fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F8FF', padding: 12, borderRadius: 12 }}>
+                <span>พิกัดละติจูด-ลองจิจูด:</span>
+                <strong style={{ color: '#1E3A8A' }}>
+                  {tempLocation ? `${Number(tempLocation.lat).toFixed(4)}, ${Number(tempLocation.lng).toFixed(4)}` : 'กำลังค้นหา...'}
+                </strong>
+              </div>
+              <button
+                onClick={() => {
+                  if (tempLocation) setLocation(tempLocation);
+                  setShowMapModal(false);
+                }}
+                style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}
+              >
+                ยืนยันตำแหน่งนี้
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-// 🚀 MenuOptionModal (ปรับธีมน้ำเงิน-ขาว)
+// 🚀 MenuOptionModal (ดึงตัวเลือก Dynamic จาก Database แบบหน้าแรก)
 const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClose: () => void, onConfirm: (item: CartItem) => void }) => {
-  const [optionSpicy, setOptionSpicy] = useState('ปกติ'); 
-  const [optionSize, setOptionSize] = useState('ธรรมดา');
-  const [optionAddons, setOptionAddons] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, MenuOption[]>>({});
   const [optionNote, setOptionNote] = useState('');
+
+  // จัดกลุ่มตัวเลือก
+  const groupedOptions = useMemo(() => {
+    if (!menu.options || menu.options.length === 0) return {};
+    const groups: Record<string, MenuOption[]> = {};
+    menu.options.forEach(opt => {
+      if (!groups[opt.option_group]) groups[opt.option_group] = [];
+      groups[opt.option_group].push(opt);
+    });
+    return groups;
+  }, [menu.options]);
+
+  // ตั้งค่าเริ่มต้น Auto-Select
+  useEffect(() => {
+    if (!menu.options) return;
+    
+    const initialSelections: Record<string, MenuOption[]> = {};
+    Object.entries(groupedOptions).forEach(([groupName, options]) => {
+      const isMultiple = Boolean(Number(options[0].is_multiple));
+      if (!isMultiple && options.length > 0) {
+        initialSelections[groupName] = [options[0]];
+      }
+    });
+
+    setSelectedOptions(initialSelections);
+  }, [menu, groupedOptions]);
+
+  function toggleOption(group: string, option: MenuOption) {
+    setSelectedOptions(prev => {
+      const currentSelected = prev[group] || [];
+      const isMultiple = Boolean(Number(option.is_multiple));
+
+      if (isMultiple) {
+        const isSelected = currentSelected.some(o => o.id === option.id);
+        if (isSelected) {
+          return { ...prev, [group]: currentSelected.filter(o => o.id !== option.id) };
+        } else {
+          return { ...prev, [group]: [...currentSelected, option] };
+        }
+      } else {
+        return { ...prev, [group]: [option] };
+      }
+    });
+  }
 
   const calculatedOptionPrice = useMemo(() => {
     let price = Number(menu.price);
-    if (optionSize === 'พิเศษ') price += 10;
-    if (optionAddons.includes('ไข่ดาว')) price += 10;
-    if (optionAddons.includes('ไข่เจียว')) price += 15;
-    return Math.round(price); 
-  }, [menu.price, optionSize, optionAddons]);
-
-  function toggleAddon(addon: string) {
-    setOptionAddons(prev => prev.includes(addon) ? prev.filter(a => a !== addon) : [...prev, addon]);
-  }
+    Object.values(selectedOptions).flat().forEach(opt => {
+      price += Number(opt.extra_price || 0);
+    });
+    return Math.round(price);
+  }, [menu.price, selectedOptions]);
 
   function handleConfirm() {
-    let addonsText = optionAddons.length > 0 ? ` +${optionAddons.join('+')}` : '';
-    let sizeText = optionSize === 'พิเศษ' ? '(พิเศษ)' : '';
-    let spicyText = `[เผ็ด${optionSpicy}]`;
-    let noteText = optionNote ? ` *${optionNote}*` : '';
-    
-    const customName = `${menu.name} ${sizeText} ${spicyText}${addonsText}${noteText}`.trim();
+    for (const [groupName, options] of Object.entries(groupedOptions)) {
+      const isMultiple = Boolean(Number(options[0].is_multiple));
+      if (!isMultiple) {
+        if (!selectedOptions[groupName] || selectedOptions[groupName].length === 0) {
+          alert(`กรุณาเลือกตัวเลือกในหมวดหมู่ "${groupName}" ด้วยครับ`);
+          return;
+        }
+      }
+    }
+
+    let customName = menu.name;
+    Object.entries(selectedOptions).forEach(([group, opts]) => {
+      if (opts.length > 0) {
+        const optionNames = opts.map(o => o.option_name).join(', ');
+        customName += ` [${optionNames}]`;
+      }
+    });
+
+    if (optionNote) customName += ` *${optionNote}*`;
+
     const cartItemId = `${menu.id}-${customName}`;
 
     onConfirm({
@@ -517,7 +657,7 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 1100 }}>
       <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: '32px 32px 0 0', padding: '25px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 -10px 25px rgba(37, 99, 235, 0.15)' }}>
-        
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
           <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: '#1E3A8A' }}>{menu.name}</h2>
           <button onClick={onClose} style={{ background: '#F4F8FF', border: 'none', cursor: 'pointer', color: '#2563EB', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -526,59 +666,44 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 25 }}>
-          {/* ความเผ็ด */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <Flame size={18} color="#2563EB" /> ระดับความเผ็ด <span style={{ color: '#EF4444' }}>*</span>
-            </h4>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {['ไม่ใส่พริก', 'น้อย', 'ปกติ', 'มาก'].map(level => (
-                <button key={level} onClick={() => setOptionSpicy(level)} style={pillStyle(optionSpicy === level)}>{level}</button>
-              ))}
-            </div>
-          </div>
+          {Object.entries(groupedOptions).map(([groupName, options]) => {
+            const isMultiple = Boolean(Number(options[0].is_multiple));
+            return (
+              <div key={groupName}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
+                  {isMultiple ? <CheckSquare size={18} color="#2563EB" /> : <CheckCircle2 size={18} color="#2563EB" />} 
+                  {groupName} {!isMultiple && <span style={{ color: '#EF4444' }}>*</span>}
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {options.map(opt => {
+                    const isSelected = selectedOptions[groupName]?.some(o => o.id === opt.id);
+                    const priceText = Number(opt.extra_price) > 0 ? ` (+${opt.extra_price} ฿)` : '';
+                    return (
+                      <button key={opt.id} onClick={() => toggleOption(groupName, opt)} style={pillStyle(isSelected)}>
+                        {opt.option_name}{priceText}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
 
-          {/* ขนาด */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <Maximize2 size={18} color="#2563EB" /> เลือกขนาด
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setOptionSize('ธรรมดา')} style={pillStyle(optionSize === 'ธรรมดา')}>ธรรมดา</button>
-              <button onClick={() => setOptionSize('พิเศษ')} style={pillStyle(optionSize === 'พิเศษ')}>พิเศษ (+10 ฿)</button>
-            </div>
-          </div>
-
-          {/* ท็อปปิ้ง */}
-          <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <PlusCircle size={18} color="#2563EB" /> เพิ่มท็อปปิ้ง
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => toggleAddon('ไข่ดาว')} style={pillStyle(optionAddons.includes('ไข่ดาว'))}>+ ไข่ดาว (+10 ฿)</button>
-              <button onClick={() => toggleAddon('ไข่เจียว')} style={pillStyle(optionAddons.includes('ไข่เจียว'))}>+ ไข่เจียว (+15 ฿)</button>
-            </div>
-          </div>
-
-          {/* หมายเหตุ */}
           <div>
             <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
               <PenLine size={18} color="#2563EB" /> หมายเหตุเพิ่มเติม
             </h4>
-            <input 
-              type="text" 
-              placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..." 
-              value={optionNote} 
+            <input
+              type="text"
+              placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..."
+              value={optionNote}
               onChange={(e) => setOptionNote(e.target.value)}
               style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #BFDBFE', outline: 'none', background: '#F4F8FF', boxSizing: 'border-box', fontSize: '0.95rem', color: '#1E3A8A' }}
             />
           </div>
         </div>
 
-        <button 
-          onClick={handleConfirm}
-          style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', marginTop: 30, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)' }}
-        >
+        <button onClick={handleConfirm} style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', marginTop: 30, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)' }}>
           เพิ่มลงตะกร้า • {calculatedOptionPrice.toLocaleString()} ฿
         </button>
       </div>

@@ -2,18 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Settings, Shield, Save, Loader2, Server, Wrench, AlertTriangle } from 'lucide-react';
+import { Settings, Shield, Save, Loader2, Server, Wrench, AlertTriangle, Bike } from 'lucide-react';
 
 interface SystemSettings {
   max_failed_logins: string;
   maintenance_mode: string;
+  delivery_fee: string; 
+  delivery_fee_per_km: string;
 }
 
 export default function AdminSettingsPage() {
   const { data: session, status } = useSession();
   const [formData, setFormData] = useState<SystemSettings>({ 
     max_failed_logins: '5',
-    maintenance_mode: 'false'
+    maintenance_mode: 'false',
+    delivery_fee: '0',
+    delivery_fee_per_km: '0'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,7 +29,9 @@ export default function AdminSettingsPage() {
         .then(data => {
           setFormData({ 
             max_failed_logins: data.max_failed_logins || '5',
-            maintenance_mode: data.maintenance_mode || 'false'
+            maintenance_mode: data.maintenance_mode || 'false',
+            delivery_fee: data.delivery_fee || '0',
+            delivery_fee_per_km: data.delivery_fee_per_km || '0'
           });
           setLoading(false);
         })
@@ -98,7 +104,6 @@ export default function AdminSettingsPage() {
                 </p>
               </div>
               
-              {/* Toggle Switch */}
               <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input 
                   type="checkbox" 
@@ -112,7 +117,53 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Section 2: Security Settings */}
+        {/* Section 2: Store & Delivery Settings */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
+            <Bike className="text-orange-500" size={24} />
+            <h2 className="font-bold text-lg text-white">การตั้งค่าการจัดส่ง (Delivery)</h2>
+          </div>
+          
+          <div className="p-6 md:p-8 space-y-4">
+            {/* ค่าจัดส่งเริ่มต้น (เปลี่ยนคำอธิบายให้ชัดเจน) */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex-1">
+                <p className="font-bold text-white text-base">ค่าจัดส่งเริ่มต้น (ครอบคลุม 2 กม. แรก)</p>
+                <p className="text-sm text-slate-500 mt-1">ค่าจัดส่งพื้นฐานสำหรับระยะทาง 0 - 2 กิโลเมตรแรก</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={formData.delivery_fee} 
+                  onChange={(e) => setFormData({ ...formData, delivery_fee: e.target.value })}
+                  className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-orange-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" 
+                />
+                <span className="text-slate-400 font-bold w-12">บาท</span>
+              </div>
+            </div>
+
+            {/* ค่าจัดส่งเพิ่มเติมต่อกิโลเมตร (เปลี่ยนคำอธิบายให้ชัดเจน) */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex-1">
+                <p className="font-bold text-white text-base">ค่าจัดส่งตามระยะทาง (ส่วนเกินจาก 2 กม.)</p>
+                <p className="text-sm text-slate-500 mt-1">หากระยะทางเกิน 2 กิโลเมตร ระบบจะนำ "ระยะทางส่วนเกิน" มาคูณกับเรทนี้เพื่อบวกเพิ่มในค่าจัดส่ง</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={formData.delivery_fee_per_km} 
+                  onChange={(e) => setFormData({ ...formData, delivery_fee_per_km: e.target.value })}
+                  className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-orange-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" 
+                />
+                <span className="text-slate-400 font-bold w-16">บาท/กม.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Security Settings */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
             <Shield className="text-emerald-500" size={24} />
@@ -134,7 +185,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setFormData({ ...formData, max_failed_logins: e.target.value })}
                   className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" 
                 />
-                <span className="text-slate-400 font-bold">ครั้ง</span>
+                <span className="text-slate-400 font-bold w-12">ครั้ง</span>
               </div>
             </div>
           </div>

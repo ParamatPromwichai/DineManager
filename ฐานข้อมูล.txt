@@ -258,3 +258,55 @@ VALUES ('max_failed_logins', '5', 'จำนวนครั้งที่ล็
 
 INSERT INTO system_settings (setting_key, setting_value, description) 
 VALUES ('maintenance_mode', 'false', 'เปิดโหมดปิดปรับปรุงระบบ (ลูกค้า/ร้านค้า จะล็อกอินไม่ได้)');
+
+
+
+
+
+
+
+-- ==========================================
+-- สเต็ปที่ 1: สร้างตารางหมวดหมู่อาหาร (Categories)
+-- ==========================================
+CREATE TABLE categories (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  sort_order INT DEFAULT 0 -- ใช้สำหรับจัดเรียงลำดับหมวดหมู่
+);
+
+-- เพิ่มหมวดหมู่พื้นฐานให้ระบบ
+INSERT INTO categories (name, sort_order) VALUES 
+('อาหารจานเดียว', 1), 
+('เครื่องดื่ม', 2), 
+('ของทานเล่น', 3), 
+('ของหวาน', 4);
+
+-- ==========================================
+-- สเต็ปที่ 2: อัปเกรดตาราง menus เดิม
+-- ==========================================
+-- เพิ่มคอลัมน์ category_id (เชื่อมกับตารางหมวดหมู่) และ description (คำอธิบาย)
+ALTER TABLE menus
+ADD COLUMN category_id INT DEFAULT NULL AFTER id,
+ADD COLUMN description TEXT NULL AFTER name,
+ADD FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL;
+
+-- ==========================================
+-- สเต็ปที่ 3: สร้างตารางตัวเลือกเสริม / ท็อปปิ้ง (Menu Options)
+-- ==========================================
+CREATE TABLE menu_options (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  menu_id INT NOT NULL,
+  option_group VARCHAR(100) NOT NULL, -- ชื่อกลุ่มตัวเลือก เช่น 'ระดับความเผ็ด', 'ขนาด', 'ท็อปปิ้ง'
+  option_name VARCHAR(100) NOT NULL,  -- ชื่อตัวเลือก เช่น 'ปกติ', 'พิเศษ', 'ไข่ดาว'
+  extra_price DECIMAL(10,2) DEFAULT 0, -- ราคาที่ต้องบวกเพิ่ม (เช่น ไข่ดาว +10)
+  is_multiple BOOLEAN DEFAULT FALSE,  -- เลือกได้หลายข้อหรือไม่ (เช่น ท็อปปิ้ง=TRUE, ขนาด=FALSE)
+  FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE
+);
+
+-- (ตัวอย่าง) การเพิ่มท็อปปิ้งไข่ดาวและขนาดพิเศษ ให้เมนูที่ 1
+-- INSERT INTO menu_options (menu_id, option_group, option_name, extra_price, is_multiple) 
+-- VALUES 
+-- (1, 'ขนาด', 'ธรรมดา', 0, FALSE),
+-- (1, 'ขนาด', 'พิเศษ', 10, FALSE),
+-- (1, 'ท็อปปิ้ง', 'ไข่ดาว', 10, TRUE),
+-- (1, 'ท็อปปิ้ง', 'ไข่เจียว', 15, TRUE);

@@ -1,47 +1,33 @@
 import NextAuth, { NextAuthOptions } from "next-auth"; 
 import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials"; 
+import CredentialsProvider from "next-auth/providers/credentials"; // ➕ นำเข้า Credentials Provider
 import { db } from "@/lib/db";
 import { cookies } from "next/headers"; 
-import bcrypt from 'bcrypt'; 
+import bcrypt from 'bcrypt'; // ➕ นำเข้า bcrypt สำหรับเช็ครหัสผ่าน
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    // 🌐 1. ล็อกอินผ่าน Google
+    // 🌐 1. ล็อกอินผ่าน Google (ของเดิมของคุณ)
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
 
-    // 🔐 2. ล็อกอินผ่าน Username/Password
+    // 🔐 2. ล็อกอินผ่าน Username/Password (ย้ายจากไฟล์ API เดิมมาไว้ตรงนี้)
     CredentialsProvider({
       name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
         recaptchaToken: { type: "text" },
-        loginType: { type: "text" }
+        loginType: { type: "text" } // รับค่าว่าล็อกอินมาจากหน้าลูกค้า หรือ ร้านค้า
       },
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password || !credentials?.recaptchaToken) {
           throw new Error('ข้อมูลไม่ครบถ้วน');
         }
 
-        // 🟢 ดึงค่าตั้งค่าระบบจากฐานข้อมูล (Dynamic Config)
-        const [settingsResult]: any = await db.query('SELECT setting_key, setting_value FROM system_settings');
-        const settings = settingsResult.reduce((acc: any, curr: any) => {
-          acc[curr.setting_key] = curr.setting_value;
-          return acc;
-        }, {});
-
-        const MAX_ATTEMPTS = parseInt(settings.max_failed_logins || '5', 10);
-        const isMaintenance = settings.maintenance_mode === 'true';
-
-        // 🟢 เช็คโหมดปิดปรับปรุง (ถ้าเปิดอยู่ เฉพาะ Admin เท่านั้นที่เข้าได้)
-        if (isMaintenance && credentials.loginType !== 'admin') {
-          throw new Error('ระบบกำลังปิดปรับปรุงชั่วคราว กรุณาติดต่อ Admin');
-        }
-
+        // ดึง IP (ถ้าหาไม่เจอให้ใส่ unknown)
         const ip = req.headers?.['x-forwarded-for'] || 'unknown';
         const userAgent = req.headers?.['user-agent'] || 'unknown';
 
@@ -57,7 +43,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error('ตรวจพบการกระทำที่น่าสงสัย (Spam/Bot)');
         }
 
-        // 🔎 ค้นหา User
+        // ➕ (เพิ่มใหม่) ดึงค่าจาก system_settings เพื่อใช้ดักโหมดปรับปรุงและจำนวนครั้งที่ผิด
+        const [settingsResult]: any = await db.query('SELECT setting_key, setting_value FROM system_settings');
+        const settings = settingsResult.reduce((acc: any, curr: any) => {
+          acc[curr.setting_key] = curr.setting_value;
+          return acc;
+        }, {});
+        const MAX_ATTEMPTS = parseInt(settings.max_failed_logins || '5', 10);
+        const isMaintenance = settings.maintenance_mode === 'true';
+
+        // ➕ (เพิ่มใหม่) ถ้าเปิดโหมดปรับปรุงอยู่ บล็อกทุกคนยกเว้น Admin
+        if (isMaintenance && credentials.loginType !== 'admin') {
+          throw new Error('ระบบกำลังปิดปรับปรุงชั่วคราว กรุณาติดต่อ Admin');
+        }
+
+        // 🔎 ค้นหา User ในฐานข้อมูล
         const [users]: any = await db.query('SELECT * FROM users WHERE username = ?', [credentials.username]);
         
         if (users.length === 0) {
@@ -72,7 +72,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อ Admin');
         }
 
-        // ✅ ตรวจสอบสิทธิ์ (Role)
+        // ✅ ตรวจสอบสิทธิ์ (Role) ว่าตรงกับหน้าที่กำลังล็อกอินหรือไม่
         if (credentials.loginType === 'shop' && user.role !== 'shop') {
           await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'failed_wrong_role', ip, userAgent]);
           throw new Error('หน้านี้สำหรับร้านค้าเข้าสู่ระบบเท่านั้น');
@@ -81,13 +81,23 @@ export const authOptions: NextAuthOptions = {
           await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'failed_wrong_role', ip, userAgent]);
           throw new Error('หน้านี้สำหรับลูกค้าเข้าสู่ระบบเท่านั้น');
         }
+        // ➕ (เพิ่มใหม่) ตรวจสอบแอดมิน เพื่ออุดช่องโหว่ไม่ให้ลูกค้าเข้าหน้าแอดมินได้
+        if (credentials.loginType === 'admin' && user.role !== 'admin') {
+          await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'failed_wrong_role', ip, userAgent]);
+          throw new Error('คุณไม่มีสิทธิ์เข้าถึงระบบผู้ดูแลระบบ');
+        }
 
         // 🔑 ตรวจสอบ Password
         const isMatch = await bcrypt.compare(credentials.password, user.password);
 
         if (!isMatch) {
+          // ใช้ MAX_ATTEMPTS ที่ดึงมาจาก DB แล้วแทนการล็อกเลข 5
           const newFailedAttempts = (user.failed_attempts || 0) + 1;
-          const isNowLocked = newFailedAttempts >= MAX_ATTEMPTS;
+          let isNowLocked = false;
+
+          if (newFailedAttempts >= MAX_ATTEMPTS) {
+            isNowLocked = true; 
+          }
 
           await db.query('UPDATE users SET failed_attempts = ?, is_locked = ? WHERE id = ?', [newFailedAttempts, isNowLocked, user.id]);
           await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'failed_wrong_password', ip, userAgent]);
@@ -96,20 +106,24 @@ export const authOptions: NextAuthOptions = {
           throw new Error(`รหัสผ่านไม่ถูกต้อง (เหลือโอกาสอีก ${MAX_ATTEMPTS - newFailedAttempts} ครั้ง)`);
         }
 
-        // 🎉 ล็อกอินผ่าน! เคลียร์จำนวนที่ใส่ผิด
+        // 🎉 ล็อกอินผ่าน! เคลียร์จำนวนที่ใส่ผิด และบันทึก Log
         await db.query('UPDATE users SET failed_attempts = 0 WHERE id = ?', [user.id]);
         await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'success', ip, `Credentials (${credentials.loginType})`]);
 
+        // ส่งข้อมูลผู้ใช้กลับไปให้ NextAuth ทำ Session
         return { id: user.id.toString(), email: user.email, name: user.username, role: user.role };
       }
     })
   ],
   callbacks: {
+    // 🌐 ฟังก์ชันนี้จะทำงานอัตโนมัติเมื่อผู้ใช้กดล็อกอินสำเร็จ (ทั้ง Google และแบบพิมพ์รหัส)
     async signIn({ user, account, profile }) {
+      // 📌 จัดการเฉพาะส่วนของ Google
       if (account?.provider === "google") {
         try {
-          const cookieStore = await cookies();
-          const loginType = cookieStore.get('login_type')?.value || 'customer';
+          let currentUserId = null;
+          const cookieStore = cookies();
+          const loginType = (await cookieStore).get('login_type')?.value || 'customer';
           const redirectErrorPath = loginType === 'shop' ? '/login/shop' : '/login';
 
           const [existingUsers]: any = await db.query("SELECT * FROM users WHERE email = ?", [user.email]);
@@ -125,25 +139,31 @@ export const authOptions: NextAuthOptions = {
               "INSERT INTO users (username, email, name, role) VALUES (?, ?, ?, ?)",
               [randomUsername, user.email, user.name, defaultRole]
             );
-            await db.query("INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)", [user.email, result.insertId, 'success', `social_login_${account.provider}`, `NextAuth (customer)`]);
+            currentUserId = result.insertId;
           } else {
             if (existingUsers[0].is_locked) return `${redirectErrorPath}?error=locked`; 
             if (existingUsers[0].role !== loginType) return `${redirectErrorPath}?error=wrong_role`;
 
-            await db.query(
-              "INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)",
-              [user.email, existingUsers[0].id, 'success', `social_login_${account.provider}`, `NextAuth (${loginType})`]
-            );
+            currentUserId = existingUsers[0].id;
           }
+
+          await db.query(
+            "INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)",
+            [user.email, currentUserId, 'success', `social_login_${account.provider}`, `NextAuth (${loginType})`]
+          );
+
           return true; 
         } catch (error) {
           console.error("Database Error during Social Login:", error);
           return false;
         }
       }
+      
+      // 📌 ถ้าเป็น Credentials (พิมพ์รหัสผ่าน) จะผ่าน authorize มาแล้ว ให้ผ่านได้เลย
       return true;
     },
     
+    // 🚀 เพิ่มฟังก์ชัน redirect เพื่อบังคับให้ NextAuth วิ่งไปตาม callbackUrl อย่างแม่นยำ
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
@@ -153,8 +173,10 @@ export const authOptions: NextAuthOptions = {
       return baseUrl;
     },
     
+    // 📦 นำข้อมูล Role และ User ID ยัดใส่ Session
     async jwt({ token, user, account }) {
       if (user) {
+        // ดึง Role สำหรับ Google
         if (account?.provider === "google" && user.email) {
           const [dbUser]: any = await db.query("SELECT id, role FROM users WHERE email = ?", [user.email]);
           if (dbUser.length > 0) {
@@ -162,6 +184,7 @@ export const authOptions: NextAuthOptions = {
             token.role = dbUser[0].role;
           }
         } 
+        // ดึง Role สำหรับ Credentials (Username/Password)
         else if (account?.provider === "credentials") {
           token.id = user.id;
           token.role = (user as any).role;
@@ -178,6 +201,7 @@ export const authOptions: NextAuthOptions = {
     }
   },
   events: {
+    // ล้างคุกกี้เมื่อล็อกอินสำเร็จเพื่อป้องกันไม่ให้หน้าเว็บจำสถานะผิด
     async signIn() {
       (await cookies()).delete('login_type');
     }
