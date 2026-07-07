@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
   }
 
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY || '6LcajQEtAAAAAKAjdBEBS8exYCgwC08jNtc64NWq';
   if (!secretKey) {
     console.error("🚨 Missing RECAPTCHA_SECRET_KEY in .env file");
     return NextResponse.json({ message: 'การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด' }, { status: 500 });

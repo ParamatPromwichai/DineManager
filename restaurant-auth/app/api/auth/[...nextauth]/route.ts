@@ -32,7 +32,7 @@ export const authOptions: NextAuthOptions = {
         const userAgent = req.headers?.['user-agent'] || 'unknown';
 
         // 🛡️ เช็ค reCAPTCHA
-        const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+        const secretKey = process.env.RECAPTCHA_SECRET_KEY || '6LcajQEtAAAAAKAjdBEBS8exYCgwC08jNtc64NWq';
         if (!secretKey) throw new Error('การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด');
 
         const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${credentials.recaptchaToken}`;
@@ -67,9 +67,9 @@ export const authOptions: NextAuthOptions = {
 
         const user = users[0];
 
-        // 🛑 เช็คว่าโดนระงับบัญชีหรือไม่
+        // 🛑 เช็คว่าโดนระงับบัญชีหรือไม่ หรือรอการอนุมัติ
         if (user.is_locked) {
-          throw new Error('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อ Admin');
+          throw new Error('บัญชีของคุณรอการอนุมัติ หรือถูกระงับชั่วคราว กรุณาติดต่อ Admin');
         }
 
         // ✅ ตรวจสอบสิทธิ์ (Role) ว่าตรงกับหน้าที่กำลังล็อกอินหรือไม่
@@ -124,22 +124,43 @@ export const authOptions: NextAuthOptions = {
           let currentUserId = null;
           const cookieStore = cookies();
           const loginType = (await cookieStore).get('login_type')?.value || 'customer';
+          const authAction = (await cookieStore).get('google_auth_action')?.value || 'login';
           const redirectErrorPath = loginType === 'shop' ? '/login/shop' : '/login';
 
           const [existingUsers]: any = await db.query("SELECT * FROM users WHERE email = ?", [user.email]);
 
           if (existingUsers.length === 0) {
-            if (loginType === 'shop') return `${redirectErrorPath}?error=not_found`;
+            if (authAction === 'login') {
+              if (loginType === 'shop') return `${redirectErrorPath}?error=not_found`;
+              return `${redirectErrorPath}?error=not_found_customer`;
+            }
 
             const baseUsername = user.email?.split("@")[0] || "user";
             const randomUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
-            const defaultRole = "customer";
+            const defaultRole = loginType === 'shop' ? 'shop' : 'customer';
+            
+            let isLocked = 0;
+            if (defaultRole === 'shop') {
+              try {
+                const [settingsResultLocal]: any = await db.query('SELECT setting_value FROM system_settings WHERE setting_key = "require_shop_approval"');
+                const requireApproval = settingsResultLocal.length > 0 ? settingsResultLocal[0].setting_value === 'true' : true;
+                isLocked = requireApproval ? 1 : 0;
+              } catch (err) {
+                console.error("Error fetching system settings:", err);
+                isLocked = 1;
+              }
+            }
 
             const [result]: any = await db.query(
-              "INSERT INTO users (username, email, name, role) VALUES (?, ?, ?, ?)",
-              [randomUsername, user.email, user.name, defaultRole]
+              "INSERT INTO users (username, email, name, role, is_locked) VALUES (?, ?, ?, ?, ?)",
+              [randomUsername, user.email, user.name, defaultRole, isLocked]
             );
             currentUserId = result.insertId;
+
+            // If shop just registered, redirect to login page with locked error (pending approval)
+            if (isLocked) {
+              return `${redirectErrorPath}?error=locked`;
+            }
           } else {
             if (existingUsers[0].is_locked) return `${redirectErrorPath}?error=locked`; 
             if (existingUsers[0].role !== loginType) return `${redirectErrorPath}?error=wrong_role`;

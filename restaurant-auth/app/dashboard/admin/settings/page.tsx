@@ -7,17 +7,19 @@ import { Settings, Shield, Save, Loader2, Server, Wrench, AlertTriangle, Bike } 
 interface SystemSettings {
   max_failed_logins: string;
   maintenance_mode: string;
-  delivery_fee: string; 
+  delivery_fee: string;
   delivery_fee_per_km: string;
+  require_shop_approval: string;
 }
 
 export default function AdminSettingsPage() {
   const { data: session, status } = useSession();
-  const [formData, setFormData] = useState<SystemSettings>({ 
+  const [formData, setFormData] = useState<SystemSettings>({
     max_failed_logins: '5',
     maintenance_mode: 'false',
     delivery_fee: '0',
-    delivery_fee_per_km: '0'
+    delivery_fee_per_km: '0',
+    require_shop_approval: 'true'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,11 +29,12 @@ export default function AdminSettingsPage() {
       fetch('/api/admin/settings')
         .then(res => res.json())
         .then(data => {
-          setFormData({ 
+          setFormData({
             max_failed_logins: data.max_failed_logins || '5',
             maintenance_mode: data.maintenance_mode || 'false',
             delivery_fee: data.delivery_fee || '0',
-            delivery_fee_per_km: data.delivery_fee_per_km || '0'
+            delivery_fee_per_km: data.delivery_fee_per_km || '0',
+            require_shop_approval: data.require_shop_approval || 'true'
           });
           setLoading(false);
         })
@@ -42,7 +45,7 @@ export default function AdminSettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const res = await fetch('/api/admin/settings', {
         method: 'PATCH',
@@ -63,6 +66,7 @@ export default function AdminSettingsPage() {
   };
 
   const isMaintenance = formData.maintenance_mode === 'true';
+  const requireShopApproval = formData.require_shop_approval === 'true';
 
   if (status === 'loading' || loading) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={40} /></div>;
@@ -188,6 +192,28 @@ export default function AdminSettingsPage() {
                 <span className="text-slate-400 font-bold w-12">ครั้ง</span>
               </div>
             </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800 mt-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-white text-base">ระบบอนุมัติร้านค้าใหม่ (Shop Approval)</p>
+                  {requireShopApproval && <span className="bg-emerald-500 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded uppercase flex items-center gap-1">Active</span>}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">
+                  เมื่อเปิดใช้งาน บัญชีร้านค้าใหม่จะถูกระงับชั่วคราวและต้องรอให้ Admin ทำการอนุมัติก่อนจึงจะสามารถเข้าใช้งานระบบได้
+                </p>
+              </div>
+              
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input 
+                  type="checkbox" 
+                  checked={requireShopApproval} 
+                  onChange={(e) => setFormData({ ...formData, require_shop_approval: e.target.checked ? 'true' : 'false' })}
+                  className="sr-only peer" 
+                />
+                <div className="w-14 h-7 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -202,7 +228,7 @@ export default function AdminSettingsPage() {
           </button>
         </div>
 
-      </form>
-    </div>
+      </form >
+    </div >
   );
 }

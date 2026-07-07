@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { Activity, Users, ShieldAlert, Server, LogOut, Menu, X, Shield } from 'lucide-react';
+import { Activity, Users, ShieldAlert, Server, LogOut, Menu, X, Shield, Store } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Command Center', href: '/dashboard/admin', icon: Activity },
     { name: 'จัดการผู้ใช้งาน', href: '/dashboard/admin/users', icon: Users },
+    { name: 'อนุมัติร้านค้า', href: '/dashboard/admin/approvals', icon: Store },
     { name: 'ตรวจสอบพฤติกรรม', href: '/dashboard/admin/audit', icon: ShieldAlert },
     { name: 'ตั้งค่าระบบ', href: '/dashboard/admin/settings', icon: Server },
   ];

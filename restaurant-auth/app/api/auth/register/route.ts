@@ -11,7 +11,7 @@ const isValidUsername = (username: string) => {
 
 export async function POST(req: Request) {
   // รับ recaptchaToken เพิ่มเข้ามา
-  const { username, password, recaptchaToken } = await req.json();
+  const { username, password, recaptchaToken, role } = await req.json();
 
   if (!username || !password || !recaptchaToken) {
     return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
@@ -55,14 +55,30 @@ export async function POST(req: Request) {
   }
 
   const hash = await bcrypt.hash(password, 10);
-  const defaultRole = 'customer'; 
+  const defaultRole = role === 'shop' ? 'shop' : 'customer';
+
+  let isLocked = 0;
+  if (defaultRole === 'shop') {
+    try {
+      const [settings]: any = await db.query('SELECT setting_value FROM system_settings WHERE setting_key = "require_shop_approval"');
+      const requireApproval = settings.length > 0 ? settings[0].setting_value === 'true' : true; // Default true
+      isLocked = requireApproval ? 1 : 0;
+    } catch (err) {
+      console.error("Error fetching system settings:", err);
+      isLocked = 1; // Default to safe (locked) on error
+    }
+  }
 
   try {
     await db.query(
-      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [username, hash, defaultRole]
+      'INSERT INTO users (username, password, role, is_locked) VALUES (?, ?, ?, ?)',
+      [username, hash, defaultRole, isLocked]
     );
 
+    if (defaultRole === 'shop') {
+      return NextResponse.json({ message: 'สมัครร้านค้าสำเร็จ กรุณารอ Admin อนุมัติบัญชีของคุณก่อนเข้าใช้งาน' }, { status: 201 });
+    }
+    
     return NextResponse.json({ message: 'สมัครสมาชิกสำเร็จ' }, { status: 201 });
     
   } catch (err: any) {

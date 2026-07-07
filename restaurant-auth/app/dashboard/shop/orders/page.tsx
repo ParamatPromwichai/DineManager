@@ -66,7 +66,8 @@ export default function ManageOrdersPage() {
     if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
+    // ⚡ ดึงข้อมูลทุกๆ 3 วินาที (ลดจาก 10 วินาที) เพื่อความรวดเร็ว
+    const interval = setInterval(fetchOrders, 3000);
     return () => clearInterval(interval);
   }, [status, session]);
 

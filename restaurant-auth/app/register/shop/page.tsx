@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 export default function ShopRegisterPage() {
   const router = useRouter();
@@ -10,6 +11,13 @@ export default function ShopRegisterPage() {
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleSocialRegister = async (provider: 'google') => {
+    setLoading(true);
+    document.cookie = "login_type=shop; path=/; max-age=120";
+    document.cookie = "google_auth_action=register; path=/";
+    await signIn(provider, { callbackUrl: '/dashboard/shop' });
+  };
 
   async function handleRegister() {
     if (!username || !password || !shopName) {
@@ -37,8 +45,8 @@ export default function ShopRegisterPage() {
     setLoading(false);
 
     if (res.ok) {
-      alert('สมัครร้านค้าสำเร็จ');
-      router.push('/login');
+      alert(data.message || 'สมัครร้านค้าสำเร็จ');
+      router.push('/login/shop');
     } else {
       alert(data.message || 'เกิดข้อผิดพลาด');
     }
@@ -78,6 +86,16 @@ export default function ShopRegisterPage() {
         style={{ width: '100%', padding: 10 }}
       >
         {loading ? 'กำลังสมัคร...' : 'สมัครร้านค้า'}
+      </button>
+
+      <div style={{ textAlign: 'center', margin: '15px 0' }}>หรือ</div>
+
+      <button
+        onClick={() => handleSocialRegister('google')}
+        disabled={loading}
+        style={{ width: '100%', padding: 10, backgroundColor: '#4285F4', color: 'white', border: 'none', cursor: 'pointer' }}
+      >
+        สมัครร้านค้าด้วย Google
       </button>
     </div>
   );

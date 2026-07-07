@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { signIn } from 'next-auth/react'; 
+import { signIn } from 'next-auth/react';
+import Link from 'next/link';
 
 function LoginContent() {
   const router = useRouter();
@@ -38,6 +39,8 @@ function LoginContent() {
       alert("บัญชีของคุณถูกระงับ กรุณาติดต่อ Admin");
     } else if (error === 'AccessDenied' || error === 'wrong_role') {
       alert("หน้านี้สำหรับลูกค้าเข้าสู่ระบบเท่านั้นครับ");
+    } else if (error === 'not_found_customer') {
+      alert("ไม่พบบัญชีนี้ในระบบ กรุณาสมัครสมาชิกก่อน");
     }
   }, [searchParams]);
 
@@ -55,7 +58,7 @@ function LoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
+      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login' }).then(async function (token: string) {
         try {
@@ -88,6 +91,7 @@ function LoginContent() {
 
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
+    document.cookie = "google_auth_action=login; path=/";
     await signIn(provider, { callbackUrl: '/dashboard/customer' });
   };
 
@@ -137,7 +141,7 @@ function LoginContent() {
   return (
     <div className="clean-container">
       <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`} 
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
         strategy="afterInteractive" 
       />
 
@@ -157,6 +161,10 @@ function LoginContent() {
         .outline-btn { width: 100%; padding: 14px; margin-top: 10px; background: transparent; color: #0ea5e9; border: 1.5px solid #0ea5e9; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
         .outline-btn:hover:not(:disabled) { background: #f0f9ff; transform: translateY(-2px); }
         .outline-btn:disabled { color: #94a3b8; border-color: #cbd5e1; cursor: not-allowed; }
+
+        .register-link-container { margin-top: 20px; font-size: 14px; color: #64748b; text-align: center; }
+        .register-link { color: #0ea5e9; text-decoration: none; font-weight: 600; transition: color 0.2s ease; }
+        .register-link:hover { color: #0284c7; text-decoration: underline; }
 
         .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 12px; }
         .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
@@ -221,14 +229,7 @@ function LoginContent() {
           {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
         </button>
 
-        {/* 🟢 ปุ่มสมัครสมาชิก */}
-        <button 
-          className="outline-btn" 
-          onClick={() => router.push('/register')} 
-          disabled={loading}
-        >
-          สมัครสมาชิกใหม่
-        </button>
+
 
         <div className="divider">หรือเข้าสู่ระบบด้วย</div>
         
@@ -244,8 +245,15 @@ function LoginContent() {
             <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
             <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
           </svg>
-          Google
+          เข้าสู่ระบบด้วย Google
         </button>
+
+        <div className="register-link-container">
+          ยังไม่มีบัญชีใช่ไหม?{' '}
+          <Link href="/register" className="register-link">
+            สมัครสมาชิกที่นี่
+          </Link>
+        </div>
       </div>
 
       <div className={`mc-world ${isAngry ? 'paused' : ''}`}>

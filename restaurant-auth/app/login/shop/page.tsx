@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { signIn } from 'next-auth/react'; 
+import Link from 'next/link';
 
 function ShopLoginContent() {
   const router = useRouter();
@@ -20,7 +21,7 @@ function ShopLoginContent() {
   useEffect(() => {
     const error = searchParams.get('error');
     if (error === 'locked') {
-      alert("บัญชีของคุณถูกระงับ กรุณาติดต่อ Admin");
+      alert("บัญชีของคุณรอการอนุมัติ หรือถูกระงับ กรุณาติดต่อ Admin");
     } else if (error === 'wrong_role') {
       alert("อีเมลนี้ไม่ได้ลงทะเบียนเป็นร้านค้าครับ!");
     } else if (error === 'not_found') {
@@ -42,7 +43,7 @@ function ShopLoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
+      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login_shop' }).then(async function (token: string) {
         
@@ -96,7 +97,7 @@ function ShopLoginContent() {
   return (
     <div className="clean-container">
       <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`} 
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
         strategy="afterInteractive" 
       />
 
@@ -120,6 +121,10 @@ function ShopLoginContent() {
         .social-btn { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #334155; }
         .social-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
         .social-icon { width: 20px; height: 20px; }
+
+        .register-link-container { margin-top: 20px; font-size: 14px; color: #b45309; text-align: center; font-weight: 600; }
+        .register-link { color: #f59e0b; text-decoration: none; font-weight: bold; transition: color 0.2s ease; }
+        .register-link:hover { color: #d97706; text-decoration: underline; }
 
         .mc-world { position: absolute; bottom: 5vh; left: -100px; width: 100vw; height: 120px; z-index: 5; pointer-events: none; animation: walkAcross 15s linear infinite; }
         .paused, .paused .c-arm, .paused .c-leg { animation-play-state: paused !important; }
@@ -188,6 +193,13 @@ function ShopLoginContent() {
           </svg>
           Google (สำหรับร้านค้า)
         </button>
+
+        <div className="register-link-container">
+          ยังไม่มีบัญชีร้านค้าใช่ไหม?{' '}
+          <Link href="/register/shop" className="register-link">
+            สมัครสมาชิกร้านค้าที่นี่
+          </Link>
+        </div>
       </div>
 
       <div className={`mc-world ${isAngry ? 'paused' : ''}`}>

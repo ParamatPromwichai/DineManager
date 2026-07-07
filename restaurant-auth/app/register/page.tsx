@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script'; // ➕ นำเข้า Script สำหรับ reCAPTCHA
+import { signIn } from 'next-auth/react';
 
 declare global {
   interface Window {
@@ -21,6 +22,12 @@ export default function CustomerRegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleSocialRegister = async (provider: 'google') => {
+    setLoading(true);
+    document.cookie = "google_auth_action=register; path=/";
+    await signIn(provider, { callbackUrl: '/dashboard/customer' });
+  };
 
   // 🛡️ ระบบประเมินความปลอดภัยของรหัสผ่าน
   let strengthText = 'ง่าย';
@@ -149,6 +156,18 @@ export default function CustomerRegisterPage() {
         .clean-btn:hover:not(:disabled) { background: #0284c7; transform: translateY(-2px); }
         .clean-btn:disabled { background: #94a3b8; cursor: not-allowed; box-shadow: none; }
 
+        .divider { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 12px; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
+        .divider:not(:empty)::before { margin-right: .5em; }
+        .divider:not(:empty)::after { margin-left: .5em; }
+        
+        .social-btn {
+          width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+          display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #e2e8f0; background: #ffffff; color: #334155;
+        }
+        .social-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .social-icon { width: 20px; height: 20px; }
+
         .login-link-container { margin-top: 20px; font-size: 14px; color: #64748b; }
         .login-link { color: #0ea5e9; text-decoration: none; font-weight: 600; transition: color 0.2s ease; }
         .login-link:hover { color: #0284c7; text-decoration: underline; }
@@ -235,6 +254,23 @@ export default function CustomerRegisterPage() {
           disabled={loading || strengthText !== 'ยาก' || password !== confirmPassword || !password}
         >
           {loading ? 'กำลังดำเนินการ...' : 'สมัครสมาชิก'}
+        </button>
+
+        <div className="divider">หรือสมัครสมาชิกด้วย</div>
+        
+        <button 
+          className="social-btn" 
+          onClick={() => handleSocialRegister('google')} 
+          type="button" 
+          disabled={loading}
+        >
+          <svg className="social-icon" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+            <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+            <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+            <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+          </svg>
+          สมัครสมาชิกด้วย Google
         </button>
 
         <div className="login-link-container">

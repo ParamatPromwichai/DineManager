@@ -42,7 +42,7 @@ function AdminLoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY as string;
+      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
       
       window.grecaptcha.execute(siteKey, { action: 'login_admin' }).then(async function (token: string) {
         
@@ -92,7 +92,7 @@ function AdminLoginContent() {
   return (
     <div className="clean-container">
       <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`} 
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
         strategy="afterInteractive" 
       />
 
