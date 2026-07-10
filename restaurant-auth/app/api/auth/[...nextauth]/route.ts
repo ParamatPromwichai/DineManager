@@ -127,7 +127,7 @@ export const authOptions: NextAuthOptions = {
           const authAction = (await cookieStore).get('google_auth_action')?.value || 'login';
           const redirectErrorPath = loginType === 'shop' ? '/login/shop' : '/login';
 
-          const [existingUsers]: any = await db.query("SELECT * FROM users WHERE email = ?", [user.email]);
+          const [existingUsers]: any = await db.query("SELECT * FROM users WHERE email = ? AND role = ?", [user.email, loginType]);
 
           if (existingUsers.length === 0) {
             if (authAction === 'login') {
@@ -163,7 +163,6 @@ export const authOptions: NextAuthOptions = {
             }
           } else {
             if (existingUsers[0].is_locked) return `${redirectErrorPath}?error=locked`; 
-            if (existingUsers[0].role !== loginType) return `${redirectErrorPath}?error=wrong_role`;
 
             currentUserId = existingUsers[0].id;
           }
@@ -199,7 +198,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         // ดึง Role สำหรับ Google
         if (account?.provider === "google" && user.email) {
-          const [dbUser]: any = await db.query("SELECT id, role FROM users WHERE email = ?", [user.email]);
+          const cookieStore = cookies();
+          const loginType = (await cookieStore).get('login_type')?.value || 'customer';
+          
+          const [dbUser]: any = await db.query("SELECT id, role FROM users WHERE email = ? AND role = ?", [user.email, loginType]);
           if (dbUser.length > 0) {
             token.id = dbUser[0].id;
             token.role = dbUser[0].role;

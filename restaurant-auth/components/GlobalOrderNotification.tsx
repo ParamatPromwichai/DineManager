@@ -4,6 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import useSWR, { mutate } from 'swr';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 type OrderItem = { menu_name: string; quantity: number };
 type Order = { id: number; status: string; total_price: number; payment_method: string; items: OrderItem[] };
@@ -19,35 +22,30 @@ export default function GlobalOrderNotification() {
   // 🚨 1. เพิ่ม audioRef เพื่อเก็บ Object เสียงไว้สั่งหยุดทีหลัง
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const checkNewOrders = async () => {
-    try {
-      const res = await fetch('/api/shop/orders');
-      if (!res.ok) return;
-      const orders: Order[] = await res.json();
+  const { data: orders } = useSWR<Order[]>('/api/shop/orders', fetcher, { refreshInterval: 3000 });
 
-      const pendingOrders = orders.filter(o => o.status === 'pending');
-      
-      for (const order of pendingOrders) {
-        if (!notifiedOrders.current.has(order.id)) {
-          
-          // 🚨 2. ตั้งค่าให้เสียงเล่นวนลูป (Loop) ไม่หยุด
-          const audio = new Audio('/sounds/notification.mp3');
-          audio.loop = true; 
-          audio.play().catch(e => console.log('เบราว์เซอร์บล็อคเสียง:', e));
-          
-          // เก็บเสียงลง Ref เพื่อเอาไว้สั่งหยุดตอนกดปุ่ม
-          audioRef.current = audio;
+  useEffect(() => {
+    if (!orders) return;
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    
+    for (const order of pendingOrders) {
+      if (!notifiedOrders.current.has(order.id)) {
+        
+        // 🚨 2. ตั้งค่าให้เสียงเล่นวนลูป (Loop) ไม่หยุด
+        const audio = new Audio('/sounds/notification.mp3');
+        audio.loop = true; 
+        audio.play().catch(e => console.log('เบราว์เซอร์บล็อคเสียง:', e));
+        
+        // เก็บเสียงลง Ref เพื่อเอาไว้สั่งหยุดตอนกดปุ่ม
+        audioRef.current = audio;
 
-          notifiedOrders.current.add(order.id);
-          setTimeLeft(60); 
-          setNewOrder(order);
-          break; 
-        }
+        notifiedOrders.current.add(order.id);
+        setTimeLeft(60); 
+        setNewOrder(order);
+        break; 
       }
-    } catch (error) {
-      console.error('Error checking new orders');
     }
-  };
+  }, [orders]);
 
   // 🚨 3. ฟังก์ชันสำหรับสั่ง "หยุดเสียง"
   const stopAudio = () => {
@@ -73,9 +71,7 @@ export default function GlobalOrderNotification() {
   }, [newOrder, timeLeft]);
 
   useEffect(() => {
-    const interval = setInterval(checkNewOrders, 10000);
     return () => {
-      clearInterval(interval);
       stopAudio(); // 🚨 หยุดเสียงถ้าหน้าต่างนี้ถูกปิดหรือเปลี่ยนหน้า
     };
   }, []);
@@ -102,7 +98,7 @@ export default function GlobalOrderNotification() {
       setTimeLeft(60);
       if (timerRef.current) clearInterval(timerRef.current);
       
-      router.refresh(); 
+      mutate('/api/shop/orders'); // สั่งให้ทุกหน้าที่ดึงออเดอร์ (ด้วย SWR) ทำการ Refresh ทันที
     } catch (error) {
       alert('เกิดข้อผิดพลาด');
     }

@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react'; 
+import useSWR from 'swr';
 import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle } from 'lucide-react';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 type OrderItem = {
   menu_name: string;
@@ -29,7 +32,13 @@ export default function ManageOrdersPage() {
   // 🚨 2. เรียกใช้งาน Session
   const { data: session, status } = useSession();
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
+  const { data: fetchedOrders, error, mutate } = useSWR<Order[]>(
+    isShop ? '/api/shop/orders' : null,
+    fetcher,
+    { refreshInterval: 3000 }
+  );
+  const orders = fetchedOrders || [];
   const [slipPopupOrder, setSlipPopupOrder] = useState<Order | null>(null);
   const [cookedItems, setCookedItems] = useState<Record<number, Record<string, number>>>({});
   const [doneInputs, setDoneInputs] = useState<Record<string, number>>({});
@@ -51,33 +60,19 @@ export default function ManageOrdersPage() {
     }
   }, [status, session, router]);
 
-  const fetchOrders = async () => {
-    try {
-        const res = await fetch('/api/shop/orders');
-        const data = await res.json();
-        setOrders(data);
-    } catch (error) {
-        console.error("Error fetching orders");
-    }
-  };
-
-  // 🚨 4. ให้เริ่มดึงข้อมูลออเดอร์เฉพาะเมื่อยืนยันแล้วว่าเป็น "ร้านค้า"
-  useEffect(() => {
-    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
-
-    fetchOrders();
-    // ⚡ ดึงข้อมูลทุกๆ 3 วินาที (ลดจาก 10 วินาที) เพื่อความรวดเร็ว
-    const interval = setInterval(fetchOrders, 3000);
-    return () => clearInterval(interval);
-  }, [status, session]);
-
   const updateStatus = async (orderId: number, newStatus: string) => {
+    // ⚡ Optimistic Update: อัปเดต UI ทันทีไม่ต้องรอเซิร์ฟเวอร์
+    const optimisticData = orders.map(o => o.id === orderId ? { ...o, status: newStatus as any } : o);
+    mutate(optimisticData, false);
+
     await fetch('/api/shop/orders', {
       method: 'PUT',
       body: JSON.stringify({ id: orderId, status: newStatus }),
       headers: { 'Content-Type': 'application/json' }
     });
-    fetchOrders(); 
+    
+    // โหลดข้อมูลล่าสุดมาทับอีกรอบ
+    mutate(); 
   };
 
   // 🕰️ กรองออเดอร์ และจัดเรียงลำดับใหม่
@@ -231,7 +226,7 @@ export default function ManageOrdersPage() {
                 className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-slate-900 outline-none shadow-sm cursor-pointer"
               />
             </div>
-            <button onClick={fetchOrders} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
+            <button onClick={() => mutate()} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
               <RefreshCw size={18} className="text-slate-600" />
             </button>
           </div>
