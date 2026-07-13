@@ -4,9 +4,16 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react'; 
 import useSWR from 'swr';
-import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History } from 'lucide-react';
+import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+type ActiveBatch = {
+  id: string;
+  menuName: string;
+  amount: number;
+};
 
 type OrderItem = {
   menu_name: string;
@@ -42,12 +49,40 @@ export default function ManageOrdersPage() {
   const [slipPopupOrder, setSlipPopupOrder] = useState<Order | null>(null);
   const [cookedItems, setCookedItems] = useState<Record<number, Record<string, number>>>({});
   const [doneInputs, setDoneInputs] = useState<Record<string, number>>({});
+  const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
   const [readyPopupOrder, setReadyPopupOrder] = useState<Order | null>(null);
   const promptedOrders = useRef<Set<number>>(new Set()); 
 
   const todayDate = new Date().toLocaleDateString('en-CA'); 
-  const [selectedDate, setSelectedDate] = useState<string>(todayDate);
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 📥 2.5 โหลดสถานะเตาและของที่ทำเสร็จแล้วจาก localStorage เพื่อกันรีเฟรชแล้วหาย
+  useEffect(() => {
+    try {
+      const savedCooked = localStorage.getItem('smart_kitchen_cooked');
+      const savedBatches = localStorage.getItem('smart_kitchen_batches');
+      if (savedCooked) setCookedItems(JSON.parse(savedCooked));
+      if (savedBatches) setActiveBatches(JSON.parse(savedBatches));
+    } catch (error) {
+      console.error("Failed to parse kitchen state from localStorage");
+    }
+  }, []);
+
+  // 💾 2.6 บันทึกสถานะลง localStorage เมื่อมีการเปลี่ยนแปลง
+  useEffect(() => {
+    localStorage.setItem('smart_kitchen_cooked', JSON.stringify(cookedItems));
+  }, [cookedItems]);
+
+  useEffect(() => {
+    localStorage.setItem('smart_kitchen_batches', JSON.stringify(activeBatches));
+  }, [activeBatches]);
 
   // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
   useEffect(() => {
@@ -79,19 +114,36 @@ export default function ManageOrdersPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       const orderDate = new Date(order.created_at).toLocaleDateString('en-CA');
-      const isSelectedDate = !selectedDate || orderDate === selectedDate;
+      const isTodayDate = orderDate === todayDate;
       const isUnfinished = order.status !== 'done' && order.status !== 'cancel';
-      return isSelectedDate || isUnfinished;
+      return isTodayDate || isUnfinished;
     }).sort((a, b) => {
-      const aIsFinished = a.status === 'done' || a.status === 'cancel';
-      const bIsFinished = b.status === 'done' || b.status === 'cancel';
+      const getStatusWeight = (status: string) => {
+        if (['pending', 'checking_slip', 'cooking'].includes(status)) return 0;
+        if (status === 'delivery') return 1;
+        return 2; // done, cancel
+      };
 
-      if (aIsFinished && !bIsFinished) return 1;
-      if (!aIsFinished && bIsFinished) return -1;
+      const weightA = getStatusWeight(a.status);
+      const weightB = getStatusWeight(b.status);
+
+      if (weightA !== weightB) {
+        return weightA - weightB;
+      }
       
       return a.id - b.id;
     });
-  }, [orders, selectedDate]);
+  }, [orders, todayDate]);
+
+  const displayedOrders = useMemo(() => {
+    if (activeTab === 'all') return filteredOrders;
+    return filteredOrders.filter(o => o.status === activeTab);
+  }, [filteredOrders, activeTab]);
+
+  const getTabCount = (status: string) => {
+    if (status === 'all') return filteredOrders.length;
+    return filteredOrders.filter(o => o.status === status).length;
+  };
 
   const toggleCustomerInfo = (orderId: number) => {
     setExpandedCustomers(prev => ({ ...prev, [orderId]: !prev[orderId] }));
@@ -99,7 +151,7 @@ export default function ManageOrdersPage() {
 
   const handleAmountChange = (menuName: string, delta: number, max: number) => {
     setDoneInputs(prev => {
-      const current = prev[menuName] || 1;
+      const current = prev[menuName] !== undefined ? prev[menuName] : max;
       let next = current + delta;
       if (next < 1) next = 1;      
       if (next > max) next = max;  
@@ -107,10 +159,21 @@ export default function ManageOrdersPage() {
     });
   };
 
-  const handleBatchDone = (menuName: string, batchAmount: number) => {
+  const handleStartCooking = (menuName: string, amount: number) => {
+    setActiveBatches(prev => [...prev, { id: Date.now().toString() + Math.random(), menuName, amount }]);
+    setDoneInputs(prev => {
+      const next = { ...prev };
+      delete next[menuName];
+      return next;
+    });
+  };
+
+  const handleFinishCooking = (batchId: string, menuName: string, amount: number) => {
+    setActiveBatches(prev => prev.filter(b => b.id !== batchId));
+    
     setCookedItems(prev => {
       const next = { ...prev };
-      let remaining = batchAmount;
+      let remaining = amount;
       const cookingOrders = [...filteredOrders].filter(o => o.status === 'cooking').sort((a, b) => a.id - b.id);
 
       for (const order of cookingOrders) {
@@ -130,7 +193,6 @@ export default function ManageOrdersPage() {
       }
       return next;
     });
-    setDoneInputs(prev => ({ ...prev, [menuName]: 1 }));
   };
 
   useEffect(() => {
@@ -138,7 +200,7 @@ export default function ManageOrdersPage() {
     const cookingOrders = filteredOrders.filter(o => o.status === 'cooking');
     for (const order of cookingOrders) {
       const isComplete = order.items.length > 0 && order.items.every(item => {
-        return (cookedItems[order.id]?.[item.menu_name] || 0) >= item.quantity;
+        return Number(cookedItems[order.id]?.[item.menu_name] || 0) >= Number(item.quantity);
       });
 
       if (isComplete && !promptedOrders.current.has(order.id)) {
@@ -151,26 +213,65 @@ export default function ManageOrdersPage() {
 
   const batchSuggestions = useMemo(() => {
     const cookingOrders = filteredOrders.filter(o => o.status === 'cooking');
-    const itemMap: Record<string, { total: number, orderIds: Set<number> }> = {};
+    
+    const cookingSums: Record<string, number> = {};
+    activeBatches.forEach(b => {
+      cookingSums[b.menuName] = (cookingSums[b.menuName] || 0) + Number(b.amount || 0);
+    });
+
+    const itemMap: Record<string, { total: number, orderBreakdown: Record<number, number>, minRemainingMinutes: number }> = {};
 
     cookingOrders.forEach(order => {
+      const elapsedMinutes = Math.floor((currentTime.getTime() - new Date(order.created_at).getTime()) / 60000);
+      const totalQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const baseCookingTime = 5 * totalQuantity;
+      const queueCount = filteredOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
+      const estimatedTotalMinutes = baseCookingTime + queueCount;
+      
+      // เงื่อนไข: ถ้าสั่ง 1-3 เมนู ไม่ต้องเอาเวลามาจัดลำดับ (Infinity) แต่ถ้า >3 ค่อยจัดลำดับตามเวลา
+      const remainingMinutes = totalQuantity <= 3 ? Infinity : (estimatedTotalMinutes - elapsedMinutes);
+
       order.items.forEach(item => {
-        const cooked = cookedItems[order.id]?.[item.menu_name] || 0;
-        const pending = item.quantity - cooked;
-        if (pending > 0) {
-          if (!itemMap[item.menu_name]) itemMap[item.menu_name] = { total: 0, orderIds: new Set() };
-          itemMap[item.menu_name].total += pending;
-          itemMap[item.menu_name].orderIds.add(order.id);
+        const menuName = item.menu_name;
+        const cooked = Number(cookedItems[order.id]?.[menuName] || 0);
+        let remainingForOrder = Math.max(0, Number(item.quantity) - cooked);
+        
+        if (remainingForOrder > 0) {
+          const currentlyCookingForThisMenu = Number(cookingSums[menuName] || 0);
+          if (currentlyCookingForThisMenu > 0) {
+            const consumedByCooking = Math.min(remainingForOrder, currentlyCookingForThisMenu);
+            remainingForOrder -= consumedByCooking;
+            cookingSums[menuName] -= consumedByCooking;
+          }
+        }
+
+        if (remainingForOrder > 0) {
+          if (!itemMap[menuName]) itemMap[menuName] = { total: 0, orderBreakdown: {}, minRemainingMinutes: Infinity };
+          itemMap[menuName].total += remainingForOrder;
+          itemMap[menuName].orderBreakdown[order.id] = (itemMap[menuName].orderBreakdown[order.id] || 0) + remainingForOrder;
+          if (remainingMinutes < itemMap[menuName].minRemainingMinutes) {
+            itemMap[menuName].minRemainingMinutes = remainingMinutes;
+          }
         }
       });
     });
 
-    return Object.entries(itemMap).map(([menuName, data]) => ({
+    return Object.entries(itemMap)
+      .sort(([, aData], [, bData]) => {
+        if (aData.minRemainingMinutes !== bData.minRemainingMinutes) {
+          return aData.minRemainingMinutes - bData.minRemainingMinutes;
+        }
+        return bData.total - aData.total; // ถ้าเวลาเท่ากัน หรือเป็น Infinity ทั้งคู่ ให้เรียงตามจำนวนรวมมากไปน้อย
+      })
+      .map(([menuName, data]) => ({
       menuName,
       total: data.total,
-      orderIds: Array.from(data.orderIds).sort((a,b)=>a-b).join(', ')
+      orderIds: Object.entries(data.orderBreakdown)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([id, qty]) => `#${id}: ${qty}`)
+        .join(', ')
     }));
-  }, [filteredOrders, cookedItems]);
+  }, [filteredOrders, cookedItems, activeBatches, currentTime]);
 
   const getStatusBadge = (status: string) => {
     const styles: any = {
@@ -217,15 +318,12 @@ export default function ManageOrdersPage() {
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-none">
-              <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="date" 
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-slate-900 outline-none shadow-sm cursor-pointer"
-              />
-            </div>
+            <Link 
+              href="/dashboard/shop/orders/history" 
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all"
+            >
+              <History size={16} /> ประวัติออเดอร์
+            </Link>
             <button onClick={() => mutate()} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
               <RefreshCw size={18} className="text-slate-600" />
             </button>
@@ -233,70 +331,165 @@ export default function ManageOrdersPage() {
         </div>
 
         {/* 👨‍🍳 Smart Kitchen */}
-        {batchSuggestions.length > 0 && (
+        {(batchSuggestions.length > 0 || activeBatches.length > 0) && (
           <div className="bg-white border border-slate-200 rounded-2xl mb-8 shadow-sm overflow-hidden">
-            <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-              <CookingPot size={18} className="text-slate-700" />
-              <h3 className="text-slate-800 font-bold text-sm">คิวหน้าเตา (Smart Kitchen)</h3>
+            <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CookingPot size={18} className="text-slate-700" />
+                <h3 className="text-slate-800 font-bold text-sm">คิวหน้าเตา (Smart Kitchen)</h3>
+              </div>
             </div>
             
             <div className="p-5 grid gap-3">
-              {batchSuggestions.map((sug, idx) => {
-                const currentInput = Math.min(doneInputs[sug.menuName] || 1, sug.total);
-                return (
-                  <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-3 border-b border-slate-50 last:border-0 last:pb-0">
-                    <div>
-                      <div className="font-bold text-slate-800">
-                        {sug.menuName} <span className="text-slate-500 text-sm font-medium ml-1">x {sug.total}</span>
+              {/* === รายการที่กำลังทำอยู่ (Active Batches) === */}
+              {activeBatches.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">กำลังทำบนเตา</h4>
+                  <div className="space-y-2">
+                    {activeBatches.map((batch) => (
+                      <div key={batch.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                        <div>
+                          <div className="font-bold text-blue-900">
+                            {batch.menuName} <span className="text-blue-600 text-sm font-bold ml-1">x {batch.amount}</span>
+                          </div>
+                          <div className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleFinishCooking(batch.id, batch.menuName, batch.amount)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                        >
+                          เสร็จแล้ว
+                        </button>
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5">Order #{sug.orderIds}</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                        <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
-                        <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
-                        <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
-                      </div>
-                      <button 
-                        onClick={() => handleBatchDone(sug.menuName, currentInput)}
-                        className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                      >
-                        เสร็จแล้ว
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* === รายการที่รอทำ (Pending Suggestions) === */}
+              {batchSuggestions.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">รอคิวทำ</h4>
+                  <div className="space-y-3">
+                    {batchSuggestions.map((sug, idx) => {
+                      const currentInput = doneInputs[sug.menuName] !== undefined ? Math.min(doneInputs[sug.menuName], sug.total) : sug.total;
+                      return (
+                        <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border border-slate-100 rounded-xl">
+                          <div>
+                            <div className="font-bold text-slate-800">
+                              {sug.menuName} <span className="text-slate-500 text-sm font-medium ml-1">x {sug.total}</span>
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">Order #{sug.orderIds}</div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+                              <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
+                              <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
+                              <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
+                            </div>
+                            <button 
+                              onClick={() => handleStartCooking(sug.menuName, currentInput)}
+                              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                            >
+                              กำลังทำ
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* --- ส่วนรายการออเดอร์ --- */}
-        {filteredOrders.length === 0 ? (
+        <div className="flex overflow-x-auto gap-2 pb-3 mb-4 -mx-4 px-4 sm:mx-0 sm:px-1 sm:pb-4 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
+          {[
+            { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
+            { id: 'pending', label: 'รอรับออเดอร์', icon: <Clock size={16} className="sm:hidden" /> },
+            { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
+            { id: 'cooking', label: 'กำลังปรุง', icon: <CookingPot size={16} className="sm:hidden" /> },
+            { id: 'delivery', label: 'กำลังจัดส่ง', icon: <Truck size={16} className="sm:hidden" /> },
+            { id: 'done', label: 'ส่งสำเร็จ', icon: <CheckCircle2 size={16} className="sm:hidden" /> },
+            { id: 'cancel', label: 'ยกเลิก', icon: <XCircle size={16} className="sm:hidden" /> }
+          ].map(tab => {
+            const count = getTabCount(tab.id);
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
+                  isActive 
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
+                }`}
+              >
+                {tab.icon}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {displayedOrders.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-slate-300 mb-3 flex justify-center"><CircleDashed size={48} /></div>
-            <p className="text-slate-500 font-medium">ไม่มีออเดอร์ในวันที่เลือก</p>
+            <p className="text-slate-500 font-medium">ไม่มีออเดอร์ในหมวดหมู่นี้</p>
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredOrders.map((order) => {
+            {displayedOrders.map((order) => {
               const isCustomerExpanded = expandedCustomers[order.id];
               const orderDateStr = new Date(order.created_at).toLocaleDateString('en-CA');
               const isOverdue = orderDateStr !== todayDate && order.status !== 'done' && order.status !== 'cancel';
               
-              const isFinishedState = order.status === 'done' || order.status === 'cancel';
+              const isPendingCooking = ['pending', 'checking_slip', 'cooking'].includes(order.status);
+              
+              // คำนวณเวลาที่ใช้ไปและเวลาที่เหลือ
+              const elapsedMinutes = Math.floor((new Date().getTime() - new Date(order.created_at).getTime()) / 60000);
+              
+              // คำนวณเวลาประเมิน (เหมือนฝั่งลูกค้า: เมนูละ 5 นาที + คิวละ 1 นาที)
+              const totalQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+              const baseCookingTime = 5 * totalQuantity;
+              const queueCount = filteredOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
+              const estimatedTotalMinutes = baseCookingTime + queueCount;
+              
+              const remainingMinutes = estimatedTotalMinutes - elapsedMinutes;
+              const isDelayed = remainingMinutes < 0 && isPendingCooking;
+              
+              const isFinishedState = order.status === 'done' || order.status === 'cancel' || order.status === 'delivery';
               
               return (
-                <div key={order.id} className={`bg-white rounded-2xl border transition-all ${isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
+                <div key={order.id} className={`bg-white rounded-2xl border transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
                   
+                  {isDelayed && (
+                    <div className="bg-red-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 animate-pulse rounded-t-2xl">
+                      <AlertCircle size={14} /> ออเดอร์นี้ล่าช้า (เกินเวลาที่ประเมินไว้ {Math.abs(remainingMinutes)} นาที)
+                    </div>
+                  )}
+
                   {/* หัวการ์ด */}
                   <div className="p-5 border-b border-slate-100 flex flex-wrap justify-between items-start gap-4">
                     <div>
-                      <div className="flex items-center gap-3 mb-1.5">
+                      <div className="flex items-center gap-3 mb-1.5 flex-wrap">
                         <span className={`text-lg font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>#{order.id}</span>
                         {getStatusBadge(order.status)}
                         
+                        {isPendingCooking && (
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm whitespace-nowrap border ${isDelayed ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                            {isDelayed ? `เลยเวลา ${Math.abs(remainingMinutes)} นาที` : `เหลือ ${remainingMinutes} นาที`}
+                          </span>
+                        )}
+
                         {isOverdue && (
                           <span className="flex items-center gap-1 text-[10px] bg-rose-50 text-rose-600 px-2 py-1 rounded-md font-bold border border-rose-100">
                             <AlertCircle size={12} /> ค้างจากเมื่อวาน

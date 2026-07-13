@@ -79,6 +79,7 @@ export async function PUT(req: Request) {
     }
 
     // อัปเดตข้อมูลครบทุกฟิลด์ลงฐานข้อมูล ตาม ID ของคนที่ล็อกอินเท่านั้น
+    // ใช้ COALESCE เพื่อไม่ให้เขียนทับค่าเดิมในกรณีที่ไม่ได้ส่ง name หรือ email มา
     await db.query(
       `UPDATE users
        SET
@@ -86,16 +87,16 @@ export async function PUT(req: Request) {
          address = ?,
          latitude = ?,
          longitude = ?,
-         name = ?,
-         email = ?
+         name = COALESCE(?, name),
+         email = COALESCE(?, email)
        WHERE id = ?`,
       [
         safePhone,
         String(address),
         location?.lat ?? null,
         location?.lng ?? null,
-        name || null,  // ถ้าไม่กรอกให้เป็น null
-        email || null, // ถ้าไม่กรอกให้เป็น null
+        name ?? null,  // ถ้าไม่ส่งมา (undefined) จะกลายเป็น null
+        email ?? null, // ถ้าไม่ส่งมา (undefined) จะกลายเป็น null
         userId
       ]
     );
