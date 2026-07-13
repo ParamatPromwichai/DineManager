@@ -27,11 +27,50 @@ def get_all_menus():
 
 def get_recommended():
     conn = connect_db()
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM menus WHERE is_recommended = 1")
-    data = [x[0] for x in cur.fetchall()]
+    cur = conn.cursor(pymysql.cursors.DictCursor)
+    query = """
+    SELECT m.name, 
+           COALESCE(SUM(oi.quantity), 0) AS total_sold,
+           COALESCE(AVG(r.rating), 0) AS avg_rating
+    FROM menus m
+    LEFT JOIN order_items oi ON m.id = oi.menu_id
+    LEFT JOIN reviews r ON m.id = r.menu_id
+    GROUP BY m.id, m.name
+    HAVING total_sold > 0 OR avg_rating > 0
+    ORDER BY avg_rating DESC, total_sold DESC
+    LIMIT 3
+    """
+    cur.execute(query)
+    data = cur.fetchall()
+    
+    # ถ้ายังไม่มีข้อมูลการสั่งซื้อเลย ให้ดึงจาก is_recommended ตามเดิม
+    if not data:
+        cur.execute("SELECT name FROM menus WHERE is_recommended = 1 LIMIT 3")
+        fallback_data = cur.fetchall()
+        conn.close()
+        return [row['name'] for row in fallback_data]
+
     conn.close()
-    return data
+    
+    # จัด format คำตอบให้น่ากิน
+    recommended_list = []
+    for row in data:
+        sold = int(row['total_sold'])
+        rating = float(row['avg_rating'])
+        
+        text = f"⭐ {row['name']}"
+        if rating > 0:
+            text += f" (รีวิว {rating:.1f}/5"
+            if sold > 0:
+                text += f", ขายไปแล้ว {sold} จาน)"
+            else:
+                text += ")"
+        elif sold > 0:
+            text += f" (ขายดี! สั่งไปแล้ว {sold} จาน)"
+            
+        recommended_list.append(text)
+        
+    return recommended_list
 
 def is_shop_open():
     conn = connect_db()
@@ -44,7 +83,7 @@ def is_shop_open():
 def get_queue():
     conn = connect_db()
     cur = conn.cursor()
-    cur.execute("SELECT remaining_queue FROM queue_status LIMIT 1")
+    cur.execute("SELECT COUNT(*) FROM orders WHERE status IN ('cooking', 'delivery')")
     data = cur.fetchone()
     conn.close()
     return data[0] if data else 0
@@ -125,5 +164,19 @@ def get_shop_info():
     cur = conn.cursor(pymysql.cursors.DictCursor)
     cur.execute("SELECT name, is_open, open_time, close_time, address, latitude, longitude FROM shops LIMIT 1")
     data = cur.fetchone()
+    conn.close()
+    return data
+
+def get_menu_options_by_name(menu_name):
+    conn = connect_db()
+    cur = conn.cursor(pymysql.cursors.DictCursor)
+    query = """
+    SELECT mo.option_name, mo.extra_price
+    FROM menu_options mo
+    JOIN menus m ON mo.menu_id = m.id
+    WHERE m.name = %s
+    """
+    cur.execute(query, (menu_name,))
+    data = cur.fetchall()
     conn.close()
     return data
