@@ -48,6 +48,13 @@ const bulkCategories = [
   { id: 'seafood', name: 'ทะเลรวม', icon: Waves, color: '#0891b2' },
 ];
 
+const PRESET_OPTIONS = [
+  { group: 'ขนาด', name: 'พิเศษ', defaultPrice: 15, isMultiple: false },
+  { group: 'ท็อปปิ้ง', name: 'ไข่เจียว', defaultPrice: 10, isMultiple: true },
+  { group: 'ท็อปปิ้ง', name: 'ไข่ดาว', defaultPrice: 10, isMultiple: true },
+  { group: 'ท็อปปิ้ง', name: 'ไข่ข้น', defaultPrice: 15, isMultiple: true },
+];
+
 export default function ManageMenusPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -480,17 +487,80 @@ export default function ManageMenusPage() {
 
               {/* Option Builder */}
               <div style={{ background: '#f8fafc', padding: 15, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <label style={{ fontSize: '0.95rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}><ListPlus size={18} color="#2563eb" /> ตัวเลือกเสริม (ท็อปปิ้ง/ขนาด)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                  <div>
+                    <label style={{ fontSize: '0.95rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}><ListPlus size={18} color="#2563eb" /> ตัวเลือกเสริม (ท็อปปิ้ง/ขนาด)</label>
+                    <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>เลือกท็อปปิ้งหรือเพิ่มตัวเลือกเสริมที่ต้องการให้มีในเมนูนี้</p>
+                  </div>
                   <button type="button" onClick={addOptionRow} style={{ background: '#dbeafe', color: '#1d4ed8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>+ เพิ่มตัวเลือก</button>
                 </div>
                 
-                {formOptions.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0, textAlign: 'center', padding: '10px 0' }}>ยังไม่มีตัวเลือกเสริมสำหรับเมนูนี้</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {formOptions.map((opt, index) => (
-                      <div key={index} style={{ background: '#fff', padding: 12, borderRadius: 10, border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {PRESET_OPTIONS.map((preset, idx) => {
+                    const existingOptionIndex = formOptions.findIndex(o => o.option_name === preset.name && o.option_group === preset.group);
+                    const isChecked = existingOptionIndex !== -1;
+                    const currentPrice = isChecked ? formOptions[existingOptionIndex].extra_price : preset.defaultPrice;
+
+                    const handleToggle = (checked: boolean) => {
+                      if (checked) {
+                        setFormOptions([...formOptions, { 
+                          option_group: preset.group, 
+                          option_name: preset.name, 
+                          extra_price: preset.defaultPrice, 
+                          is_multiple: preset.isMultiple 
+                        }]);
+                      } else {
+                        setFormOptions(formOptions.filter(o => !(o.option_name === preset.name && o.option_group === preset.group)));
+                      }
+                    };
+
+                    const handlePriceChange = (price: number) => {
+                      if (isChecked) {
+                        const newOptions = [...formOptions];
+                        newOptions[existingOptionIndex].extra_price = price;
+                        setFormOptions(newOptions);
+                      }
+                    };
+
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isChecked ? '#eff6ff' : '#fff', padding: '12px 16px', borderRadius: 10, border: isChecked ? '1px solid #bfdbfe' : '1px solid #e2e8f0', transition: 'all 0.2s' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked} 
+                            onChange={(e) => handleToggle(e.target.checked)} 
+                            style={{ width: 18, height: 18, cursor: 'pointer' }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 'bold', color: isChecked ? '#1e40af' : '#334155', fontSize: '0.9rem' }}>{preset.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>หมวดหมู่: {preset.group}</div>
+                          </div>
+                        </label>
+                        
+                        {isChecked && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 'bold' }}>+</span>
+                            <input 
+                              type="number" 
+                              value={currentPrice} 
+                              onChange={(e) => handlePriceChange(Number(e.target.value))} 
+                              style={{ width: 60, padding: '6px', borderRadius: 6, border: '1px solid #cbd5e1', textAlign: 'center', fontSize: '0.85rem' }} 
+                            />
+                            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 'bold' }}>฿</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Custom Options Rendering */}
+                  {formOptions.map((opt, index) => {
+                    // Check if it's a preset option to hide it from the custom list
+                    const isPreset = PRESET_OPTIONS.some(p => p.name === opt.option_name && p.group === opt.option_group);
+                    if (isPreset) return null;
+
+                    return (
+                      <div key={index} style={{ background: '#fff', padding: 12, borderRadius: 10, border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', marginTop: 8 }}>
                         <button type="button" onClick={() => removeOptionRow(index)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={16}/></button>
                         
                         <div style={{ display: 'flex', gap: 8, paddingRight: 20 }}>
@@ -515,9 +585,9 @@ export default function ManageMenusPage() {
                           </label>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>

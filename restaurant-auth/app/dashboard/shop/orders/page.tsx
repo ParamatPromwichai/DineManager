@@ -4,10 +4,34 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react'; 
 import useSWR from 'swr';
-import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History } from 'lucide-react';
+import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, BellRing } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
+
+const playPingSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+    oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3); // Drop to A4
+    
+    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // Make it slightly quieter
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.3);
+  } catch (e) {
+    console.error("Audio API not supported", e);
+  }
+};
 
 type ActiveBatch = {
   id: string;
@@ -52,6 +76,7 @@ export default function ManageOrdersPage() {
   const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
   const [readyPopupOrder, setReadyPopupOrder] = useState<Order | null>(null);
   const promptedOrders = useRef<Set<number>>(new Set()); 
+  const seenPendingOrders = useRef<Set<number>>(new Set()); 
 
   const todayDate = new Date().toLocaleDateString('en-CA'); 
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
@@ -62,6 +87,26 @@ export default function ManageOrdersPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // 🔔 แจ้งเตือนเสียงเมื่อมีออเดอร์ pending เข้ามาใหม่
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+    
+    let hasNewPending = false;
+    
+    orders.forEach(order => {
+      if (order.status === 'pending') {
+        if (!seenPendingOrders.current.has(order.id)) {
+          hasNewPending = true;
+          seenPendingOrders.current.add(order.id);
+        }
+      }
+    });
+
+    if (hasNewPending) {
+      playPingSound();
+    }
+  }, [orders]);
 
   // 📥 2.5 โหลดสถานะเตาและของที่ทำเสร็จแล้วจาก localStorage เพื่อกันรีเฟรชแล้วหาย
   useEffect(() => {
@@ -349,11 +394,19 @@ export default function ManageOrdersPage() {
                     {activeBatches.map((batch) => (
                       <div key={batch.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
                         <div>
-                          <div className="font-bold text-blue-900">
-                            {batch.menuName} <span className="text-blue-600 text-sm font-bold ml-1">x {batch.amount}</span>
+                          <div className="font-bold text-blue-900 text-base">
+                            {batch.menuName} <span className="text-blue-600 text-sm font-bold ml-1 bg-blue-100 px-2 py-0.5 rounded-md">x {batch.amount}</span>
                           </div>
-                          <div className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
+                          <div className="w-full mt-2 relative h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                            <motion.div 
+                              className="absolute top-0 left-0 h-full bg-blue-500 rounded-full"
+                              initial={{ width: "0%" }}
+                              animate={{ width: "100%" }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            />
+                          </div>
+                          <div className="text-xs text-blue-600 mt-1 font-semibold flex items-center gap-1">
+                             กำลังปรุงบนเตา...
                           </div>
                         </div>
                         <button 
@@ -385,10 +438,10 @@ export default function ManageOrdersPage() {
                           </div>
                           
                           <div className="flex items-center gap-2">
-                            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                              <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
-                              <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
-                              <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
+                            <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                              <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-4 py-2 hover:bg-slate-200 font-black text-slate-600 text-lg transition-colors">-</button>
+                              <div className="px-3 font-black text-slate-900 min-w-[36px] text-center text-base bg-white py-2 border-x border-slate-100">{currentInput}</div>
+                              <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-4 py-2 hover:bg-slate-200 font-black text-slate-600 text-lg transition-colors">+</button>
                             </div>
                             <button 
                               onClick={() => handleStartCooking(sug.menuName, currentInput)}
@@ -467,13 +520,19 @@ export default function ManageOrdersPage() {
               const isDelayed = remainingMinutes < 0 && isPendingCooking;
               
               const isFinishedState = order.status === 'done' || order.status === 'cancel' || order.status === 'delivery';
+              const isNewPending = order.status === 'pending';
               
               return (
-                <div key={order.id} className={`bg-white rounded-2xl border transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
+                <div key={order.id} className={`bg-white rounded-2xl border transition-all duration-300 ${isDelayed ? 'border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)] ring-1 ring-red-400' : isNewPending ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] ring-1 ring-amber-400' : isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
                   
                   {isDelayed && (
                     <div className="bg-red-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 animate-pulse rounded-t-2xl">
                       <AlertCircle size={14} /> ออเดอร์นี้ล่าช้า (เกินเวลาที่ประเมินไว้ {Math.abs(remainingMinutes)} นาที)
+                    </div>
+                  )}
+                  {isNewPending && !isDelayed && (
+                    <div className="bg-amber-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 animate-pulse rounded-t-2xl">
+                      <BellRing size={14} /> ออเดอร์เข้าใหม่! กรุณากดรับออเดอร์
                     </div>
                   )}
 
@@ -587,22 +646,37 @@ export default function ManageOrdersPage() {
       </div>
 
       {/* 🛎️ Popup ออเดอร์พร้อมส่ง */}
+      <AnimatePresence>
       {readyPopupOrder && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
-          <div className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4"
+        >
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl"
+          >
             <div className="text-6xl mb-4 animate-bounce">🛎️</div>
             <h3 className="text-2xl text-slate-900 font-black mb-2">ออเดอร์ #{readyPopupOrder.id}</h3>
             <p className="text-slate-500 font-medium mb-6">อาหารเสร็จครบแล้ว เตรียมส่งมอบได้เลย</p>
             <button onClick={() => { updateStatus(readyPopupOrder.id, 'delivery'); setReadyPopupOrder(null); }} className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-colors mb-2">ตกลง (ส่งให้ไรเดอร์)</button>
             <button onClick={() => setReadyPopupOrder(null)} className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors">ปิดหน้าต่าง</button>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* 🖼️ Popup ตรวจสอบสลิป */}
+      <AnimatePresence>
       {slipPopupOrder && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4"
+        >
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            className="bg-white p-6 rounded-3xl w-full max-w-sm text-center shadow-2xl"
+          >
             <h3 className="text-xl font-black mb-1">ตรวจสอบสลิป</h3>
             <p className="text-slate-500 mb-5 font-medium">Order #{slipPopupOrder.id} • <strong className="text-slate-900">฿{slipPopupOrder.total_price.toLocaleString()}</strong></p>
             {slipPopupOrder.slip_image ? (
@@ -614,9 +688,10 @@ export default function ManageOrdersPage() {
               <button onClick={() => { updateStatus(slipPopupOrder.id, 'cancel'); setSlipPopupOrder(null); }} className="flex-1 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-bold transition-colors">ไม่อนุมัติ</button>
               <button onClick={() => { updateStatus(slipPopupOrder.id, 'cooking'); setSlipPopupOrder(null); }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800 transition-colors">อนุมัติ (เริ่มปรุง)</button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
