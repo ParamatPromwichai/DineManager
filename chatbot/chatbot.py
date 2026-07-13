@@ -119,9 +119,28 @@ def get_response(msg, user_id):
     # รวมท็อปปิ้งเก่าจากข้อความที่แล้ว + ท็อปปิ้งใหม่จากข้อความนี้ เข้าด้วยกัน
     all_addons = past_addons + current_addons
     
-    # คำนวณราคารวมท็อปปิ้ง (อย่างละ 10 บาท)
-    addon_price = len(all_addons) * 10
-    addon_text = f" + {' + '.join(all_addons)}" if all_addons else ""
+    # คำนวณราคารวมท็อปปิ้งจากฐานข้อมูล
+    addon_price = 0
+    valid_addons = []
+    if found_menu and all_addons:
+        options = get_menu_options_by_name(found_menu[0])
+        option_dict = {opt['option_name']: float(opt['extra_price']) for opt in options}
+        
+        for addon in all_addons:
+            if addon in option_dict:
+                price = option_dict[addon]
+                addon_price += price
+                valid_addons.append(f"{addon}(+{price:g})")
+            else:
+                # ถ้าไม่เจอในฐานข้อมูล อาจจะกำหนดให้เป็น 10 บาทโดยปริยาย
+                addon_price += 10
+                valid_addons.append(f"{addon}(+10)")
+        
+        addon_text = f" + {' + '.join(valid_addons)}"
+    else:
+        # ถ้าหาเมนูไม่เจอ (แต่มีท็อปปิ้งติดมา) เผื่อไว้
+        addon_price = len(all_addons) * 10
+        addon_text = f" + {' + '.join(all_addons)}" if all_addons else ""
 
     # ⭐ อัปเดตเรื่องคิว
     if "update" in intents:
@@ -134,14 +153,27 @@ def get_response(msg, user_id):
     # ==========================================
     # 🔥 5. สร้างคำตอบ
     # ==========================================
-    if "menu" in intents:
-        menu_list = "\n".join([f"{m[0]} - {m[1]} บาท" + (" (หมด ❌)" if m[2] else "") for m in menus])
-        prefix = random.choice(["เมนู:\n", "รายการอาหาร:\n", "เมนูร้านเรา:\n"])
-        responses.append(prefix + menu_list)
+    if "greeting" in intents:
+        responses.append(random.choice([
+            "สวัสดีครับ! 🙏 น้องบอทยินดีให้บริการ มีอะไรให้ช่วยเหลือไหมครับ?",
+            "สวัสดีจ้า~ 😊 วันนี้อยากทานอะไรดีครับ หรืออยากสอบถามคิว/โต๊ะว่าง บอกได้เลยนะครับ",
+            "ดีครับผม! หิวหรือยังเอ่ย ถามเมนูอาหารหรือเช็คคิวได้เลยนะครับ 🍽️"
+        ]))
 
-    if "recommend" in intents:
-        recom = ", ".join(get_recommended())
-        responses.append(random.choice([f"เมนูแนะนำ: {recom}", f"แนะนำเป็น: {recom}", f"ขายดี: {recom}"]))
+    if "thanks" in intents:
+        responses.append(random.choice([
+            "ยินดีครับ! ถ้ามีคำถามอะไรเพิ่มเติม ทักมาได้ตลอดเลยนะครับ 😊",
+            "ด้วยความยินดีครับผม 🙏",
+            "โอเคครับ! ขอให้อร่อยกับมื้ออาหารนะครับ 🍽️"
+        ]))
+
+    if "recommend" in intents or "menu" in intents:
+        recom = "\n".join(get_recommended())
+        if "recommend" in intents:
+            prefix = random.choice(["เมนูแนะนำยอดฮิต:\n", "แนะนำเป็นเมนูขายดีเหล่านี้เลยครับ:\n", "ร้านเราขอแนะนำ:\n"])
+        else:
+            prefix = "เมนูร้านเรามีเยอะมาก ขอแนะนำเป็นเมนูยอดฮิตก่อนนะครับ 🍽️\n"
+        responses.append(f"{prefix}{recom}")
 
     if "queue" in intents:
         q = get_queue()
@@ -187,7 +219,7 @@ def get_response(msg, user_id):
     # 🔥 ตอบเรื่องเมนู (ราคา + ท็อปปิ้ง + สถานะ)
     if found_menu:
         is_out = found_menu[2]
-        total_price = found_menu[1] + addon_price
+        total_price = float(found_menu[1]) + float(addon_price)
         display_name = f"{found_menu[0]}{addon_text}"
         
         status_text = "หมดแล้วครับ ❌" if is_out else "ยังมีครับ สั่งได้เลย ✅"
@@ -201,10 +233,14 @@ def get_response(msg, user_id):
             responses.append(menu_reply)
 
     if not responses:
-        reply = random.choice([
-            "ลองถามเกี่ยวกับ เมนู / ราคา / เวลาปิด / คิว / โต๊ะ ได้เลย 😊",
-            "พิมพ์ถาม เมนู, ราคา, คิว, โต๊ะ ได้เลยครับ 😊"
-        ])
+        if "unknown" in intents:
+            reply = random.choice([
+                "ขออภัยครับ น้องบอทยังไม่ค่อยเข้าใจคำถาม 😅\nแต่ถ้าเป็นเรื่อง 📌 เมนูอาหาร 📌 ราคา 📌 คิว 📌 โต๊ะว่าง หรือ 📌 พิกัดร้าน ถามมาได้เลยครับ!",
+                "น้องบอทอาจจะยังเรียนรู้ไม่ครบทุกคำ 🥺 พิมพ์ถามเรื่อง 'เมนู', 'ราคา', 'คิว', 'โต๊ะ' หรือ 'ร้านปิดกี่โมง' ได้เลยนะครับ",
+                "เอ๊ะ น้องบอทงงนิดหน่อยครับ 😅 ลองถามใหม่เป็นคำสั้นๆ เช่น 'ดูเมนู' หรือ 'คิวว่างไหม' ดูนะครับ"
+            ])
+        else:
+            reply = "รับทราบครับ 😊 มีอะไรให้ช่วยเพิ่มบอกได้เลยนะครับ"
     else:
         reply = "\n\n".join(responses)
 

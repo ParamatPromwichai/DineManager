@@ -17,7 +17,6 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const AUTO_CLEAR_TIME = 15 * 60 * 1000;
 
   // ➕ 3. ดึง userId จาก session
   const userId = (session?.user as any)?.id;
@@ -67,14 +66,15 @@ export default function ChatPage() {
     }
   };
 
-  useEffect(() => {
-    let timer = setTimeout(() => {
-      if (messages.length > 0) {
-        clearChat(true);
-      }
-    }, AUTO_CLEAR_TIME);
-    return () => clearTimeout(timer);
-  }, [messages]);
+  // นำระบบ auto-clear ออกตามที่ผู้ใช้ต้องการ
+  // useEffect(() => {
+  //   let timer = setTimeout(() => {
+  //     if (messages.length > 0) {
+  //       clearChat(true);
+  //     }
+  //   }, AUTO_CLEAR_TIME);
+  //   return () => clearTimeout(timer);
+  // }, [messages]);
 
   const formatMessage = (text: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
