@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // 🔥 GET → โหลด history
 export async function GET(req: Request) {
   try {
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
     // ❌ ลบโค้ด insert user message ออก (ให้ Python จัดการแทน)
 
     // 🔥🔥🔥 เรียก Flask ไปเลย
-    const flaskRes = await fetch("https://chatbotdinemanager.vercel.app/chat", { 
+    const flaskRes = await fetch("http://localhost:5001/chat", { 
       //https://chatbotdinemanager.vercel.app/chat
       method: "POST",
       headers: {

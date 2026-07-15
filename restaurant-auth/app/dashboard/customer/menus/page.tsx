@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, memo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft, Utensils, Star, Plus, Minus, ShoppingCart, 
   CreditCard, MapPin, ImageOff, X, Flame, Maximize2, 
@@ -82,13 +82,14 @@ const renderStars = (rating: number) => {
 
 export default function AllMenusPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [menus, setMenus] = useState<Menu[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [shopData, setShopData] = useState<ShopStatus | null>(null);
   
   // Search & Filter States
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [activeFilter, setActiveFilter] = useState<'all' | 'popular' | 'rating' | 'price'>('all');
 
   // Form & UI States
