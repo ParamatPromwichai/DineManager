@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
-import { Send, Trash2, ArrowLeft, Bot, User, Zap } from "lucide-react";
+import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -281,11 +281,15 @@ export default function ChatPage() {
           {messages.map((msg, i) => {
             const isUser = msg.sender === "user";
             let cleanText = msg.text || "";
+            let isGroq = false;
             let isGemini = false;
             
             if (cleanText.includes("*(ตอบโดย Groq AI ⚡)*")) {
-              isGemini = true;
+              isGroq = true;
               cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Groq AI ⚡)\)\*/g, "").replace(/\*\((ตอบโดย Groq AI ⚡)\)\*/g, "").trim();
+            } else if (cleanText.includes("*(ตอบโดย Gemini AI ✨)*")) {
+              isGemini = true;
+              cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Gemini AI ✨)\)\*/g, "").replace(/\*\((ตอบโดย Gemini AI ✨)\)\*/g, "").trim();
             } else if (cleanText.includes("*(ตอบโดย Auto-Bot 🤖)*") || cleanText.includes("*(ตอบโดย Auto Bot 🤖)*")) {
               cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").replace(/\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").trim();
             }
@@ -296,25 +300,25 @@ export default function ChatPage() {
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flexShrink: 0, marginBottom: "4px" }}>
                     <div style={{ 
                       width: '32px', height: '32px', 
-                      backgroundColor: isGemini ? '#FDF4FF' : '#ffffff', 
+                      backgroundColor: isGroq ? '#FDF4FF' : (isGemini ? '#FFFBEB' : '#ffffff'), 
                       borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      border: isGemini ? '1px solid #F0ABFC' : '1px solid #DCE8FF'
+                      border: isGroq ? '1px solid #F0ABFC' : (isGemini ? '1px solid #FDE68A' : '1px solid #DCE8FF')
                     }}>
-                      {isGemini ? <Zap size={16} color="#D946EF" /> : <Bot size={16} color="#2563EB" />}
+                      {isGroq ? <Zap size={16} color="#D946EF" /> : (isGemini ? <Sparkles size={16} color="#F59E0B" /> : <Bot size={16} color="#2563EB" />)}
                     </div>
-                    <span style={{ fontSize: "0.65rem", color: isGemini ? "#D946EF" : "#2563EB", fontWeight: "bold" }}>
-                      {isGemini ? "Groq" : "Auto Bot"}
+                    <span style={{ fontSize: "0.65rem", color: isGroq ? "#D946EF" : (isGemini ? "#F59E0B" : "#2563EB"), fontWeight: "bold" }}>
+                      {isGroq ? "Groq" : (isGemini ? "Gemini" : "Auto Bot")}
                     </span>
                   </div>
                 )}
                 <div style={{
                   maxWidth: "75%",
-                  background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : (isGemini ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : "#ffffff"),
-                  color: isUser ? "#ffffff" : (isGemini ? "#4C1D95" : "#1E3A8A"),
+                  background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
+                  color: isUser ? "#ffffff" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
                   padding: "12px 16px",
                   borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
                   boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
-                  border: isUser ? "none" : (isGemini ? "1px solid #E9D5FF" : "1px solid #DCE8FF"),
+                  border: isUser ? "none" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
                   wordBreak: "break-word",
                   fontSize: "0.95rem",
                   fontWeight: "500"
