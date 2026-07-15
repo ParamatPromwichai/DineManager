@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, memo } from 'react';
+import { useEffect, useState, useMemo, memo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft, Utensils, Star, Plus, Minus, ShoppingCart, 
@@ -80,7 +80,8 @@ const renderStars = (rating: number) => {
   );
 };
 
-export default function AllMenusPage() {
+// 🟢 เปลี่ยนชื่อฟังก์ชันเดิมเป็น AllMenusContent
+function AllMenusContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -553,6 +554,15 @@ export default function AllMenusPage() {
       )}
 
     </div>
+  );
+}
+
+// 🟢 สร้าง Component หน้าหลักตัวใหม่ ที่ครอบด้วย Suspense
+export default function AllMenusPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', fontWeight: 'bold' }}>กำลังโหลดหน้าเมนูอาหาร...</div>}>
+      <AllMenusContent />
+    </Suspense>
   );
 }
 
