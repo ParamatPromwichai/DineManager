@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
-import { Send, Trash2, ArrowLeft, Bot, User } from "lucide-react";
+import { Send, Trash2, ArrowLeft, Bot, User, Zap } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -77,11 +77,35 @@ export default function ChatPage() {
   // }, [messages]);
 
   const formatMessage = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    // แยกข้อความด้วย URL หรือ [ORDER_BUTTON:xxx]
+    const regex = /(https?:\/\/[^\s]+|\[ORDER_BUTTON(?::[^\]]+)?\])/g;
+    const parts = text.split(regex);
 
     return parts.map((part, index) => {
-      if (part.match(urlRegex)) {
+      if (!part) return null;
+      
+      // ถ้าเป็น URL
+      if (part.match(/^https?:\/\//)) {
+        // ตรวจสอบว่าเป็นลิงก์ Google Maps แบบพิกัดหรือไม่
+        const mapMatch = part.match(/^https?:\/\/maps\.google\.com\/\?q=([\d\.\-]+),([\d\.\-]+)/);
+        if (mapMatch) {
+          const lat = mapMatch[1];
+          const lon = mapMatch[2];
+          return (
+            <div key={index} style={{ marginTop: '12px', marginBottom: '8px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #DCE8FF', boxShadow: '0 4px 12px rgba(37,99,235,0.1)' }}>
+              <iframe
+                width="100%"
+                height="220"
+                frameBorder="0"
+                style={{ border: 0, display: 'block' }}
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${lat},${lon}&hl=th&z=16&output=embed`}
+                allowFullScreen
+              ></iframe>
+            </div>
+          );
+        }
+
         return (
           <a
             key={index}
@@ -94,6 +118,47 @@ export default function ChatPage() {
           </a>
         );
       }
+      
+      // ถ้าเป็นปุ่มสั่งอาหาร
+      if (part.startsWith("[ORDER_BUTTON")) {
+        const match = part.match(/\[ORDER_BUTTON(?::([^\]]+))?\]/);
+        const itemName = match && match[1] ? match[1].trim() : "";
+        const buttonText = itemName ? `ไปหน้าสั่งอาหาร (${itemName})` : "ไปหน้าสั่งอาหาร (เมนูทั้งหมด)";
+        const targetUrl = itemName 
+          ? `/dashboard/customer/menus?search=${encodeURIComponent(itemName)}` 
+          : `/dashboard/customer/menus`;
+
+        return (
+          <button
+            key={index}
+            onClick={() => router.push(targetUrl)}
+            style={{
+              display: "block",
+              marginTop: "8px",
+              padding: "8px 16px",
+              backgroundColor: "#10B981", // สีเขียวโดดเด่น
+              color: "white",
+              border: "none",
+              borderRadius: "20px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              boxShadow: "0 4px 6px rgba(16, 185, 129, 0.2)",
+              transition: "transform 0.1s, boxShadow 0.1s"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "scale(1.02)";
+              e.currentTarget.style.boxShadow = "0 6px 12px rgba(16, 185, 129, 0.3)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "0 4px 6px rgba(16, 185, 129, 0.2)";
+            }}
+          >
+            🛒 {buttonText}
+          </button>
+        );
+      }
+      
       return <span key={index} style={{ whiteSpace: "pre-wrap", lineHeight: "1.5" }}>{part}</span>;
     });
   };
@@ -215,26 +280,46 @@ export default function ChatPage() {
 
           {messages.map((msg, i) => {
             const isUser = msg.sender === "user";
+            let cleanText = msg.text || "";
+            let isGemini = false;
+            
+            if (cleanText.includes("*(ตอบโดย Groq AI ⚡)*")) {
+              isGemini = true;
+              cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Groq AI ⚡)\)\*/g, "").replace(/\*\((ตอบโดย Groq AI ⚡)\)\*/g, "").trim();
+            } else if (cleanText.includes("*(ตอบโดย Auto-Bot 🤖)*") || cleanText.includes("*(ตอบโดย Auto Bot 🤖)*")) {
+              cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").replace(/\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").trim();
+            }
+
             return (
               <div key={i} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
                 {!isUser && (
-                  <div style={{ width: '28px', height: '28px', backgroundColor: '#ffffff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #DCE8FF', flexShrink: 0 }}>
-                    <Bot size={16} color="#2563EB" />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flexShrink: 0, marginBottom: "4px" }}>
+                    <div style={{ 
+                      width: '32px', height: '32px', 
+                      backgroundColor: isGemini ? '#FDF4FF' : '#ffffff', 
+                      borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      border: isGemini ? '1px solid #F0ABFC' : '1px solid #DCE8FF'
+                    }}>
+                      {isGemini ? <Zap size={16} color="#D946EF" /> : <Bot size={16} color="#2563EB" />}
+                    </div>
+                    <span style={{ fontSize: "0.65rem", color: isGemini ? "#D946EF" : "#2563EB", fontWeight: "bold" }}>
+                      {isGemini ? "Groq" : "Auto Bot"}
+                    </span>
                   </div>
                 )}
                 <div style={{
                   maxWidth: "75%",
-                  background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : "#ffffff",
-                  color: isUser ? "#ffffff" : "#1E3A8A",
+                  background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : (isGemini ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : "#ffffff"),
+                  color: isUser ? "#ffffff" : (isGemini ? "#4C1D95" : "#1E3A8A"),
                   padding: "12px 16px",
                   borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
                   boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
-                  border: isUser ? "none" : "1px solid #DCE8FF",
+                  border: isUser ? "none" : (isGemini ? "1px solid #E9D5FF" : "1px solid #DCE8FF"),
                   wordBreak: "break-word",
                   fontSize: "0.95rem",
                   fontWeight: "500"
                 }}>
-                  {formatMessage(msg.text)}
+                  {formatMessage(cleanText)}
                 </div>
                 {isUser && (
                   <div style={{ width: '28px', height: '28px', backgroundColor: '#DBEAFE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
