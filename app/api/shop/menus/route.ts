@@ -8,14 +8,28 @@ export async function GET() {
     // 1. ดึงเมนูทั้งหมด
     const [menus]: any = await db.query(`SELECT * FROM menus ORDER BY id DESC`);
     
-    // 2. ดึงออปชันเสริมทั้งหมด
+    // 2. ดึงออปชันเสริมส่วนกลางทั้งหมด
+    const [globalOptions]: any = await db.query(`SELECT * FROM global_options ORDER BY id ASC`);
+
+    // 3. ดึงออปชันเสริมของเก่า (เผื่อไว้)
     const [options]: any = await db.query(`SELECT * FROM menu_options`);
 
-    // 3. ประกอบร่าง (จับคู่ option ให้ตรงกับ menu_id)
-    const menusWithOptions = menus.map((menu: any) => ({
-      ...menu,
-      options: options.filter((opt: any) => Number(opt.menu_id) === Number(menu.id))
-    }));
+    // 4. ประกอบร่าง
+    const menusWithOptions = menus.map((menu: any) => {
+      let addonOptionIds: number[] = [];
+      try {
+        if (menu.addon_option_ids) {
+          addonOptionIds = typeof menu.addon_option_ids === 'string' ? JSON.parse(menu.addon_option_ids) : menu.addon_option_ids;
+        }
+      } catch (e) { addonOptionIds = []; }
+
+      return {
+        ...menu,
+        options: options.filter((opt: any) => Number(opt.menu_id) === Number(menu.id)),
+        addon_option_ids: addonOptionIds,
+        globalOptions: addonOptionIds.length > 0 ? globalOptions.filter((opt: any) => addonOptionIds.includes(opt.id)) : []
+      };
+    });
 
     return NextResponse.json(menusWithOptions);
   } catch (error) {
@@ -36,7 +50,7 @@ export async function POST(req: Request) {
     const categoryIdVal = formData.get('category_id');
     const categoryId = categoryIdVal ? Number(categoryIdVal) : null;
     const description = formData.get('description') as string || null;
-    const optionsString = formData.get('options') as string;
+    const addonOptionIdsStr = formData.get('addon_option_ids') as string || '[]';
 
     let imageUrl = null;
 
@@ -48,28 +62,11 @@ export async function POST(req: Request) {
     }
 
     const [result]: any = await db.query(
-      `INSERT INTO menus (name, price, image, is_recommended, category_id, description) VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, price, imageUrl, false, categoryId, description]
+      `INSERT INTO menus (name, price, image, is_recommended, category_id, description, addon_option_ids) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, price, imageUrl, false, categoryId, description, addonOptionIdsStr]
     );
 
     const newMenuId = result.insertId;
-
-    // 🟢 บันทึก Option ลงฐานข้อมูล (บังคับแปลงค่า)
-    if (optionsString) {
-      const options = JSON.parse(optionsString);
-      for (const opt of options) {
-        await db.query(
-          `INSERT INTO menu_options (menu_id, option_group, option_name, extra_price, is_multiple) VALUES (?, ?, ?, ?, ?)`,
-          [
-            newMenuId, 
-            opt.option_group, 
-            opt.option_name, 
-            Number(opt.extra_price) || 0, 
-            opt.is_multiple ? 1 : 0 // 👈 แปลง true/false เป็น 1/0 ให้ MySQL เข้าใจ
-          ]
-        );
-      }
-    }
 
     return NextResponse.json({ message: 'เพิ่มเมนูสำเร็จ' }, { status: 201 });
   } catch (error) {
@@ -90,14 +87,14 @@ export async function PUT(req: Request) {
     const categoryIdVal = formData.get('category_id');
     const categoryId = categoryIdVal ? Number(categoryIdVal) : null;
     const description = formData.get('description') as string || null;
-    const optionsString = formData.get('options') as string;
+    const addonOptionIdsStr = formData.get('addon_option_ids') as string || '[]';
 
     if (!id) {
       return NextResponse.json({ message: 'ไม่พบ ID ของเมนู' }, { status: 400 });
     }
 
-    let updateQuery = `UPDATE menus SET name = ?, price = ?, category_id = ?, description = ?`;
-    let queryParams: any[] = [name, price, categoryId, description];
+    let updateQuery = `UPDATE menus SET name = ?, price = ?, category_id = ?, description = ?, addon_option_ids = ?`;
+    let queryParams: any[] = [name, price, categoryId, description, addonOptionIdsStr];
 
     if (imageFile && typeof imageFile === 'object' && 'name' in imageFile) {
       const file = imageFile as File;
@@ -113,32 +110,6 @@ export async function PUT(req: Request) {
     queryParams.push(id);
 
     await db.query(updateQuery, queryParams);
-
-    // 🟢 อัปเดต Options: ลบทิ้งแล้วใส่ใหม่
-    if (optionsString) {
-      const options = JSON.parse(optionsString);
-      console.log("DEBUG: Options to save ->", options); // 👈 ลองดูใน Terminal ว่าค่ามาไหม
-
-      // ลบของเดิม
-      await db.query(`DELETE FROM menu_options WHERE menu_id = ?`, [id]);
-      
-      // วนลูปบันทึกอันใหม่
-      for (const opt of options) {
-        await db.query(
-          `INSERT INTO menu_options (menu_id, option_group, option_name, extra_price, is_multiple) VALUES (?, ?, ?, ?, ?)`,
-          [
-            id, 
-            opt.option_group, 
-            opt.option_name, 
-            Number(opt.extra_price) || 0, 
-            opt.is_multiple ? 1 : 0 // 👈 แปลง true/false เป็น 1/0
-          ]
-        );
-      }
-    } else {
-      // ถ้าไม่มี Option ส่งมา แปลว่าลบออกหมด
-      await db.query(`DELETE FROM menu_options WHERE menu_id = ?`, [id]);
-    }
 
     return NextResponse.json({ message: 'แก้ไขเมนูสำเร็จ' });
   } catch (error) {

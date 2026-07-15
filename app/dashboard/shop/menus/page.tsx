@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react'; 
 import { 
@@ -16,7 +16,15 @@ type MenuOption = {
   option_group: string;
   option_name: string;
   extra_price: number;
-  is_multiple: boolean | number; // 👈 ปรับให้รองรับทั้ง boolean และ number จาก DB
+  is_multiple: boolean | number;
+};
+
+type GlobalOption = {
+  id?: number;
+  option_group: string;
+  option_name: string;
+  extra_price: number;
+  is_multiple: boolean | number;
 };
 
 type Category = {
@@ -33,7 +41,7 @@ type Menu = {
   is_sold_out?: boolean | number; 
   category_id?: number;
   description?: string;
-  options?: MenuOption[];
+  addon_option_ids?: number[];
 };
 
 // 📌 กำหนดหมวดหมู่และ Icon สำหรับปุ่มจัดการด่วน
@@ -66,10 +74,36 @@ export default function ManageMenusPage() {
   
   const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
   const [formDescription, setFormDescription] = useState('');
-  const [formOptions, setFormOptions] = useState<MenuOption[]>([]);
+  const [formAddonOptionIds, setFormAddonOptionIds] = useState<number[]>([]);
+
+  // Global Options States
+  const [isGlobalAddonsModalOpen, setIsGlobalAddonsModalOpen] = useState(false);
+  const [globalOptions, setGlobalOptions] = useState<GlobalOption[]>([]);
+  const [globalOptionForm, setGlobalOptionForm] = useState<GlobalOption>({ option_group: '', option_name: '', extra_price: 0, is_multiple: true });
+
+  const uniqueGlobalGroups = Array.from(new Set(globalOptions.map(opt => opt.option_group)));
+
+  // จัดกลุ่ม Global Options เพื่อแสดงผล
+  const groupedGlobalOptions = useMemo(() => {
+    const groups: Record<string, GlobalOption[]> = {};
+    globalOptions.forEach(opt => {
+      if (!groups[opt.option_group]) groups[opt.option_group] = [];
+      groups[opt.option_group].push(opt);
+    });
+    return groups;
+  }, [globalOptions]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkSectionOpen, setIsBulkSectionOpen] = useState(false);
+  const [customBulkCategories, setCustomBulkCategories] = useState<{name: string}[]>([]);
+  const [newBulkCategory, setNewBulkCategory] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('customBulkCategories');
+      if (saved) setCustomBulkCategories(JSON.parse(saved));
+    }
+  }, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -83,12 +117,21 @@ export default function ManageMenusPage() {
 
   const fetchMenus = async () => {
     try {
-      // 🚀 แก้ไขบรรทัดนี้: เรียกใช้ API ฝั่งร้านค้า (/api/shop/menus) แทน ฝั่งลูกค้า
       const res = await fetch(`/api/shop/menus?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       setMenus(data);
     } catch (error) {
       console.error("Error fetching menus", error);
+    }
+  };
+
+  const fetchGlobalOptions = async () => {
+    try {
+      const res = await fetch(`/api/shop/global-options`);
+      const data = await res.json();
+      setGlobalOptions(data);
+    } catch (error) {
+      console.error("Error fetching global options", error);
     }
   };
 
@@ -113,6 +156,7 @@ export default function ManageMenusPage() {
     if (status === 'authenticated' && (session.user as any)?.role === 'shop') {
       fetchMenus();
       fetchCategories();
+      fetchGlobalOptions();
     }
   }, [status, session]);
 
@@ -120,7 +164,7 @@ export default function ManageMenusPage() {
   const handleOpenAdd = () => {
     setFormId(null); setFormName(''); setFormPrice('');
     setImagePreview(''); setImageFile(null);
-    setFormCategoryId(''); setFormDescription(''); setFormOptions([]); 
+    setFormCategoryId(''); setFormDescription(''); setFormAddonOptionIds([]); 
     setIsEditing(false); setIsModalOpen(true);
   };
 
@@ -129,7 +173,13 @@ export default function ManageMenusPage() {
     setImagePreview(menu.image || ''); setImageFile(null); 
     setFormCategoryId(menu.category_id || ''); 
     setFormDescription(menu.description || ''); 
-    setFormOptions(menu.options || []); 
+    let parsedIds: number[] = [];
+    try {
+      if (menu.addon_option_ids) {
+        parsedIds = typeof menu.addon_option_ids === 'string' ? JSON.parse(menu.addon_option_ids) : menu.addon_option_ids;
+      }
+    } catch (e) {}
+    setFormAddonOptionIds(parsedIds); 
     setIsEditing(true); setIsModalOpen(true);
   };
 
@@ -142,20 +192,6 @@ export default function ManageMenusPage() {
       }
       setImageFile(file); setImagePreview(URL.createObjectURL(file)); 
     }
-  };
-
-  const addOptionRow = () => {
-    setFormOptions([...formOptions, { option_group: '', option_name: '', extra_price: 0, is_multiple: false }]);
-  };
-
-  const updateOptionRow = (index: number, field: keyof MenuOption, value: any) => {
-    const newOptions = [...formOptions];
-    newOptions[index] = { ...newOptions[index], [field]: value };
-    setFormOptions(newOptions);
-  };
-
-  const removeOptionRow = (index: number) => {
-    setFormOptions(formOptions.filter((_, i) => i !== index));
   };
 
   // 💾 บันทึกข้อมูล
@@ -172,9 +208,7 @@ export default function ManageMenusPage() {
       if (formCategoryId) formData.append('category_id', formCategoryId.toString());
       if (formDescription) formData.append('description', formDescription);
       
-      if (formOptions.length > 0) {
-        formData.append('options', JSON.stringify(formOptions));
-      }
+      formData.append('addon_option_ids', JSON.stringify(formAddonOptionIds));
 
       if (imageFile) formData.append('image', imageFile); 
 
@@ -248,6 +282,7 @@ export default function ManageMenusPage() {
         case 'squid': return name.includes('หมึก');
         case 'shrimp': return name.includes('กุ้ง');
         case 'seafood': return name.includes('ทะเล');
+        case 'custom': return name.includes(typeName);
         default: return false;
       }
     });
@@ -290,6 +325,12 @@ export default function ManageMenusPage() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: 10, color: '#1e293b' }}>
           <Utensils size={28} color="#2563eb" /> จัดการเมนู
         </h1>
+        <button 
+          onClick={() => setIsGlobalAddonsModalOpen(true)} 
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+        >
+          <ListPlus size={18} color="#2563eb" /> จัดการตัวเลือกเสริม
+        </button>
         <button 
           onClick={handleOpenAdd} 
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37,99,235,0.2)' }}
@@ -346,6 +387,66 @@ export default function ManageMenusPage() {
                   </div>
                 </div>
               ))}
+              
+              {/* Custom Categories */}
+              {customBulkCategories.map((cat, idx) => (
+                <div key={`custom-${idx}`} style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', position: 'relative' }}>
+                  <button 
+                    onClick={() => {
+                      const updated = customBulkCategories.filter((_, i) => i !== idx);
+                      setCustomBulkCategories(updated);
+                      localStorage.setItem('customBulkCategories', JSON.stringify(updated));
+                    }}
+                    style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.6rem' }}
+                  >
+                    <X size={12} />
+                  </button>
+                  <div style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Utensils size={16} color="#64748b" /> {cat.name}
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                    <button 
+                      onClick={() => handleBulkAction('custom', cat.name, 'sold_out')} 
+                      disabled={isSubmitting} title="ตั้งเป็นของหมด"
+                      style={{ flex: 1, padding: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                    >
+                      <XCircle size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleBulkAction('custom', cat.name, 'available')} 
+                      disabled={isSubmitting} title="ตั้งเป็นพร้อมขาย"
+                      style={{ flex: 1, padding: '6px', background: '#dcfce7', color: '#10b981', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                    >
+                      <CheckCircle2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Input for new custom category */}
+            <div style={{ marginTop: '16px', display: 'flex', gap: '10px', maxWidth: '300px' }}>
+              <input 
+                type="text" 
+                placeholder="เพิ่มวัตถุดิบใหม่ (เช่น หมูเด้ง)" 
+                value={newBulkCategory}
+                onChange={e => setNewBulkCategory(e.target.value)}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem' }}
+              />
+              <button 
+                onClick={() => {
+                  if (newBulkCategory.trim()) {
+                    const newCat = { name: newBulkCategory.trim() };
+                    const updated = [...customBulkCategories, newCat];
+                    setCustomBulkCategories(updated);
+                    localStorage.setItem('customBulkCategories', JSON.stringify(updated));
+                    setNewBulkCategory('');
+                  }
+                }}
+                style={{ padding: '8px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+              >
+                เพิ่ม
+              </button>
             </div>
           </div>
         )}
@@ -379,15 +480,13 @@ export default function ManageMenusPage() {
                   <div style={{ color: isSoldOut ? '#94a3b8' : '#2563eb', fontWeight: 'bold', fontSize: '0.9rem' }}>{menu.price.toLocaleString()} ฿</div>
                   
                   {/* แสดงแถบออปชันใต้ชื่อเมนูในหน้าหลัก */}
-                  {menu.options && menu.options.length > 0 && (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                      {menu.options.map((opt: any, oIdx) => (
-                        <span key={oIdx} style={{ fontSize: '0.7rem', background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                          {opt.option_group}: {opt.option_name} {Number(opt.extra_price) > 0 ? `(+${opt.extra_price}฿)` : ''}
-                        </span>
-                      ))}
+                  {menu.addon_option_ids && menu.addon_option_ids.length > 0 ? (
+                    <div style={{ marginTop: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                        + มีตัวเลือกเสริม
+                      </span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -478,41 +577,55 @@ export default function ManageMenusPage() {
                 <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="ส่วนผสม หรืออธิบายความอร่อยให้น่าทาน..." style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', boxSizing: 'border-box', outline: 'none', fontSize: '0.95rem', minHeight: '80px', fontFamily: 'inherit' }} />
               </div>
 
-              {/* Option Builder */}
-              <div style={{ background: '#f8fafc', padding: 15, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <label style={{ fontSize: '0.95rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}><ListPlus size={18} color="#2563eb" /> ตัวเลือกเสริม (ท็อปปิ้ง/ขนาด)</label>
-                  <button type="button" onClick={addOptionRow} style={{ background: '#dbeafe', color: '#1d4ed8', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>+ เพิ่มตัวเลือก</button>
+              {/* เลือกว่าเมนูนี้จะมีตัวเลือกเสริมอะไรบ้าง */}
+              <div style={{ background: formAddonOptionIds.length > 0 ? '#eff6ff' : '#f8fafc', padding: 15, borderRadius: 12, border: formAddonOptionIds.length > 0 ? '1px solid #bfdbfe' : '1px solid #e2e8f0', transition: 'background 0.2s' }}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: '0.95rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}><ListPlus size={18} color={formAddonOptionIds.length > 0 ? "#2563eb" : "#94a3b8"} /> เลือกตัวเลือกเสริมสำหรับเมนูนี้</label>
+                  <p style={{ margin: '4px 0 0 24px', fontSize: '0.8rem', color: '#64748b' }}>(ติ๊กเลือกเฉพาะรายการที่ต้องการให้แสดงในเมนูนี้)</p>
                 </div>
                 
-                {formOptions.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0, textAlign: 'center', padding: '10px 0' }}>ยังไม่มีตัวเลือกเสริมสำหรับเมนูนี้</p>
+                {Object.keys(groupedGlobalOptions).length === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 0 24px' }}>ยังไม่มีกลุ่มตัวเลือกเสริมในระบบ</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {formOptions.map((opt, index) => (
-                      <div key={index} style={{ background: '#fff', padding: 12, borderRadius: 10, border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
-                        <button type="button" onClick={() => removeOptionRow(index)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={16}/></button>
-                        
-                        <div style={{ display: 'flex', gap: 8, paddingRight: 20 }}>
-                          <input type="text" placeholder="กลุ่ม (เช่น ขนาด)" value={opt.option_group} onChange={(e) => updateOptionRow(index, 'option_group', e.target.value)} style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.85rem' }} required />
-                          <input type="text" placeholder="ชื่อตัวเลือก (เช่น พิเศษ)" value={opt.option_name} onChange={(e) => updateOptionRow(index, 'option_name', e.target.value)} style={{ flex: 1, padding: 8, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.85rem' }} required />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 15, marginLeft: 24 }}>
+                    {Object.entries(groupedGlobalOptions).map(([group, options]) => (
+                      <div key={group}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b' }}>{group}</div>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const optionIds = options.map(o => o.id!);
+                              const allSelected = optionIds.every(id => formAddonOptionIds.includes(id));
+                              if (allSelected) {
+                                setFormAddonOptionIds(formAddonOptionIds.filter(id => !optionIds.includes(id)));
+                              } else {
+                                const newIds = new Set([...formAddonOptionIds, ...optionIds]);
+                                setFormAddonOptionIds(Array.from(newIds));
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                          >
+                            {options.every(o => formAddonOptionIds.includes(o.id!)) ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}
+                          </button>
                         </div>
-
-                        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>ราคา +</span>
-                            <input type="number" placeholder="0" value={opt.extra_price} onChange={(e) => updateOptionRow(index, 'extra_price', Number(e.target.value))} style={{ width: 70, padding: 8, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.85rem', textAlign: 'center' }} />
-                            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>฿</span>
-                          </div>
-                          
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', color: '#475569', cursor: 'pointer' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={Boolean(Number(opt.is_multiple))} 
-                              onChange={(e) => updateOptionRow(index, 'is_multiple', e.target.checked)} 
-                            />
-                            เลือกได้หลายข้อ (Checkbox)
-                          </label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                          {options.map(opt => (
+                            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1', cursor: 'pointer', fontSize: '0.85rem' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={formAddonOptionIds.includes(opt.id!)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormAddonOptionIds([...formAddonOptionIds, opt.id!]);
+                                  } else {
+                                    setFormAddonOptionIds(formAddonOptionIds.filter(id => id !== opt.id));
+                                  }
+                                }}
+                              />
+                              {opt.option_name} <span style={{ color: '#2563eb' }}>(+{opt.extra_price}฿)</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -529,6 +642,103 @@ export default function ManageMenusPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* 📝 Popup Modal จัดการตัวเลือกเสริม (Global) */}
+      {isGlobalAddonsModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}>
+          <div style={{ background: '#fff', width: '100%', maxWidth: '600px', borderRadius: '20px', padding: '24px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b' }}>
+                <ListPlus size={20} color="#2563eb" /> จัดการตัวเลือกเสริม (ทั้งหมด)
+              </h2>
+              <button onClick={() => setIsGlobalAddonsModalOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '10px' }}>
+              {/* Form เพิ่มตัวเลือก */}
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+                try {
+                  const method = globalOptionForm.id ? 'PUT' : 'POST';
+                  const res = await fetch('/api/shop/global-options', {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(globalOptionForm)
+                  });
+                  if (!res.ok) throw new Error('บันทึกไม่สำเร็จ');
+                  setGlobalOptionForm({ option_group: '', option_name: '', extra_price: 0, is_multiple: true });
+                  fetchGlobalOptions();
+                } catch (err: any) {
+                  alert(err.message);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }} style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20 }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#334155' }}>{globalOptionForm.id ? 'แก้ไขตัวเลือก' : 'เพิ่มตัวเลือกใหม่'}</h4>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                  <input 
+                    type="text" 
+                    list="global-groups"
+                    placeholder="กลุ่ม (พิมพ์ใหม่ หรือเลือกจากรายการ)" 
+                    value={globalOptionForm.option_group} 
+                    onChange={e => setGlobalOptionForm({...globalOptionForm, option_group: e.target.value})} 
+                    style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }} 
+                    required 
+                  />
+                  <datalist id="global-groups">
+                    {uniqueGlobalGroups.map(g => <option key={g} value={g} />)}
+                  </datalist>
+                  <input type="text" placeholder="ชื่อ (เช่น ไข่ดาว)" value={globalOptionForm.option_name} onChange={e => setGlobalOptionForm({...globalOptionForm, option_name: e.target.value})} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }} required />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: '0.9rem', color: '#64748b' }}>ราคา +</span>
+                    <input type="number" value={globalOptionForm.extra_price} onChange={e => setGlobalOptionForm({...globalOptionForm, extra_price: Number(e.target.value)})} style={{ width: 80, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', textAlign: 'center' }} />
+                    <span style={{ fontSize: '0.9rem', color: '#64748b' }}>฿</span>
+                  </div>
+
+                  <button type="submit" disabled={isSubmitting} style={{ marginLeft: 'auto', background: '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    {globalOptionForm.id ? 'บันทึกแก้ไข' : '+ เพิ่ม'}
+                  </button>
+                  {globalOptionForm.id && (
+                    <button type="button" onClick={() => setGlobalOptionForm({ option_group: '', option_name: '', extra_price: 0, is_multiple: true })} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      ยกเลิก
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {/* List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {globalOptions.length === 0 ? (
+                  <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>ยังไม่มีตัวเลือกเสริม</p>
+                ) : (
+                  globalOptions.map(opt => (
+                    <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{opt.option_name} <span style={{ color: '#2563eb', fontSize: '0.9rem' }}>(+{opt.extra_price}฿)</span></div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>กลุ่ม: {opt.option_group}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => setGlobalOptionForm(opt as GlobalOption)} style={{ background: '#eff6ff', color: '#3b82f6', border: 'none', padding: 8, borderRadius: 6, cursor: 'pointer' }}><Edit size={16}/></button>
+                        <button onClick={async () => {
+                          if (!confirm('ยืนยันการลบ?')) return;
+                          await fetch(`/api/shop/global-options?id=${opt.id}`, { method: 'DELETE' });
+                          fetchGlobalOptions();
+                        }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: 8, borderRadius: 6, cursor: 'pointer' }}><Trash2 size={16}/></button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
           </div>
         </div>
       )}

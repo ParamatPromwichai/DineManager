@@ -9,8 +9,8 @@ export async function GET() {
     const shop = shopResult[0] || {}; // กัน error ถ้าไม่มีข้อมูลร้าน
 
     // 2. เมนูยอดนิยม (Top 3)
-    const [popularMenus]: any = await db.query(`
-      SELECT m.id, m.name, m.price, m.image
+    const [popularMenusResult]: any = await db.query(`
+      SELECT m.*
       FROM menus m
       JOIN menu_stats s ON m.id = s.menu_id
       ORDER BY s.order_count DESC
@@ -24,15 +24,38 @@ export async function GET() {
     const remainingQueue = queueResult[0]?.queueCount || 0;
 
     // 4. เมนูแนะนำ
-    const [recommended]: any = await db.query(
-      'SELECT id, name, price, image FROM menus WHERE is_recommended = 1 ORDER BY id DESC'
+    const [recommendedResult]: any = await db.query(
+      'SELECT * FROM menus WHERE is_recommended = 1 ORDER BY id DESC'
     );
+
+    // ดึงตัวเลือกเสริมมาประกอบร่าง
+    const [options]: any = await db.query(`SELECT * FROM menu_options`);
+    const [globalOptions]: any = await db.query(`SELECT * FROM global_options`);
+
+    const mapMenuOptions = (menu: any) => {
+      let addonOptionIds: number[] = [];
+      try {
+        if (menu.addon_option_ids) {
+          addonOptionIds = typeof menu.addon_option_ids === 'string' ? JSON.parse(menu.addon_option_ids) : menu.addon_option_ids;
+        }
+      } catch (e) { addonOptionIds = []; }
+
+      return {
+        ...menu,
+        options: options.filter((opt: any) => Number(opt.menu_id) === Number(menu.id)),
+        addon_option_ids: addonOptionIds,
+        globalOptions: addonOptionIds.length > 0 ? globalOptions.filter((opt: any) => addonOptionIds.includes(opt.id)) : []
+      };
+    };
+
+    const popularMenus = popularMenusResult.map(mapMenuOptions);
+    const recommendedMenus = recommendedResult.map(mapMenuOptions);
 
     return NextResponse.json({
       shop: shop, 
       popularMenus,
       remainingQueue: remainingQueue, // 👈 ส่งตัวเลขที่นับได้สดๆ ร้อนๆ ไปให้หน้าบ้าน
-      recommendedMenus: recommended,
+      recommendedMenus: recommendedMenus,
     });
 
   } catch (error) {

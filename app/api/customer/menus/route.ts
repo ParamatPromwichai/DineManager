@@ -17,12 +17,24 @@ export async function GET() {
     
     // 2. ดึงข้อมูลตัวเลือกเสริมทั้งหมดจากฐานข้อมูล
     const [options]: any = await db.query(`SELECT * FROM menu_options`);
+    const [globalOptions]: any = await db.query(`SELECT * FROM global_options`);
 
-    // 3. ประกอบร่าง (จับคู่ option ให้ตรงกับ menu_id)
-    const menusWithOptions = menus.map((menu: any) => ({
-      ...menu,
-      options: options.filter((opt: any) => Number(opt.menu_id) === Number(menu.id))
-    }));
+    // 3. ประกอบร่าง
+    const menusWithOptions = menus.map((menu: any) => {
+      let addonOptionIds: number[] = [];
+      try {
+        if (menu.addon_option_ids) {
+          addonOptionIds = typeof menu.addon_option_ids === 'string' ? JSON.parse(menu.addon_option_ids) : menu.addon_option_ids;
+        }
+      } catch (e) { addonOptionIds = []; }
+
+      return {
+        ...menu,
+        options: options.filter((opt: any) => Number(opt.menu_id) === Number(menu.id)),
+        addon_option_ids: addonOptionIds,
+        globalOptions: addonOptionIds.length > 0 ? globalOptions.filter((opt: any) => addonOptionIds.includes(opt.id)) : []
+      };
+    });
     
     return NextResponse.json(menusWithOptions);
   } catch (error) {

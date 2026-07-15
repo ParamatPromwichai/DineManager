@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, memo, Suspense } from 'react';
+import { useEffect, useState, useMemo, memo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft, Utensils, Star, Plus, Minus, ShoppingCart, 
@@ -34,6 +34,8 @@ type Menu = {
   review_count: number; 
   is_sold_out?: number | boolean | string; 
   options?: MenuOption[]; 
+  addon_option_ids?: number[];
+  globalOptions?: MenuOption[];
 };
 
 type ShopStatus = {
@@ -146,6 +148,48 @@ function AllMenusContent() {
     }).catch(err => console.error(err));
   }, []);
 
+  // โหลดข้อมูลจาก LocalStorage ตอนเปิดหน้าเว็บ
+  useEffect(() => {
+    const savedCart = localStorage.getItem('dinemanager_cart');
+    const savedPhone = localStorage.getItem('dinemanager_phone');
+    const savedAddress = localStorage.getItem('dinemanager_address');
+    const savedShowPayment = localStorage.getItem('dinemanager_show_payment');
+    
+    if (savedShowPayment === 'true') setShowPayment(true);
+    if (savedCart) {
+      try { setCart(JSON.parse(savedCart)); } catch (e) {}
+    }
+    if (savedPhone) setPhone(savedPhone);
+    if (savedAddress) setAddress(savedAddress);
+  }, []);
+
+  // บันทึกข้อมูลลง LocalStorage เมื่อมีการเปลี่ยนแปลง
+  useEffect(() => {
+    localStorage.setItem('dinemanager_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('dinemanager_phone', phone);
+  }, [phone]);
+
+  useEffect(() => {
+    localStorage.setItem('dinemanager_address', address);
+  }, [address]);
+
+  useEffect(() => {
+    localStorage.setItem('dinemanager_show_payment', showPayment.toString());
+  }, [showPayment]);
+
+  const paymentBottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (paymentMethod === 'qr' && paymentBottomRef.current) {
+      setTimeout(() => {
+        paymentBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+  }, [paymentMethod]);
+
+
   // 🚚 คำนวณค่าจัดส่งอิงตามสูตรใหม่ระบบหลังบ้าน
   useEffect(() => {
     if (location?.lat && location?.lng && shopData?.latitude && shopData?.longitude) {
@@ -242,6 +286,7 @@ function AllMenusContent() {
       
       alert('สั่งอาหารสำเร็จ ขอบคุณที่ใช้บริการครับ!');
       setCart([]); setShowPayment(false); setSlipImage(null); setPaymentMethod('');
+      localStorage.removeItem('dinemanager_cart');
     } catch (error) { 
       console.error(error); alert('เกิดข้อผิดพลาด กรุณาลองใหม่'); 
     } finally { setIsSubmitting(false); }
@@ -338,6 +383,14 @@ function AllMenusContent() {
                     {renderStars(Number(menu.avg_rating))} 
                     <span style={{ color: '#93C5FD', marginLeft: 4, fontWeight: 'bold' }}>({menu.review_count})</span>
                   </div>
+                  
+                  {menu.addon_option_ids && menu.addon_option_ids.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ fontSize: '0.7rem', background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                        + มีตัวเลือกเสริม
+                      </span>
+                    </div>
+                  )}
                   
                   <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: isMenuSoldOut ? '#94a3b8' : '#2563EB', fontWeight: '900', fontSize: '1.1rem' }}>{Number(menu.price).toLocaleString()} ฿</span>
@@ -472,7 +525,13 @@ function AllMenusContent() {
             {paymentMethod === 'qr' && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#F4F8FF', padding: 20, borderRadius: 20, marginBottom: 25, border: '1px solid #DCE8FF' }}>
                 <p style={{ margin: '0 0 15px 0', fontSize: '1rem', fontWeight: 'bold', color: '#1E3A8A' }}>สแกนเพื่อโอนเงิน <span style={{ color: '#2563EB', fontSize: '1.1rem' }}>{total.toLocaleString()} ฿</span></p>
-                {shopData?.qr_image ? (
+                
+                <div style={{ background: '#FFF3CD', color: '#856404', padding: '10px 15px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '15px', border: '1px solid #FFEEBA', width: '100%', textAlign: 'center' }}>
+                  <strong>⚠️ หมายเหตุ:</strong> หากสแกนจ่ายเงินแล้ว ยังไม่ได้ยืนยัน คุณสามารถกลับมากดสั่งใหม่และแนบสลิปได้เลยครับ
+                </div>
+                {shopData?.account_number ? (
+                  <img src={`https://promptpay.io/${shopData.account_number}/${total}.png`} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} alt="PromptPay QR" />
+                ) : shopData?.qr_image ? (
                   <img src={shopData.qr_image} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} />
                 ) : (
                   <div style={{ padding: 30, background: '#EBF1FF', color: '#93C5FD', borderRadius: 12 }}><ImageOff size={32} /></div>
@@ -498,6 +557,7 @@ function AllMenusContent() {
                 {isSubmitting ? 'กำลังสั่ง...' : 'ยืนยันสั่งอาหาร'}
               </button>
             </div>
+            <div ref={paymentBottomRef} style={{ height: '20px' }}></div>
           </div>
         </div>
       )}
@@ -573,18 +633,20 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
 
   // จัดกลุ่มตัวเลือก
   const groupedOptions = useMemo(() => {
-    if (!menu.options || menu.options.length === 0) return {};
+    const optionsToUse = menu.addon_option_ids && menu.addon_option_ids.length > 0 && menu.globalOptions && menu.globalOptions.length > 0 ? menu.globalOptions : menu.options;
+    if (!optionsToUse || optionsToUse.length === 0) return {};
     const groups: Record<string, MenuOption[]> = {};
-    menu.options.forEach(opt => {
+    optionsToUse.forEach(opt => {
       if (!groups[opt.option_group]) groups[opt.option_group] = [];
       groups[opt.option_group].push(opt);
     });
     return groups;
-  }, [menu.options]);
+  }, [menu]);
 
   // ตั้งค่าเริ่มต้น Auto-Select
   useEffect(() => {
-    if (!menu.options) return;
+    const optionsToUse = menu.addon_option_ids && menu.addon_option_ids.length > 0 && menu.globalOptions && menu.globalOptions.length > 0 ? menu.globalOptions : menu.options;
+    if (!optionsToUse) return;
     
     const initialSelections: Record<string, MenuOption[]> = {};
     Object.entries(groupedOptions).forEach(([groupName, options]) => {
