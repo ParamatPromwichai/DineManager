@@ -8,9 +8,11 @@ export async function GET() {
       SELECT 
         m.*, 
         COALESCE(AVG(r.rating), 0) as avg_rating, 
-        COUNT(r.id) as review_count
+        COUNT(DISTINCT r.id) as review_count,
+        COALESCE(SUM(oi.quantity), 0) as order_count
       FROM menus m
       LEFT JOIN reviews r ON m.id = r.menu_id
+      LEFT JOIN order_items oi ON m.id = oi.menu_id
       GROUP BY m.id
       ORDER BY m.is_recommended DESC, m.id DESC
     `);

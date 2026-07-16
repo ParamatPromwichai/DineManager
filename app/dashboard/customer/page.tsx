@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import {
   Store, Clock, Zap, Star, Utensils, ShoppingCart, CreditCard,
   MapPin, Plus, Minus, Flame, Maximize2, PlusCircle, PenLine,
-  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation, CheckSquare
+  UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation, CheckSquare, ChevronUp, ChevronDown
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -34,6 +34,7 @@ type Menu = {
   is_recommended?: boolean | number;
   avg_rating?: number;
   review_count?: number;
+  order_count?: number;
   is_sold_out?: number | boolean | string;
   options?: MenuOption[]; 
   addon_option_ids?: number[];
@@ -91,7 +92,9 @@ export default function CustomerHome() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isCartExpanded, setIsCartExpanded] = useState(false);
 
   // Form & Payment States
   const [showPayment, setShowPayment] = useState(false);
@@ -153,12 +156,15 @@ export default function CustomerHome() {
     }
     if (savedPhone) setPhone(savedPhone);
     if (savedAddress) setAddress(savedAddress);
+    setIsLoaded(true);
   }, []);
 
   // บันทึกข้อมูลลง LocalStorage เมื่อมีการเปลี่ยนแปลง
   useEffect(() => {
-    localStorage.setItem('dinemanager_cart', JSON.stringify(cart));
-  }, [cart]);
+    if (isLoaded) {
+      localStorage.setItem('dinemanager_cart', JSON.stringify(cart));
+    }
+  }, [cart, isLoaded]);
 
   useEffect(() => {
     localStorage.setItem('dinemanager_phone', phone);
@@ -348,7 +354,20 @@ export default function CustomerHome() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 && !showPayment ? 'pb-48' : 'pb-24'}`}>
+    <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-72' : 'pb-24'}`}>
+
+      {/* 🔴 Header สำหรับ Dashboard */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: '#1E3A8A' }}>หน้าหลัก</h2>
+        <button onClick={() => router.push('/dashboard/customer/cart')} style={{ position: 'relative', background: '#ffffff', border: '1px solid #DCE8FF', color: '#2563EB', cursor: 'pointer', padding: '10px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(37,99,235,0.05)' }}>
+          <ShoppingCart size={22} />
+          {cart.reduce((a, b) => a + b.quantity, 0) > 0 && (
+            <span style={{ position: 'absolute', top: -6, right: -6, background: '#EF4444', color: 'white', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', border: '2px solid #ffffff' }}>
+              {cart.reduce((a, b) => a + b.quantity, 0)}
+            </span>
+          )}
+        </button>
+      </div>
 
       {dashboardData && (
         <>
@@ -390,7 +409,7 @@ export default function CustomerHome() {
               </div>
               <div style={{ display: 'flex', gap: 15, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
                 {dashboardData.recommendedMenus.map((m) => (
-                  <div key={`rec-${m.id}`} style={{ minWidth: '160px', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: 16, padding: 12, scrollSnapAlign: 'start', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)' }}>
+                  <div key={`rec-${m.id}`} onClick={() => router.push(`/dashboard/customer/menus/${m.id}`)} style={{ cursor: 'pointer', minWidth: '160px', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: 16, padding: 12, scrollSnapAlign: 'start', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)' }}>
                     <div style={{ height: '100px', background: '#F0F5FF', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
                       {m.image ? <img src={m.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageOff size={20} color="#93C5FD" /></div>}
                     </div>
@@ -403,7 +422,7 @@ export default function CustomerHome() {
                         </span>
                       </div>
                     )}
-                    <button onClick={() => setSelectedMenuForOption(m)} style={{ marginTop: 12, width: '100%', padding: '10px', background: '#2563EB', color: 'white', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(m); }} style={{ marginTop: 12, width: '100%', padding: '10px', background: '#2563EB', color: 'white', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)' }}>
                       + สั่งเลย
                     </button>
                   </div>
@@ -424,7 +443,7 @@ export default function CustomerHome() {
             const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
             return (
-              <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: idx === 5 ? 'none' : '1px solid #EBF1FF' }}>
+              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: idx === 5 ? 'none' : '1px solid #EBF1FF' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 15, opacity: isMenuSoldOut ? 0.6 : 1 }}>
                   <div style={{ width: 50, height: 50, background: '#F4F8FF', borderRadius: 12, overflow: 'hidden', border: '1px solid #DCE8FF' }}>
                     {menu.image ? <img src={menu.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageOff size={16} color="#93C5FD" /></div>}
@@ -448,7 +467,7 @@ export default function CustomerHome() {
                   </span>
                 ) : (
                   <button
-                    onClick={() => setSelectedMenuForOption(menu)}
+                    onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }}
                     style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                   >
                     <Plus size={20} strokeWidth={3} />
@@ -470,190 +489,46 @@ export default function CustomerHome() {
       )}
 
       {/* --- ตะกร้า (Cart Overlay) --- */}
-      {cart.length > 0 && !showPayment && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#ffffff', borderTop: '2px solid #2563EB', padding: '15px 20px', paddingBottom: 'env(safe-area-inset-bottom, 20px)', boxShadow: '0 -10px 20px rgba(37, 99, 235, 0.1)', zIndex: 90 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+      {cart.length > 0 && (
+        <div style={{ position: 'fixed', bottom: 85, left: 15, right: 15, background: '#ffffff', borderRadius: 20, padding: '15px 20px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.15)', zIndex: 90, border: '1px solid #DCE8FF' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCartExpanded ? 15 : 10 }}>
             <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
               <ShoppingCart size={20} color="#2563EB" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
             </h4>
-            <span style={{ fontWeight: '900', fontSize: '1.3em', color: '#2563EB' }}>{subTotal.toLocaleString()} ฿</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+              <span style={{ fontWeight: '900', fontSize: '1.3em', color: '#2563EB' }}>{subTotal.toLocaleString()} ฿</span>
+              <button onClick={() => setIsCartExpanded(!isCartExpanded)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}>
+                {isCartExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              </button>
+            </div>
           </div>
 
-          <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: 15, borderBottom: '1px solid #EBF1FF', paddingBottom: 10 }}>
-            {cart.map(item => (
-              <div key={item.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div style={{ flex: 1, paddingRight: 10 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E40AF' }}>{item.originalName}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.3 }}>{item.name.replace(item.originalName, '').trim()}</div>
-                  <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
+          {isCartExpanded && (
+            <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: 15, borderBottom: '1px solid #EBF1FF', paddingBottom: 10 }}>
+              {cart.map(item => (
+                <div key={item.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ flex: 1, paddingRight: 10 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E40AF' }}>{item.originalName}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.3 }}>{item.name.replace(item.originalName, '').trim()}</div>
+                    <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
+                    <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
+                      <Minus size={14} strokeWidth={3} />
+                    </button>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
+                    <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
+                      <Plus size={14} strokeWidth={3} />
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                  <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
-                    <Minus size={14} strokeWidth={3} />
-                  </button>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                  <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
-                    <Plus size={14} strokeWidth={3} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          <button onClick={() => setShowPayment(true)} style={{ width: '100%', padding: '14px', background: 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.1em', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-            ยืนยันและดำเนินการชำระเงิน
+          <button onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+            ยืนยันและไปหน้าชำระเงิน
           </button>
-        </div>
-      )}
-
-      {/* ✅ Payment Modal */}
-      {showPayment && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#ffffff', padding: 25, width: '100%', maxWidth: '450px', borderRadius: 28, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: 10, color: '#1E3A8A' }}>
-                <CreditCard size={24} color="#2563EB" /> ชำระเงิน
-              </h3>
-              <button onClick={() => setShowPayment(false)} style={{ background: '#F4F8FF', border: 'none', borderRadius: '50%', padding: 8, cursor: 'pointer', color: '#2563EB' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              <input type="tel" placeholder="เบอร์โทรศัพท์ติดต่อ *" value={phone} onChange={e => setPhone(e.target.value)} style={{ padding: 14, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
-              <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} style={{ padding: 14, minHeight: 80, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
-                <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
-              </button>
-              <button
-                onClick={() => {
-                  setTempLocation(location || { lat: 17.1664, lng: 104.1486 });
-                  setShowMapModal(true);
-                }}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุด)' : 'ปักหมุดแผนที่'}
-              </button>
-            </div>
-
-            {/* 🧾 Receipt Summary */}
-            <div style={{ background: '#F4F8FF', padding: 18, borderRadius: 16, marginBottom: 25, border: '1px solid #DCE8FF' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#475569', fontSize: '0.95rem' }}>
-                <span>รวมค่าอาหาร:</span><strong style={{ color: '#1E3A8A' }}>{subTotal.toLocaleString()} ฿</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: '#475569', fontSize: '0.95rem' }}>
-                <span>ค่าจัดส่ง {distance > 0 ? `(${distance.toFixed(1)} กม.)` : ''}:</span>
-                <strong style={{ color: '#1E3A8A' }}>{location ? `${deliveryFee.toLocaleString()} ฿` : 'รอพิกัด...'}</strong>
-              </div>
-              <div style={{ height: '1px', background: '#BFDBFE', margin: '10px 0', border: 'none' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: '900', color: '#1E3A8A' }}>
-                <span>ยอดรวมสุทธิ:</span><span style={{ color: '#2563EB' }}>{total.toLocaleString()} ฿</span>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 25 }}>
-              <p style={{ marginBottom: 12, fontWeight: 'bold', fontSize: '0.95rem', color: '#1E3A8A' }}>เลือกช่องทางชำระเงิน:</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <label style={{ flex: 1, padding: 15, border: paymentMethod === 'qr' ? '2px solid #2563EB' : '1px solid #DCE8FF', borderRadius: 14, textAlign: 'center', cursor: 'pointer', background: paymentMethod === 'qr' ? '#EFF6FF' : '#ffffff', color: paymentMethod === 'qr' ? '#1D4ED8' : '#475569', fontWeight: 'bold' }}>
-                  <input type="radio" checked={paymentMethod === 'qr'} onChange={() => setPaymentMethod('qr')} style={{ display: 'none' }} /> โอนเงิน (QR)
-                </label>
-                <label style={{ flex: 1, padding: 15, border: paymentMethod === 'cod' ? '2px solid #2563EB' : '1px solid #DCE8FF', borderRadius: 14, textAlign: 'center', cursor: 'pointer', background: paymentMethod === 'cod' ? '#EFF6FF' : '#ffffff', color: paymentMethod === 'cod' ? '#1D4ED8' : '#475569', fontWeight: 'bold' }}>
-                  <input type="radio" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ display: 'none' }} /> ปลายทาง
-                </label>
-              </div>
-            </div>
-
-            {/* QR Payment Content */}
-            {paymentMethod === 'qr' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#F4F8FF', padding: 20, borderRadius: 20, marginBottom: 25, border: '1px solid #DCE8FF' }}>
-                <p style={{ margin: '0 0 15px 0', fontSize: '1rem', fontWeight: 'bold', color: '#1E3A8A' }}>สแกนเพื่อโอนเงิน <span style={{ color: '#2563EB', fontSize: '1.1rem' }}>{total.toLocaleString()} ฿</span></p>
-                
-                <div style={{ background: '#FFF3CD', color: '#856404', padding: '10px 15px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '15px', border: '1px solid #FFEEBA', width: '100%', textAlign: 'center' }}>
-                  <strong>⚠️ หมายเหตุ:</strong> หากสแกนจ่ายเงินแล้ว ยังไม่ได้ยืนยัน คุณสามารถกลับมากดสั่งใหม่และแนบสลิปได้เลยครับ
-                </div>
-
-                {dashboardData?.shop.account_number ? (
-                  <img src={`https://promptpay.io/${dashboardData.shop.account_number}/${total}.png`} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} alt="PromptPay QR" />
-                ) : dashboardData?.shop.qr_image ? (
-                  <img src={dashboardData.shop.qr_image} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} />
-                ) : (
-              <div style={{ padding: 30, background: '#EBF1FF', color: '#93C5FD', borderRadius: 12 }}><ImageOff size={32} /></div>
-                )}
-
-                <div style={{ marginTop: 15, fontSize: '0.9rem', color: '#1E40AF', width: '100%', background: '#fff', padding: 12, borderRadius: 12, border: '1px solid #DCE8FF' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>ธนาคาร:</span> <strong>{dashboardData?.shop.bank_name || '-'}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>เลขบัญชี:</span> <strong style={{ color: '#2563EB', fontSize: '1rem' }}>{dashboardData?.shop.account_number || '-'}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ชื่อบัญชี:</span> <strong>{dashboardData?.shop.account_name || '-'}</strong></div>
-                </div>
-
-                <label style={{ marginTop: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 15px', background: slipImage ? '#ECFDF5' : '#1E3A8A', color: slipImage ? '#059669' : '#fff', borderRadius: 12, cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', width: '100%', border: slipImage ? '1px solid #10B981' : 'none' }}>
-                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                  {slipImage ? <><CheckCircle2 size={18} /> เปลี่ยนรูปสลิป</> : <><UploadCloud size={18} /> อัปโหลดสลิปโอนเงิน *</>}
-                </label>
-                {slipImage && <img src={slipImage} style={{ marginTop: 10, height: '120px', borderRadius: 8, border: '1px solid #DCE8FF' }} />}
-              </div>
-            )}
-
-            <button disabled={isSubmitting} onClick={handleConfirmOrder} style={{ width: '100%', padding: 15, background: isSubmitting ? '#93C5FD' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: isSubmitting ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
-              {isSubmitting ? 'กำลังสั่ง...' : 'ยืนยันสั่งอาหาร'}
-            </button>
-            <div ref={paymentBottomRef} style={{ height: '20px' }}></div>
-          </div>
-        </div>
-      )}
-
-      {/* 🗺️ Popup หน้าต่างปักหมุดแผนที่ */}
-      {showMapModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
-          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-
-            <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Navigation size={22} color="#2563EB" /> เลือกตำแหน่งจัดส่ง
-              </h3>
-              <button onClick={() => setShowMapModal(false)} style={{ background: '#F4F8FF', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#2563EB' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* พื้นที่แสดงแผนที่ */}
-            <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
-
-              {/* ปุ่มดึงตำแหน่งปัจจุบันมาลงแผนที่ */}
-              <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
-                <button onClick={requestLocationForMap} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
-                  <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
-                </button>
-              </div>
-
-              <MapPicker
-                tempLocation={tempLocation}
-                setTempLocation={setTempLocation}
-                setAddress={setAddress}
-              />
-            </div>
-
-            <div style={{ padding: 20 }}>
-              <div style={{ marginBottom: 15, fontSize: '0.9rem', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F8FF', padding: 12, borderRadius: 12 }}>
-                <span>พิกัดละติจูด-ลองจิจูด:</span>
-                <strong style={{ color: '#1E3A8A' }}>
-                  {tempLocation ? `${Number(tempLocation.lat).toFixed(4)}, ${Number(tempLocation.lng).toFixed(4)}` : 'กำลังค้นหา...'}
-                </strong>
-              </div>
-              <button
-                onClick={() => {
-                  if (tempLocation) setLocation(tempLocation);
-                  setShowMapModal(false);
-                }}
-                style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}
-              >
-                ยืนยันตำแหน่งนี้
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

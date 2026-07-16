@@ -10,10 +10,15 @@ export async function GET() {
 
     // 2. เมนูยอดนิยม (Top 3)
     const [popularMenusResult]: any = await db.query(`
-      SELECT m.*
+      SELECT m.*, 
+        COALESCE(SUM(oi.quantity), 0) as order_count,
+        COALESCE(AVG(r.rating), 0) as avg_rating,
+        COUNT(DISTINCT r.id) as review_count
       FROM menus m
-      JOIN menu_stats s ON m.id = s.menu_id
-      ORDER BY s.order_count DESC
+      LEFT JOIN order_items oi ON m.id = oi.menu_id
+      LEFT JOIN reviews r ON m.id = r.menu_id
+      GROUP BY m.id
+      ORDER BY order_count DESC
       LIMIT 3
     `);
 
@@ -24,9 +29,18 @@ export async function GET() {
     const remainingQueue = queueResult[0]?.queueCount || 0;
 
     // 4. เมนูแนะนำ
-    const [recommendedResult]: any = await db.query(
-      'SELECT * FROM menus WHERE is_recommended = 1 ORDER BY id DESC'
-    );
+    const [recommendedResult]: any = await db.query(`
+      SELECT m.*, 
+        COALESCE(SUM(oi.quantity), 0) as order_count,
+        COALESCE(AVG(r.rating), 0) as avg_rating,
+        COUNT(DISTINCT r.id) as review_count
+      FROM menus m
+      LEFT JOIN order_items oi ON m.id = oi.menu_id
+      LEFT JOIN reviews r ON m.id = r.menu_id
+      WHERE m.is_recommended = 1 
+      GROUP BY m.id
+      ORDER BY m.id DESC
+    `);
 
     // ดึงตัวเลือกเสริมมาประกอบร่าง
     const [options]: any = await db.query(`SELECT * FROM menu_options`);
