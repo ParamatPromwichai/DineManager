@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 
-export default function ResetPasswordPage() {
+// 1. แยกส่วนฟอร์มและการใช้ useSearchParams ออกมา
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -107,12 +108,93 @@ export default function ResetPasswordPage() {
 
   if (!token && !error) {
     return (
-      <div className="clean-container">
-        <div>กำลังตรวจสอบลิงก์...</div>
+      <div style={{ textAlign: 'center', color: '#0369a1' }}>
+        กำลังตรวจสอบลิงก์...
       </div>
     );
   }
 
+  return (
+    <div className="login-box">
+      <h1 className="title">ตั้งรหัสผ่านใหม่</h1>
+      <p className="subtitle">กรุณากำหนดรหัสผ่านใหม่ที่คาดเดาได้ยาก</p>
+
+      {error && <div className="error-msg">{error}</div>}
+      {message && <div className="success-msg">{message}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div className="input-group">
+          <input
+            className="clean-input"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="รหัสผ่านใหม่ (New Password)"
+            style={{ paddingRight: '40px' }}
+            required
+          />
+          <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        {/* 🛡️ แถบแสดงความปลอดภัยรหัสผ่าน */}
+        {password && (
+          <div className="strength-container">
+            <div className="strength-bar-bg">
+              <div 
+                className="strength-bar-fill" 
+                style={{ width: strengthPercent, backgroundColor: strengthColor }}
+              ></div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+              {missingCriteria.length > 0 ? (
+                <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'left', fontWeight: 500 }}>
+                  *ขาด: {missingCriteria.join(', ')}
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#22c55e', textAlign: 'left', fontWeight: 600 }}>
+                  ✓ รหัสผ่านปลอดภัย
+                </div>
+              )}
+              <div className="strength-text" style={{ color: strengthColor, marginTop: 0 }}>
+                ระดับ: {strengthText}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="input-group" style={{ marginTop: '15px' }}>
+          <input
+            className="clean-input"
+            type={showConfirmPassword ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            placeholder="ยืนยันรหัสผ่านใหม่ (Confirm New Password)"
+            style={{ paddingRight: '40px' }}
+            required
+          />
+          <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        <button type="submit" className="clean-btn" disabled={loading || !!message || !token}>
+          {loading ? "กำลังบันทึก..." : "ยืนยันรหัสผ่านใหม่"}
+        </button>
+      </form>
+
+      <div className="login-link-container">
+        <Link href="/login" className="login-link">
+          &larr; กลับไปหน้าเข้าสู่ระบบ
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// 2. หน้าหลัก (Export Component) ที่มี Suspense ครอบอยู่
+export default function ResetPasswordPage() {
   return (
     <div className="clean-container">
       <style>{`
@@ -138,82 +220,10 @@ export default function ResetPasswordPage() {
         .strength-text { font-size: 12px; margin-top: 4px; font-weight: 600; }
         .toggle-btn { position: absolute; right: 12px; top: 25px; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: #94a3b8; display: flex; align-items: center; justify-content: center; }
       `}</style>
-
-      <div className="login-box">
-        <h1 className="title">ตั้งรหัสผ่านใหม่</h1>
-        <p className="subtitle">กรุณากำหนดรหัสผ่านใหม่ที่คาดเดาได้ยาก</p>
-
-        {error && <div className="error-msg">{error}</div>}
-        {message && <div className="success-msg">{message}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <input
-              className="clean-input"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="รหัสผ่านใหม่ (New Password)"
-              style={{ paddingRight: '40px' }}
-              required
-            />
-            <button type="button" className="toggle-btn" onClick={() => setShowPassword(!showPassword)}>
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-
-          {/* 🛡️ แถบแสดงความปลอดภัยรหัสผ่าน */}
-          {password && (
-            <div className="strength-container">
-              <div className="strength-bar-bg">
-                <div 
-                  className="strength-bar-fill" 
-                  style={{ width: strengthPercent, backgroundColor: strengthColor }}
-                ></div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                {missingCriteria.length > 0 ? (
-                  <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'left', fontWeight: 500 }}>
-                    *ขาด: {missingCriteria.join(', ')}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '11px', color: '#22c55e', textAlign: 'left', fontWeight: 600 }}>
-                    ✓ รหัสผ่านปลอดภัย
-                  </div>
-                )}
-                <div className="strength-text" style={{ color: strengthColor, marginTop: 0 }}>
-                  ระดับ: {strengthText}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="input-group" style={{ marginTop: '15px' }}>
-            <input
-              className="clean-input"
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="ยืนยันรหัสผ่านใหม่ (Confirm New Password)"
-              style={{ paddingRight: '40px' }}
-              required
-            />
-            <button type="button" className="toggle-btn" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-
-          <button type="submit" className="clean-btn" disabled={loading || !!message || !token}>
-            {loading ? "กำลังบันทึก..." : "ยืนยันรหัสผ่านใหม่"}
-          </button>
-        </form>
-
-        <div className="login-link-container">
-          <Link href="/login" className="login-link">
-            &larr; กลับไปหน้าเข้าสู่ระบบ
-          </Link>
-        </div>
-      </div>
+      
+      <Suspense fallback={<div className="login-box"><div style={{ textAlign: 'center', color: '#0369a1' }}>กำลังโหลดฟอร์ม...</div></div>}>
+        <ResetPasswordForm />
+      </Suspense>
     </div>
   );
 }
