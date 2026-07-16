@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script'; // ➕ นำเข้า Script สำหรับ reCAPTCHA
 import { signIn } from 'next-auth/react';
+import { Eye, EyeOff } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -19,9 +20,14 @@ export default function CustomerRegisterPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSocialRegister = async (provider: 'google') => {
     setLoading(true);
@@ -34,11 +40,17 @@ export default function CustomerRegisterPage() {
   let strengthColor = '#ef4444'; // สีแดง
   let strengthPercent = '0%';
 
+  const missingCriteria: string[] = [];
   if (password.length > 0) {
     const hasUpper = /[A-Z]/.test(password);
     const hasLower = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const isLengthValid = password.length >= 8;
+
+    if (!hasUpper) missingCriteria.push('A-Z');
+    if (!hasLower) missingCriteria.push('a-z');
+    if (!hasNumber) missingCriteria.push('ตัวเลข');
+    if (!isLengthValid) missingCriteria.push('8 ตัวอักษร');
 
     const criteriaMet = [hasUpper, hasLower, hasNumber, isLengthValid].filter(Boolean).length;
 
@@ -56,7 +68,7 @@ export default function CustomerRegisterPage() {
   }
 
   async function handleRegister() {
-    if (!username || !password || !confirmPassword) {
+    if (!username || !email || !firstName || !lastName || !password || !confirmPassword) {
       alert('กรุณากรอกข้อมูลให้ครบ');
       return;
     }
@@ -83,6 +95,8 @@ export default function CustomerRegisterPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               username,
+              email,
+              name: `${firstName} ${lastName}`.trim(),
               password,
               recaptchaToken: token // 🚀 ส่ง Token ไปเช็คบอทที่ Backend
             }),
@@ -203,6 +217,28 @@ export default function CustomerRegisterPage() {
         <h1 className="title">DineManager</h1>
         <p className="subtitle">สมัครสมาชิกสำหรับลูกค้า</p>
 
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="input-group" style={{ flex: 1 }}>
+            <input
+              className="clean-input"
+              type="text"
+              placeholder="ชื่อ (First Name)"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+          </div>
+
+          <div className="input-group" style={{ flex: 1 }}>
+            <input
+              className="clean-input"
+              type="text"
+              placeholder="นามสกุล (Last Name)"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="input-group">
           <input
             className="clean-input"
@@ -216,11 +252,29 @@ export default function CustomerRegisterPage() {
         <div className="input-group">
           <input
             className="clean-input"
-            type="password"
+            type="email"
+            placeholder="อีเมล (Gmail)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="input-group" style={{ position: 'relative' }}>
+          <input
+            className="clean-input"
+            type={showPassword ? 'text' : 'password'}
             placeholder="รหัสผ่าน (Password)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            style={{ paddingRight: '40px' }}
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
 
         {/* 🛡️ แถบแสดงความปลอดภัยรหัสผ่าน (UI ไม่รก) */}
@@ -232,20 +286,39 @@ export default function CustomerRegisterPage() {
                 style={{ width: strengthPercent, backgroundColor: strengthColor }}
               ></div>
             </div>
-            <div className="strength-text" style={{ color: strengthColor }}>
-              ความปลอดภัย: {strengthText}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+              {missingCriteria.length > 0 ? (
+                <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'left', fontWeight: 500 }}>
+                  *ขาด: {missingCriteria.join(', ')}
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#22c55e', textAlign: 'left', fontWeight: 600 }}>
+                  ✓ รหัสผ่านปลอดภัย
+                </div>
+              )}
+              <div className="strength-text" style={{ color: strengthColor, marginTop: 0 }}>
+                ระดับ: {strengthText}
+              </div>
             </div>
           </div>
         )}
 
-        <div className="input-group">
+        <div className="input-group" style={{ position: 'relative' }}>
           <input
             className="clean-input"
-            type="password"
+            type={showConfirmPassword ? 'text' : 'password'}
             placeholder="ยืนยันรหัสผ่าน (Confirm Password)"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{ paddingRight: '40px' }}
           />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
 
         <button

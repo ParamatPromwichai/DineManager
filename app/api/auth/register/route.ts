@@ -11,9 +11,9 @@ const isValidUsername = (username: string) => {
 
 export async function POST(req: Request) {
   // รับ recaptchaToken เพิ่มเข้ามา
-  const { username, password, recaptchaToken, role } = await req.json();
+  const { username, email, name, password, recaptchaToken, role } = await req.json();
 
-  if (!username || !password || !recaptchaToken) {
+  if (!username || !email || !name || !password || !recaptchaToken) {
     return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
   }
 
@@ -71,8 +71,8 @@ export async function POST(req: Request) {
 
   try {
     await db.query(
-      'INSERT INTO users (username, password, role, is_locked) VALUES (?, ?, ?, ?)',
-      [username, hash, defaultRole, isLocked]
+      'INSERT INTO users (username, email, name, password, role, is_locked) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, email, name, hash, defaultRole, isLocked]
     );
 
     if (defaultRole === 'shop') {

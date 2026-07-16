@@ -57,8 +57,8 @@ export const authOptions: NextAuthOptions = {
           throw new Error('ระบบกำลังปิดปรับปรุงชั่วคราว กรุณาติดต่อ Admin');
         }
 
-        // 🔎 ค้นหา User ในฐานข้อมูล
-        const [users]: any = await db.query('SELECT * FROM users WHERE username = ?', [credentials.username]);
+        // 🔎 ค้นหา User ในฐานข้อมูล (สามารถใช้ username หรือ email ได้)
+        const [users]: any = await db.query('SELECT * FROM users WHERE username = ? OR email = ?', [credentials.username, credentials.username]);
         
         if (users.length === 0) {
           await db.query('INSERT INTO login_logs (username, status, ip_address, user_agent) VALUES (?, ?, ?, ?)', [credentials.username, 'failed_user_not_found', ip, userAgent]);

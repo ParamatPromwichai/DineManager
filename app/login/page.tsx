@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -13,6 +14,7 @@ function LoginContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // 🟢 State สำหรับเช็คโหมดปรับปรุง
   const [isMaintenance, setIsMaintenance] = useState(false);
@@ -211,18 +213,32 @@ function LoginContent() {
             className="clean-input"
             value={username}
             onChange={e => setUsername(e.target.value)}
-            placeholder="Username"
+            placeholder="Username หรือ Email"
           />
         </div>
 
-        <div className="input-group">
+        <div className="input-group" style={{ position: 'relative' }}>
           <input
             className="clean-input"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Password"
+            style={{ paddingRight: '40px' }}
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+
+        <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+          <Link href="/forgot-password" style={{ fontSize: '13px', color: '#0ea5e9', textDecoration: 'none', fontWeight: 500 }}>
+            ลืมรหัสผ่าน?
+          </Link>
         </div>
 
         <button className="clean-btn" onClick={handleLogin} disabled={loading}>
