@@ -166,120 +166,129 @@ export default function MenuDetailPage() {
   const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
   return (
-    <div style={{ padding: '20px 20px 100px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <button 
-          onClick={() => router.back()} 
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontWeight: 'bold', cursor: 'pointer', padding: '8px 14px', borderRadius: '20px', fontSize: '0.9rem' }}
-        >
-          <ArrowLeft size={16} /> กลับ
-        </button>
-        <h1 style={{ margin: 0, flex: 1, textAlign: 'center', color: '#1E3A8A', fontSize: '1.2rem', fontWeight: '900' }}>
-          รายละเอียดเมนู
-        </h1>
-        <button 
-          onClick={() => router.push('/dashboard/customer/cart')}
-          style={{ position: 'relative', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#1E3A8A', boxShadow: '0 4px 10px rgba(37,99,235,0.08)' }}
-        >
-          <ShoppingCart size={22} />
-          {isLoaded && cart.length > 0 && (
-            <span style={{ position: 'absolute', top: -5, right: -5, background: '#EF4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
-              {cart.reduce((a, b) => a + b.quantity, 0)}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Image */}
-      <div 
-        onClick={() => {
-          if (menu.image) setShowImageModal(true);
-        }}
-        style={{ width: '100%', height: '260px', borderRadius: '24px', overflow: 'hidden', background: '#E2E8F0', position: 'relative', boxShadow: '0 10px 25px rgba(37,99,235,0.1)', cursor: menu.image ? 'pointer' : 'default' }}
-      >
-        {menu.image ? (
-          <img src={menu.image} alt={menu.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
-            <ImageOff size={40} />
-          </div>
-        )}
-        {isMenuSoldOut && (
-          <div style={{ position: 'absolute', top: 15, right: 15, background: 'rgba(239, 68, 68, 0.9)', color: 'white', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-            หมด
-          </div>
-        )}
-      </div>
-
-      {/* Details */}
-      <div style={{ marginTop: 20, background: 'white', padding: 25, borderRadius: 24, boxShadow: '0 4px 15px rgba(37,99,235,0.05)', border: '1px solid #EBF1FF' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '1.3rem', color: '#1E3A8A', fontWeight: '900' }}>{menu.name}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#64748B', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {renderStars(Number(menu.avg_rating))} 
-                <span style={{ fontWeight: 'bold', color: '#1D4ED8' }}>{Number(menu.avg_rating).toFixed(1)}</span>
-              </div>
-              <span>({menu.review_count} รีวิว)</span>
-              <span style={{ borderLeft: '1px solid #CBD5E1', paddingLeft: 8, color: '#94A3B8', fontWeight: 'bold' }}>ขายแล้ว {menu.order_count || 0}</span>
-            </div>
-          </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2563EB' }}>
-            {Number(menu.price).toLocaleString()} ฿
-          </div>
+    <div className="min-h-screen bg-[#F4F8FF] font-sans pb-[100px] md:pb-10">
+      <div className="max-w-5xl mx-auto p-5 md:p-8">
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <button 
+            onClick={() => router.back()} 
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontWeight: 'bold', cursor: 'pointer', padding: '8px 14px', borderRadius: '20px', fontSize: '0.9rem' }}
+          >
+            <ArrowLeft size={16} /> กลับ
+          </button>
+          <h1 style={{ margin: 0, flex: 1, textAlign: 'center', color: '#1E3A8A', fontSize: '1.2rem', fontWeight: '900' }}>
+            รายละเอียดเมนู
+          </h1>
+          <button 
+            onClick={() => router.push('/dashboard/customer/cart')}
+            style={{ position: 'relative', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#1E3A8A', boxShadow: '0 4px 10px rgba(37,99,235,0.08)' }}
+          >
+            <ShoppingCart size={22} />
+            {isLoaded && cart.length > 0 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, background: '#EF4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
+                {cart.reduce((a, b) => a + b.quantity, 0)}
+              </span>
+            )}
+          </button>
         </div>
 
-        <button 
-          onClick={handleAddToCart}
-          disabled={isMenuSoldOut}
-          style={{ width: '100%', marginTop: 25, padding: 16, background: isMenuSoldOut ? '#CBD5E1' : '#2563EB', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, cursor: isMenuSoldOut ? 'not-allowed' : 'pointer', boxShadow: isMenuSoldOut ? 'none' : '0 8px 20px rgba(37,99,235,0.25)' }}
-        >
-          <ShoppingCart size={20} />
-          {isMenuSoldOut ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'}
-        </button>
-      </div>
+        <div className="md:grid md:grid-cols-2 md:gap-10 md:items-start">
+          {/* Left / Top: Image */}
+          <div 
+            onClick={() => {
+              if (menu.image) setShowImageModal(true);
+            }}
+            className="w-full h-[260px] md:h-[400px] rounded-3xl overflow-hidden bg-[#E2E8F0] relative shadow-[0_10px_25px_rgba(37,99,235,0.1)] transition-transform hover:scale-[1.01]"
+            style={{ cursor: menu.image ? 'pointer' : 'default' }}
+          >
+            {menu.image ? (
+              <img src={menu.image} alt={menu.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
+                <ImageOff size={40} />
+              </div>
+            )}
+            {isMenuSoldOut && (
+              <div style={{ position: 'absolute', top: 15, right: 15, background: 'rgba(239, 68, 68, 0.9)', color: 'white', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                หมด
+              </div>
+            )}
+          </div>
 
-      {/* Reviews Section */}
-      <div style={{ marginTop: 25 }}>
-        <h3 style={{ fontSize: '1.2rem', color: '#1E3A8A', fontWeight: '900', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
-          <MessageSquare size={20} color="#2563EB" />
-          รีวิวจากลูกค้า
-        </h3>
-
-        {reviews.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-            {reviews.map((r, i) => (
-              <div key={i} style={{ background: 'white', padding: 20, borderRadius: 20, border: '1px solid #EBF1FF', boxShadow: '0 2px 10px rgba(37,99,235,0.03)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EFF6FF', color: '#1D4ED8', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
-                      {r.username.charAt(0).toUpperCase()}
+          {/* Right / Bottom: Details & Reviews */}
+          <div className="mt-5 md:mt-0 flex flex-col gap-6">
+            
+            {/* Details Box */}
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_4px_15px_rgba(37,99,235,0.05)] border border-[#EBF1FF]">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 8px 0', fontSize: '1.3rem', color: '#1E3A8A', fontWeight: '900' }}>{menu.name}</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#64748B', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {renderStars(Number(menu.avg_rating))} 
+                      <span style={{ fontWeight: 'bold', color: '#1D4ED8' }}>{Number(menu.avg_rating).toFixed(1)}</span>
                     </div>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#1E3A8A', fontSize: '0.95rem' }}>{r.username}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{new Date(r.created_at).toLocaleDateString('th-TH')}</div>
-                    </div>
-                  </div>
-                  <div>
-                    {renderStars(r.rating)}
+                    <span>({menu.review_count} รีวิว)</span>
+                    <span style={{ borderLeft: '1px solid #CBD5E1', paddingLeft: 8, color: '#94A3B8', fontWeight: 'bold' }}>ขายแล้ว {menu.order_count || 0}</span>
                   </div>
                 </div>
-                {r.comment && (
-                  <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: 1.5, background: '#F8FAFC', padding: 12, borderRadius: 12 }}>
-                    "{r.comment}"
-                  </p>
-                )}
+                <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2563EB' }}>
+                  {Number(menu.price).toLocaleString()} ฿
+                </div>
               </div>
-            ))}
+
+              <button 
+                onClick={handleAddToCart}
+                disabled={isMenuSoldOut}
+                style={{ width: '100%', marginTop: 25, padding: 16, background: isMenuSoldOut ? '#CBD5E1' : '#2563EB', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, cursor: isMenuSoldOut ? 'not-allowed' : 'pointer', boxShadow: isMenuSoldOut ? 'none' : '0 8px 20px rgba(37,99,235,0.25)' }}
+              >
+                <ShoppingCart size={20} />
+                {isMenuSoldOut ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'}
+              </button>
+            </div>
+
+            {/* Reviews Section */}
+            <div>
+              <h3 style={{ fontSize: '1.2rem', color: '#1E3A8A', fontWeight: '900', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
+                <MessageSquare size={20} color="#2563EB" />
+                รีวิวจากลูกค้า
+              </h3>
+
+              {reviews.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                  {reviews.map((r, i) => (
+                    <div key={i} style={{ background: 'white', padding: 20, borderRadius: 20, border: '1px solid #EBF1FF', boxShadow: '0 2px 10px rgba(37,99,235,0.03)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EFF6FF', color: '#1D4ED8', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>
+                            {r.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 'bold', color: '#1E3A8A', fontSize: '0.95rem' }}>{r.username}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{new Date(r.created_at).toLocaleDateString('th-TH')}</div>
+                          </div>
+                        </div>
+                        <div>
+                          {renderStars(r.rating)}
+                        </div>
+                      </div>
+                      {r.comment && (
+                        <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: 1.5, background: '#F8FAFC', padding: 12, borderRadius: 12 }}>
+                          "{r.comment}"
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ background: 'white', padding: 30, borderRadius: 20, textAlign: 'center', color: '#94A3B8', border: '1px dashed #CBD5E1' }}>
+                  <MessageSquare size={32} style={{ opacity: 0.5, marginBottom: 10 }} />
+                  <div>ยังไม่มีรีวิวสำหรับเมนูนี้</div>
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          <div style={{ background: 'white', padding: 30, borderRadius: 20, textAlign: 'center', color: '#94A3B8', border: '1px dashed #CBD5E1' }}>
-            <MessageSquare size={32} style={{ opacity: 0.5, marginBottom: 10 }} />
-            <div>ยังไม่มีรีวิวสำหรับเมนูนี้</div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* --- 📝 Popup เลือก Options --- */}
@@ -293,7 +302,7 @@ export default function MenuDetailPage() {
 
       {/* --- ตะกร้า (Cart Overlay) --- */}
       {cart.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 85, left: 15, right: 15, background: '#ffffff', borderRadius: 20, padding: '15px 20px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.15)', zIndex: 90, border: '1px solid #DCE8FF' }}>
+        <div style={{ position: 'fixed', bottom: 85, left: 15, right: 15, margin: '0 auto', maxWidth: 800, background: '#ffffff', borderRadius: 20, padding: '15px 20px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.15)', zIndex: 90, border: '1px solid #DCE8FF' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCartExpanded ? 15 : 10 }}>
             <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
               <ShoppingCart size={20} color="#2563EB" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
@@ -339,15 +348,15 @@ export default function MenuDetailPage() {
       {showImageModal && menu.image && (
         <div 
           onClick={() => setShowImageModal(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 10 }}
         >
           <button 
             onClick={() => setShowImageModal(false)}
-            style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer' }}
+            style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(255, 255, 255, 0.2)', border: 'none', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', cursor: 'pointer', zIndex: 1001 }}
           >
             <X size={24} />
           </button>
-          <img src={menu.image} alt={menu.name} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
+          <img src={menu.image} alt={menu.name} style={{ maxWidth: '95vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} />
         </div>
       )}
     </div>

@@ -89,6 +89,7 @@ function AllMenusContent() {
   const searchParams = useSearchParams();
 
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [shopData, setShopData] = useState<ShopStatus | null>(null);
@@ -136,8 +137,12 @@ function AllMenusContent() {
       .then(res => res.json())
       .then((data: Menu[]) => {
         setMenus(data);
+        setLoading(false);
       })
-      .catch(err => console.error(err));
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
       
     fetch('/api/customer/home').then(res => res.json()).then(data => { if (data?.shop) setShopData(data.shop); }).catch(err => console.error(err));
     fetch('/api/customer/profile').then(res => res.json()).then(data => {
@@ -492,7 +497,44 @@ function AllMenusContent() {
 // 🟢 สร้าง Component หน้าหลักตัวใหม่ ที่ครอบด้วย Suspense
 export default function AllMenusPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', fontWeight: 'bold' }}>กำลังโหลดหน้าเมนูอาหาร...</div>}>
+    <Suspense fallback={
+      <div style={{ padding: '20px 20px 100px 20px', minHeight: '100vh', background: '#F8FAFC' }}>
+        <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          {/* Header Skeleton */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ width: '80px', height: '36px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
+            <div style={{ height: '24px', width: '120px', backgroundColor: '#E2E8F0', borderRadius: '12px' }}></div>
+            <div style={{ width: '45px', height: '45px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
+          </div>
+          
+          {/* Search & Categories Skeleton */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div style={{ width: '100%', height: '50px', backgroundColor: '#E2E8F0', borderRadius: '25px' }}></div>
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'hidden' }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ minWidth: '90px', height: '40px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Vertical List Cards Skeleton */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} style={{ display: 'flex', height: '110px', backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #EBF1FF', overflow: 'hidden' }}>
+                <div style={{ width: '120px', height: '100%', backgroundColor: '#E2E8F0' }}></div>
+                <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ height: '18px', width: '70%', backgroundColor: '#E2E8F0', borderRadius: '8px', marginBottom: '8px' }}></div>
+                    <div style={{ height: '14px', width: '40%', backgroundColor: '#E2E8F0', borderRadius: '8px' }}></div>
+                  </div>
+                  <div style={{ height: '20px', width: '30%', backgroundColor: '#E2E8F0', borderRadius: '8px' }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
       <AllMenusContent />
     </Suspense>
   );

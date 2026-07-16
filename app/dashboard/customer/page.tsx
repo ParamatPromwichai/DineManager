@@ -334,7 +334,41 @@ export default function CustomerHome() {
   }
 
   if (checkingSystem || status === 'loading' || loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#2563eb', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</div>;
+    return (
+      <div style={{ padding: '20px 20px 100px 20px', minHeight: '100vh', background: '#F8FAFC' }}>
+        <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          {/* Header Skeleton */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ width: '55px', height: '55px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ height: '22px', width: '140px', backgroundColor: '#E2E8F0', borderRadius: '10px', marginBottom: '8px' }}></div>
+              <div style={{ height: '14px', width: '90px', backgroundColor: '#E2E8F0', borderRadius: '10px' }}></div>
+            </div>
+            <div style={{ width: '45px', height: '45px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
+          </div>
+          
+          {/* Banner Skeleton */}
+          <div style={{ width: '100%', height: '180px', backgroundColor: '#E2E8F0', borderRadius: '24px' }}></div>
+          
+          {/* Categories Skeleton */}
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'hidden' }}>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ minWidth: '90px', height: '40px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
+            ))}
+          </div>
+
+          {/* Title Skeleton */}
+          <div style={{ height: '24px', width: '160px', backgroundColor: '#E2E8F0', borderRadius: '12px' }}></div>
+          
+          {/* Horizontal Cards Skeleton */}
+          <div style={{ display: 'flex', gap: '15px', overflowX: 'hidden' }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{ minWidth: '220px', height: '240px', backgroundColor: '#E2E8F0', borderRadius: '24px' }}></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (isMaintenance) {
