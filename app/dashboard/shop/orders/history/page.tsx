@@ -21,8 +21,11 @@ type Order = {
   payment_method: string;
   slip_image: string | null;
   customer_name: string;
-  phone: string;
-  address: string;
+  phone?: string;
+  address?: string;
+  order_type?: string;
+  table_id?: number;
+  table_name?: string;
   items: OrderItem[];
 };
 
@@ -33,6 +36,7 @@ export default function OrderHistoryPage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayDate);
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'online' | 'dine_in'>('all');
 
   const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
   const { data: fetchedOrders, error, mutate } = useSWR<Order[]>(
@@ -46,11 +50,14 @@ export default function OrderHistoryPage() {
     return orders.filter(order => {
       const orderDate = new Date(order.created_at).toLocaleDateString('en-CA');
       const isSelectedDate = !selectedDate || orderDate === selectedDate;
-      return isSelectedDate;
+      const isTypeMatch = orderTypeFilter === 'all' || 
+                          (orderTypeFilter === 'online' && (order.order_type === 'online' || !order.order_type)) || 
+                          (orderTypeFilter === 'dine_in' && order.order_type === 'dine_in');
+      return isSelectedDate && isTypeMatch;
     }).sort((a, b) => {
       return b.id - a.id;
     });
-  }, [orders, selectedDate]);
+  }, [orders, selectedDate, orderTypeFilter]);
 
   const displayedOrders = useMemo(() => {
     if (activeTab === 'all') return filteredOrders;
@@ -139,6 +146,21 @@ export default function OrderHistoryPage() {
               <RefreshCw size={18} />
             </button>
           </div>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 hide-scrollbar mb-4">
+          <button 
+            onClick={() => setOrderTypeFilter('all')}
+            className={`shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all ${orderTypeFilter === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+          >ทั้งหมด</button>
+          <button 
+            onClick={() => setOrderTypeFilter('online')}
+            className={`shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all ${orderTypeFilter === 'online' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+          >🛵 สั่งออนไลน์</button>
+          <button 
+            onClick={() => setOrderTypeFilter('dine_in')}
+            className={`shrink-0 px-5 py-2 rounded-full text-sm font-bold transition-all ${orderTypeFilter === 'dine_in' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+          >🍽️ ทานที่ร้าน</button>
         </div>
 
         <div className="flex overflow-x-auto gap-2 pb-3 mb-4 -mx-4 px-4 sm:mx-0 sm:px-1 sm:pb-4 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
@@ -239,14 +261,22 @@ export default function OrderHistoryPage() {
                         onClick={() => toggleCustomerInfo(order.id)}
                         className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors"
                       >
-                        รายละเอียดลูกค้า {isCustomerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {order.order_type === 'dine_in' ? `ทานที่ร้าน (โต๊ะ ${order.table_name})` : 'รายละเอียดลูกค้า'} {isCustomerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
                       
                       {isCustomerExpanded && (
                         <div className="mt-3 space-y-1.5 text-sm">
-                          <div className="flex items-center gap-2 text-slate-600"><User size={14} className="text-slate-400"/> <span className="font-medium">{order.customer_name || 'ลูกค้าทั่วไป'}</span></div>
-                          <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400"/> <span className="font-medium">{order.phone || '-'}</span></div>
-                          <div className="flex items-start gap-2 text-slate-600"><MapPin size={14} className="text-slate-400 mt-0.5 shrink-0"/> <span className="font-medium">{order.address || 'รับหน้าร้าน'}</span></div>
+                          {order.order_type === 'dine_in' ? (
+                            <div className="flex items-center gap-2 text-indigo-600 font-bold bg-indigo-50 px-3 py-2 rounded-lg">
+                               🍽️ ทานที่ร้าน (โต๊ะ {order.table_name})
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 text-slate-600"><User size={14} className="text-slate-400"/> <span className="font-medium">{order.customer_name || 'ลูกค้าทั่วไป'}</span></div>
+                              <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400"/> <span className="font-medium">{order.phone || '-'}</span></div>
+                              <div className="flex items-start gap-2 text-slate-600"><MapPin size={14} className="text-slate-400 mt-0.5 shrink-0"/> <span className="font-medium">{order.address || 'รับหน้าร้าน'}</span></div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

@@ -7,7 +7,10 @@ export async function GET() {
   try {
     // 1. ดึงออเดอร์ 50 รายการล่าสุด
     const [orders]: any = await db.query(`
-      SELECT * FROM orders ORDER BY created_at DESC LIMIT 50
+      SELECT o.*, t.name as table_name 
+      FROM orders o 
+      LEFT JOIN tables t ON o.table_id = t.id 
+      ORDER BY o.created_at DESC LIMIT 50
     `);
 
     if (orders.length > 0) {
@@ -42,8 +45,12 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const { id, status } = await req.json();
-    await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    const { id, status, slip_image } = await req.json();
+    if (slip_image) {
+      await db.query('UPDATE orders SET status = ?, slip_image = ? WHERE id = ?', [status, slip_image, id]);
+    } else {
+      await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    }
     return NextResponse.json({ message: 'Updated' });
   } catch (error) {
     return NextResponse.json({ message: 'Error' }, { status: 500 });

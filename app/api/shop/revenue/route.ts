@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     if (type === 'daily') {
       // รายวัน (รับค่ามาเป็น YYYY-MM-DD)
       query = `
-        SELECT COALESCE(SUM(total_price), 0) as total, COUNT(id) as orders 
+        SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
         WHERE status = 'done' AND DATE(created_at) = ?
       `;
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     } else if (type === 'monthly') {
       // รายเดือน (รับค่ามาเป็น YYYY-MM)
       query = `
-        SELECT COALESCE(SUM(total_price), 0) as total, COUNT(id) as orders 
+        SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
         WHERE status = 'done' AND DATE_FORMAT(created_at, '%Y-%m') = ?
       `;
@@ -35,11 +35,10 @@ export async function GET(req: Request) {
 
     } else if (type === 'weekly') {
       // รายสัปดาห์ (รับค่ามาเป็น YYYY-Www เช่น 2026-W19)
-      // ต้องตัดตัว -W ออก ให้เหลือแค่ปีและสัปดาห์ เช่น 202619 เพื่อใช้กับ YEARWEEK() ของ MySQL
       const [year, week] = dateParam.split('-W');
       
       query = `
-        SELECT COALESCE(SUM(total_price), 0) as total, COUNT(id) as orders 
+        SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
         WHERE status = 'done' AND YEARWEEK(created_at, 3) = ?
       `;
@@ -49,8 +48,7 @@ export async function GET(req: Request) {
     const [rows]: any = await db.query(query, queryParams);
 
     return NextResponse.json({
-      total: Number(rows[0].total) || 0,
-      orders: Number(rows[0].orders) || 0
+      orders: rows
     });
 
   } catch (error) {
