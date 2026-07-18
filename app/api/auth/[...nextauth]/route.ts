@@ -2,7 +2,7 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials"; // ➕ นำเข้า Credentials Provider
 import { db } from "@/lib/db";
-import { cookies } from "next/headers"; 
+import { cookies, headers } from "next/headers"; 
 import bcrypt from 'bcrypt'; // ➕ นำเข้า bcrypt สำหรับเช็ครหัสผ่าน
 
 export const authOptions: NextAuthOptions = {
@@ -41,6 +41,15 @@ export const authOptions: NextAuthOptions = {
 
         if (!recaptchaData.success || recaptchaData.score < 0.5) {
           throw new Error('ตรวจพบการกระทำที่น่าสงสัย (Spam/Bot)');
+        }
+
+        // 🛡️ ➕ (เพิ่มใหม่) ป้องกัน Brute Force: บล็อก IP ชั่วคราวถ้าเข้าสู่ระบบผิดพลาดเกิน 10 ครั้งใน 15 นาที
+        const [recentFails]: any = await db.query(
+          "SELECT COUNT(id) as failCount FROM login_logs WHERE ip_address = ? AND status LIKE 'failed_%' AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
+          [ip]
+        );
+        if (recentFails[0].failCount >= 10) {
+          throw new Error('IP ของคุณถูกระงับชั่วคราวเนื่องจากพยายามเข้าสู่ระบบผิดพลาดหลายครั้ง กรุณารอ 15 นาที');
         }
 
         // ➕ (เพิ่มใหม่) ดึงค่าจาก system_settings เพื่อใช้ดักโหมดปรับปรุงและจำนวนครั้งที่ผิด
@@ -213,9 +222,41 @@ export const authOptions: NextAuthOptions = {
           token.role = (user as any).role;
         }
       }
+
+      // 🛡️ ป้องกัน Session Hijacking (ขโมย Cookie)
+      // ดึงข้อมูลการเชื่อมต่อปัจจุบัน
+      const headersList = await headers();
+      const currentIp = headersList.get('x-forwarded-for') || 'unknown';
+      const currentUserAgent = headersList.get('user-agent') || 'unknown';
+
+      // 1. ถ้าเป็นการล็อกอินครั้งแรก (มี user) ให้ฝัง IP และ User-Agent ลงไปใน Token
+      if (user) {
+        token.ip = currentIp;
+        token.userAgent = currentUserAgent;
+      } 
+      // 2. ถ้าระบบใช้ Token เดิม (รีเฟรชหน้า) ให้ตรวจสอบความถูกต้อง
+      else if (token.ip && token.userAgent) {
+        // 🔥 แบบเข้มงวดขั้นสุด (Ultra Strict): 
+        // ถ้า IP เปลี่ยน หรือ เบราว์เซอร์เปลี่ยน แค่อย่างใดอย่างหนึ่ง ระบบจะเตะออกทันที!
+        // (ยกเว้นตอนเทสใน localhost ที่ IP อาจจะเป็น unknown)
+        const isIpChanged = token.ip !== currentIp && currentIp !== 'unknown' && token.ip !== 'unknown';
+        const isBrowserChanged = token.userAgent !== currentUserAgent;
+
+        if (isIpChanged || isBrowserChanged) {
+          console.warn(`🚨 [Security] Session Hijacking blocked! Token IP: ${token.ip}, New IP: ${currentIp}`);
+          // ล้างข้อมูล token ทิ้ง บังคับให้หลุดจากระบบทันที
+          return {};
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
+      if (!token || !token.id) {
+        // ถ้าระบบ Hijacking ลบ token ทิ้งไปแล้ว ให้คืนค่า session เปล่าๆ
+        return { ...session, user: undefined } as any;
+      }
+      
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
