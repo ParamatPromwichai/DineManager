@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; 
+import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
 import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, ImageOff, Camera, UploadCloud, X } from 'lucide-react';
 import Link from 'next/link';
@@ -39,8 +39,8 @@ type Order = {
 };
 
 export default function ManageOrdersPage() {
-  const router = useRouter(); 
-  
+  const router = useRouter();
+
   // 🚨 2. เรียกใช้งาน Session
   const { data: session, status } = useSession();
 
@@ -50,7 +50,7 @@ export default function ManageOrdersPage() {
     fetcher,
     { refreshInterval: 3000 }
   );
-  
+
   const { data: homeData } = useSWR(isShop ? '/api/customer/home' : null, fetcher);
   const shopData = homeData?.shop;
 
@@ -60,17 +60,19 @@ export default function ManageOrdersPage() {
   const [doneInputs, setDoneInputs] = useState<Record<string, number>>({});
   const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
   const [readyPopupOrder, setReadyPopupOrder] = useState<Order | null>(null);
-  const promptedOrders = useRef<Set<number>>(new Set()); 
+  const promptedOrders = useRef<Set<number>>(new Set());
 
-  const todayDate = new Date().toLocaleDateString('en-CA'); 
+  const todayDate = new Date().toLocaleDateString('en-CA');
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
+  const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [mobileView, setMobileView] = useState<'online' | 'kitchen' | 'dine_in'>('online');
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  
+
   const [codPaymentOrder, setCodPaymentOrder] = useState<Order | null>(null);
   const [codPaymentMethod, setCodPaymentMethod] = useState<'qr' | 'cash' | ''>('');
   const [codSlipImage, setCodSlipImage] = useState<string | null>(null);
-  
+
   const paymentBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function ManageOrdersPage() {
       }, 100);
     }
   }, [codPaymentMethod]);
-  
+
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -175,9 +177,9 @@ export default function ManageOrdersPage() {
       body: JSON.stringify({ id: orderId, status: newStatus, slip_image: slipImage }),
       headers: { 'Content-Type': 'application/json' }
     });
-    
+
     // โหลดข้อมูลล่าสุดมาทับอีกรอบ
-    mutate(); 
+    mutate();
   };
 
   // 🕰️ กรองออเดอร์ และจัดเรียงลำดับใหม่
@@ -225,8 +227,8 @@ export default function ManageOrdersPage() {
     setDoneInputs(prev => {
       const current = prev[menuName] !== undefined ? prev[menuName] : max;
       let next = current + delta;
-      if (next < 1) next = 1;      
-      if (next > max) next = max;  
+      if (next < 1) next = 1;
+      if (next > max) next = max;
       return { ...prev, [menuName]: next };
     });
   };
@@ -252,7 +254,7 @@ export default function ManageOrdersPage() {
     const cookingOrders = [...allActiveOrders].filter(o => o.status === 'cooking').sort((a, b) => a.id - b.id);
 
     for (const order of cookingOrders) {
-      if (remainingForCalc <= 0) break; 
+      if (remainingForCalc <= 0) break;
       const orderItem = order.items.find(i => i.menu_name === menuName);
       if (!orderItem) continue;
 
@@ -271,7 +273,7 @@ export default function ManageOrdersPage() {
       let remaining = amount;
 
       for (const order of cookingOrders) {
-        if (remaining <= 0) break; 
+        if (remaining <= 0) break;
         const orderItem = order.items.find(i => i.menu_name === menuName);
         if (!orderItem) continue;
 
@@ -308,7 +310,7 @@ export default function ManageOrdersPage() {
   }, [allActiveOrders]);
 
   useEffect(() => {
-    if (readyPopupOrder) return; 
+    if (readyPopupOrder) return;
     const cookingOrders = allActiveOrders.filter(o => o.status === 'cooking');
     for (const order of cookingOrders) {
       const isComplete = order.items.length > 0 && order.items.every(item => {
@@ -316,9 +318,9 @@ export default function ManageOrdersPage() {
       });
 
       if (isComplete && !promptedOrders.current.has(order.id)) {
-        promptedOrders.current.add(order.id); 
-        setReadyPopupOrder(order); 
-        break; 
+        promptedOrders.current.add(order.id);
+        setReadyPopupOrder(order);
+        break;
       }
     }
   }, [cookedItems, allActiveOrders, readyPopupOrder]);
@@ -336,7 +338,7 @@ export default function ManageOrdersPage() {
 
   const batchSuggestions = useMemo(() => {
     const cookingOrders = allActiveOrders.filter(o => o.status === 'cooking');
-    
+
     const cookingSums: Record<string, number> = {};
     activeBatches.forEach(b => {
       if (b.status !== 'done') {
@@ -352,7 +354,7 @@ export default function ManageOrdersPage() {
       const baseCookingTime = 5 * totalQuantity;
       const queueCount = allActiveOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
       const estimatedTotalMinutes = baseCookingTime + queueCount;
-      
+
       // เงื่อนไข: ถ้าสั่ง 1-3 เมนู ไม่ต้องเอาเวลามาจัดลำดับ (Infinity) แต่ถ้า >3 ค่อยจัดลำดับตามเวลา
       const remainingMinutes = totalQuantity <= 3 ? Infinity : (estimatedTotalMinutes - elapsedMinutes);
 
@@ -360,7 +362,7 @@ export default function ManageOrdersPage() {
         const menuName = item.menu_name;
         const cooked = Number(cookedItems[order.id]?.[menuName] || 0);
         let remainingForOrder = Math.max(0, Number(item.quantity) - cooked);
-        
+
         if (remainingForOrder > 0) {
           const currentlyCookingForThisMenu = Number(cookingSums[menuName] || 0);
           if (currentlyCookingForThisMenu > 0) {
@@ -373,7 +375,7 @@ export default function ManageOrdersPage() {
         if (remainingForOrder > 0) {
           if (!itemMap[menuName]) itemMap[menuName] = { total: 0, orderBreakdown: {}, minRemainingMinutes: Infinity };
           itemMap[menuName].total += remainingForOrder;
-          
+
           if (!itemMap[menuName].orderBreakdown[order.id]) {
             itemMap[menuName].orderBreakdown[order.id] = { qty: 0, type: order.order_type || 'online', table: order.table_name };
           }
@@ -394,16 +396,16 @@ export default function ManageOrdersPage() {
         return bData.total - aData.total; // ถ้าเวลาเท่ากัน หรือเป็น Infinity ทั้งคู่ ให้เรียงตามจำนวนรวมมากไปน้อย
       })
       .map(([menuName, data]) => ({
-      menuName,
-      total: data.total,
-      orderIds: Object.entries(data.orderBreakdown)
-        .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([id, info]) => {
-          const suffix = info.type === 'dine_in' && info.table ? ` (โต๊ะ ${info.table})` : ` (ออนไลน์)`;
-          return `#${id}${suffix}: ${info.qty}`;
-        })
-        .join(', ')
-    }));
+        menuName,
+        total: data.total,
+        orderIds: Object.entries(data.orderBreakdown)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([id, info]) => {
+            const suffix = info.type === 'dine_in' && info.table ? ` (โต๊ะ ${info.table})` : ` (ออนไลน์)`;
+            return `#${id}${suffix}: ${info.qty}`;
+          })
+          .join(', ')
+      }));
   }, [allActiveOrders, cookedItems, activeBatches, currentTime]);
 
   const getStatusBadge = (status: string) => {
@@ -425,114 +427,123 @@ export default function ManageOrdersPage() {
 
   const renderOrderCard = (order: Order) => {
     const isCustomerExpanded = expandedCustomers[order.id];
+    const isOrderExpanded = expandedOrders[order.id];
     const orderDateStr = new Date(order.created_at).toLocaleDateString('en-CA');
     const isOverdue = orderDateStr !== todayDate && order.status !== 'done' && order.status !== 'cancel';
-    
+
     const isPendingCooking = ['pending', 'checking_slip', 'cooking'].includes(order.status);
-    
+
     const elapsedMinutes = Math.floor((new Date().getTime() - new Date(order.created_at).getTime()) / 60000);
-    
+
     const totalQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const baseCookingTime = 5 * totalQuantity;
     const queueCount = allActiveOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
     const estimatedTotalMinutes = baseCookingTime + queueCount;
-    
+
     const remainingMinutes = estimatedTotalMinutes - elapsedMinutes;
     const isDelayed = remainingMinutes < 0 && isPendingCooking;
-    
+
     const isFinishedState = order.status === 'done' || order.status === 'cancel' || order.status === 'delivery';
-    
+
     return (
       <div key={order.id} className={`bg-white rounded-2xl border transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
-        
+
         {isDelayed && (
           <div className="bg-red-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 animate-pulse rounded-t-2xl">
             <AlertCircle size={14} /> ออเดอร์นี้ล่าช้า (เกินเวลา {Math.abs(remainingMinutes)} นาที)
           </div>
         )}
 
-        <div className="p-5 border-b border-slate-100 flex flex-wrap justify-between items-start gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
-              <span className={`text-lg font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>#{order.id}</span>
-              {getStatusBadge(order.status)}
-              
-              {isPendingCooking && (
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm whitespace-nowrap border ${isDelayed ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                  {isDelayed ? `เลยเวลา ${Math.abs(remainingMinutes)} นาที` : `เหลือ ${remainingMinutes} นาที`}
-                </span>
-              )}
+        <div 
+          className="cursor-pointer group hover:bg-slate-50/50 transition-colors"
+          onClick={() => setExpandedOrders(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
+        >
+          <div className={`px-4 flex flex-wrap justify-between items-start gap-3 ${isOrderExpanded ? 'py-3' : 'py-2'}`}>
+            <div>
+              <div className={`flex items-center gap-3 flex-wrap ${isOrderExpanded ? 'mb-1.5' : 'mb-0'}`}>
+                <span className={`${isOrderExpanded ? 'text-lg' : 'text-base'} font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>#{order.id}</span>
+                {getStatusBadge(order.status)}
 
-              {isOverdue && (
-                <span className="flex items-center gap-1 text-[10px] bg-rose-50 text-rose-600 px-2 py-1 rounded-md font-bold border border-rose-100">
-                  <AlertCircle size={12} /> ค้างจากเมื่อวาน
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
-              <span>{new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
-              <span>•</span>
-              {order.payment_method === 'qr' ? <span className={isFinishedState ? 'text-slate-400' : 'text-indigo-500'}>โอนเงิน</span> : <span className="text-slate-500">เงินสด</span>}
-            </div>
-          </div>
+                {isPendingCooking && (
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm whitespace-nowrap border ${isDelayed ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                    {isDelayed ? `เลยเวลา ${Math.abs(remainingMinutes)} นาที` : `เหลือ ${remainingMinutes} นาที`}
+                  </span>
+                )}
 
-          <div className="text-right">
-            <div className={`text-lg font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>฿{order.total_price.toLocaleString()}</div>
-          </div>
-        </div>
-
-        <div className="p-5 pt-4">
-          <div className="space-y-3">
-            {order.items.map((item, idx) => {
-              const cooked = cookedItems[order.id]?.[item.menu_name] || 0;
-              const isDone = order.status === 'cooking' && cooked >= item.quantity;
-              const isPastCooking = ['delivery', 'done'].includes(order.status);
-              
-              return (
-                <div key={idx} className="flex justify-between items-start text-sm">
-                  <div className="flex items-start gap-3">
-                    <span className={`font-semibold mt-0.5 ${isDone || isPastCooking ? 'text-emerald-500' : 'text-slate-400'}`}>
-                      {isDone || isPastCooking ? <CheckCircle2 size={16} /> : <CircleDashed size={16} />}
-                    </span>
-                    <span className={`font-semibold ${isDone || isPastCooking || isFinishedState ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-                      {item.menu_name}
-                    </span>
-                  </div>
-                  <div className={`font-bold text-xs px-2 py-1 rounded ${isPastCooking || isDone ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>
-                    {isPastCooking ? item.quantity : cooked} / {item.quantity}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="p-4 sm:p-5 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          
-          <div className="w-full sm:w-auto">
-            <button 
-              onClick={() => toggleCustomerInfo(order.id)}
-              className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors"
-            >
-              {order.order_type === 'dine_in' ? `ทานที่ร้าน (โต๊ะ ${order.table_name})` : 'รายละเอียดลูกค้า'} {isCustomerExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            
-            {isCustomerExpanded && (
-              <div className="mt-3 space-y-1.5 text-sm">
-                {order.order_type === 'dine_in' ? (
-                  <div className="flex items-center gap-2 text-indigo-600 font-bold bg-indigo-50 px-3 py-2 rounded-lg">
-                     🍽️ ทานที่ร้าน (โต๊ะ {order.table_name})
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 text-slate-600"><User size={14} className="text-slate-400"/> <span className="font-medium">{order.customer_name || 'ลูกค้าทั่วไป'}</span></div>
-                    <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400"/> <span className="font-medium">{order.phone || '-'}</span></div>
-                    <div className="flex items-start gap-2 text-slate-600"><MapPin size={14} className="text-slate-400 mt-0.5 shrink-0"/> <span className="font-medium">{order.address || 'รับหน้าร้าน'}</span></div>
-                  </>
+                {isOverdue && (
+                  <span className="flex items-center gap-1 text-[10px] bg-rose-50 text-rose-600 px-2 py-1 rounded-md font-bold border border-rose-100">
+                    <AlertCircle size={12} /> ค้างจากเมื่อวาน
+                  </span>
                 )}
               </div>
-            )}
+
+              {isOrderExpanded && (
+                <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
+                  <span>{new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>•</span>
+                  {order.payment_method === 'qr' ? <span className={isFinishedState ? 'text-slate-400' : 'text-indigo-500'}>โอนเงิน</span> : <span className="text-slate-500">เงินสด</span>}
+                </div>
+              )}
+            </div>
+
+            <div className="text-right flex items-center gap-2">
+              <div className={`${isOrderExpanded ? 'text-lg' : 'text-base'} font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>
+                ฿{order.total_price.toLocaleString()}
+              </div>
+              <div className="text-slate-400 group-hover:text-slate-600 transition-colors">
+                {isOrderExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </div>
+            </div>
+          </div>
+
+          <div className={`px-4 ${isOrderExpanded ? 'pb-4' : 'pb-2 pt-1'}`}>
+            <div className={isOrderExpanded ? 'space-y-3' : 'space-y-1.5'}>
+              {order.items.map((item, idx) => {
+                const cooked = cookedItems[order.id]?.[item.menu_name] || 0;
+                const isDone = order.status === 'cooking' && cooked >= item.quantity;
+                const isPastCooking = ['delivery', 'done'].includes(order.status);
+
+                return (
+                  <div key={idx} className="flex justify-between items-start text-sm">
+                    <div className="flex items-start gap-3">
+                      <span className={`font-semibold mt-0.5 ${isDone || isPastCooking ? 'text-emerald-500' : 'text-slate-400'}`}>
+                        {isDone || isPastCooking ? <CheckCircle2 size={16} /> : <CircleDashed size={16} />}
+                      </span>
+                      <span className={`font-semibold ${isDone || isPastCooking || isFinishedState ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                        {item.menu_name}
+                      </span>
+                    </div>
+                    <div className={`font-bold text-xs px-2 py-1 rounded ${isPastCooking || isDone ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>
+                      {isPastCooking ? item.quantity : cooked} / {item.quantity}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {isOrderExpanded && (
+          <div className="p-4 sm:p-5 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+
+          <div className="w-full sm:w-auto">
+            <div className="text-sm font-bold text-slate-800 mb-2">
+              {order.order_type === 'dine_in' ? `ทานที่ร้าน (โต๊ะ ${order.table_name})` : 'รายละเอียดลูกค้า'}
+            </div>
+
+            <div className="space-y-1.5 text-sm">
+              {order.order_type === 'dine_in' ? (
+                <div className="flex items-center gap-2 text-indigo-600 font-bold bg-indigo-50 px-3 py-2 rounded-lg">
+                  🍽️ ทานที่ร้าน (โต๊ะ {order.table_name})
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-slate-600"><User size={14} className="text-slate-400" /> <span className="font-medium">{order.customer_name || 'ลูกค้าทั่วไป'}</span></div>
+                  <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400" /> <span className="font-medium">{order.phone || '-'}</span></div>
+                  <div className="flex items-start gap-2 text-slate-600"><MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" /> <span className="font-medium">{order.address || 'รับหน้าร้าน'}</span></div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex w-full sm:w-auto gap-2">
@@ -572,8 +583,9 @@ export default function ManageOrdersPage() {
               </button>
             )}
           </div>
+          </div>
+        )}
 
-        </div>
       </div>
     );
   };
@@ -592,23 +604,23 @@ export default function ManageOrdersPage() {
 
   // ป้องกันหน้ากระพริบกรณีที่เตะ User ออก
   if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') {
-    return null; 
+    return null;
   }
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans h-[calc(100vh-80px)] flex flex-col overflow-hidden">
-      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-6 flex flex-col h-full min-h-0">
-        
+    <div className="bg-slate-50 text-slate-900 font-sans min-h-[calc(100vh-80px)] lg:h-[calc(100vh-80px)] flex flex-col lg:overflow-hidden">
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-6 flex flex-col flex-1 lg:h-full lg:min-h-0">
+
         {/* 🌟 Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 shrink-0">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">รายการออเดอร์</h1>
             <p className="text-sm text-slate-500 mt-1">จัดการออเดอร์และคิวทำอาหารแบบเรียลไทม์</p>
           </div>
-          
+
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <Link 
-              href="/dashboard/shop/orders/history" 
+            <Link
+              href="/dashboard/shop/orders/history"
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all"
             >
               <History size={16} /> ประวัติออเดอร์
@@ -638,11 +650,10 @@ export default function ManageOrdersPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                  isActive 
-                    ? 'bg-slate-900 text-white shadow-md' 
-                    : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
-                }`}
+                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${isActive
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
+                  }`}
               >
                 {tab.icon}
                 <span className="hidden sm:inline">{tab.label}</span>
@@ -654,18 +665,43 @@ export default function ManageOrdersPage() {
           })}
         </div>
 
+        {/* แถบเมนูสำหรับหน้าจอเล็ก (Mobile View Selector) */}
+        <div className="lg:hidden flex bg-white rounded-2xl shadow-sm border border-slate-200 p-1 mb-4 shrink-0">
+          {[
+            { id: 'online', label: 'ออนไลน์', icon: <Truck size={16} />, count: displayedOnlineOrders.length },
+            { id: 'kitchen', label: 'หน้าเตา', icon: <CookingPot size={16} /> },
+            { id: 'dine_in', label: 'หน้าร้าน', icon: <User size={16} />, count: displayedDineInOrders.length },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setMobileView(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold rounded-xl transition-all ${mobileView === tab.id
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                }`}
+            >
+              <span className="hidden sm:inline">{tab.icon}</span> {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${mobileView === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* 🌟 3-Column Layout สำหรับออเดอร์ */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 min-h-0 pb-4">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 lg:min-h-0 pb-4">
+
           {/* คอลัมน์ 1: ออเดอร์ออนไลน์ */}
-          <div className="bg-slate-100 p-4 rounded-3xl shadow-inner h-full flex flex-col overflow-hidden">
+          <div className={`bg-slate-100 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'online' ? 'flex' : 'hidden lg:flex'}`}>
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-indigo-900 shrink-0">
               <Truck size={20} /> ออเดอร์ออนไลน์
               <span className="bg-indigo-200/50 text-indigo-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
                 {displayedOnlineOrders.length}
               </span>
             </h2>
-            <div className="grid gap-4 overflow-y-auto pb-4 pr-1 flex-1 min-h-0">
+            <div className="flex flex-col gap-4 lg:overflow-y-auto pb-4 pr-1 flex-1 lg:min-h-0">
               {displayedOnlineOrders.length === 0 ? (
                 <div className="text-center py-10">
                   <div className="text-slate-300 mb-2 flex justify-center"><CircleDashed size={32} /></div>
@@ -678,147 +714,147 @@ export default function ManageOrdersPage() {
           </div>
 
           {/* คอลัมน์ 2: Smart Kitchen */}
-          <div className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 h-full flex flex-col overflow-hidden">
+          <div className={`bg-white rounded-3xl shadow-sm border-2 border-slate-200 lg:h-full flex-col lg:overflow-hidden ${mobileView === 'kitchen' ? 'flex' : 'hidden lg:flex'}`}>
             <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 rounded-t-[1.3rem] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <CookingPot size={22} className="text-slate-700" />
                 <h3 className="text-slate-800 font-bold text-lg">คิวหน้าเตา (Smart Kitchen)</h3>
               </div>
             </div>
-            <div className="p-2 overflow-y-auto pb-4 flex-1 min-h-0">
-                      {/* 👨‍🍳 Smart Kitchen */}
-        {(batchSuggestions.length > 0 || activeBatches.length > 0) && (
-          <div className="h-full flex flex-col">
-            <div className="hidden">
-              <div className="flex items-center gap-2">
-                <CookingPot size={18} className="text-slate-700" />
-                <h3 className="text-slate-800 font-bold text-sm">คิวหน้าเตา (Smart Kitchen)</h3>
-              </div>
-            </div>
-            
-            <div className="p-5 grid gap-3">
-              {/* === อาหารพร้อมเสิร์ฟ / รอส่ง (Ready to Serve) === */}
-              {readyToServeOrders.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">พร้อมเสิร์ฟ / รอส่งมอบ</h4>
-                  <div className="space-y-2">
-                    {readyToServeOrders.map(order => (
-                      <div key={order.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl">
-                        <div>
-                          <div className="font-bold text-emerald-900">
-                            Order #{order.id} {order.order_type === 'dine_in' ? `(โต๊ะ ${order.table_name})` : '(ออนไลน์)'}
-                          </div>
-                          <div className="text-xs text-emerald-600 mt-0.5">
-                            {order.items.map(i => `${i.menu_name} x${i.quantity}`).join(', ')}
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => updateStatus(order.id, 'delivery')}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap"
-                        >
-                          {order.order_type === 'dine_in' ? 'เสิร์ฟอาหาร' : 'ส่งให้ไรเดอร์'}
-                        </button>
-                      </div>
-                    ))}
+            <div className="p-2 lg:overflow-y-auto pb-4 flex-1 lg:min-h-0">
+              {/* 👨‍🍳 Smart Kitchen */}
+              {(batchSuggestions.length > 0 || activeBatches.length > 0) && (
+                <div className="h-full flex flex-col">
+                  <div className="hidden">
+                    <div className="flex items-center gap-2">
+                      <CookingPot size={18} className="text-slate-700" />
+                      <h3 className="text-slate-800 font-bold text-sm">คิวหน้าเตา (Smart Kitchen)</h3>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {/* === รายการที่กำลังทำอยู่ (Active Batches) === */}
-              {activeBatches.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">กำลังทำบนเตา</h4>
-                  <div className="space-y-2">
-                    {activeBatches.map((batch) => (
-                      <div key={batch.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border rounded-xl ${batch.status === 'done' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'}`}>
-                        <div>
-                          <div className={`font-bold ${batch.status === 'done' ? 'text-emerald-900' : 'text-blue-900'}`}>
-                            {batch.menuName} <span className={`${batch.status === 'done' ? 'text-emerald-600' : 'text-blue-600'} text-sm font-bold ml-1`}>x {batch.amount}</span>
-                          </div>
-                          {batch.status === 'done' ? (
-                            <div className="text-xs text-emerald-500 mt-0.5 flex items-center gap-1">
-                              <CheckCircle2 size={12} /> ปรุงเสร็จแล้ว รอส่งมอบ
+                  <div className="p-5 grid gap-3">
+                    {/* === อาหารพร้อมเสิร์ฟ / รอส่ง (Ready to Serve) === */}
+                    {readyToServeOrders.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">พร้อมเสิร์ฟ / รอส่งมอบ</h4>
+                        <div className="space-y-2">
+                          {readyToServeOrders.map(order => (
+                            <div key={order.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl">
+                              <div>
+                                <div className="font-bold text-emerald-900">
+                                  Order #{order.id} {order.order_type === 'dine_in' ? `(โต๊ะ ${order.table_name})` : '(ออนไลน์)'}
+                                </div>
+                                <div className="text-xs text-emerald-600 mt-0.5">
+                                  {order.items.map(i => `${i.menu_name} x${i.quantity}`).join(', ')}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => updateStatus(order.id, 'delivery')}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap"
+                              >
+                                {order.order_type === 'dine_in' ? 'เสิร์ฟอาหาร' : 'ส่งให้ไรเดอร์'}
+                              </button>
                             </div>
-                          ) : (
-                            <div className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
-                              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
-                            </div>
-                          )}
+                          ))}
                         </div>
-                        {batch.status !== 'done' && (
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleCancelBatch(batch.id, batch.menuName, batch.amount)}
-                              className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
-                            >
-                              ยกเลิก
-                            </button>
-                            <button 
-                              onClick={() => handleFinishCooking(batch.id, batch.menuName, batch.amount)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
-                            >
-                              เสร็จแล้ว
-                            </button>
-                          </div>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    )}
 
-              {/* === รายการที่รอทำ (Pending Suggestions) === */}
-              {batchSuggestions.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">รอคิวทำ</h4>
-                  <div className="space-y-3">
-                    {batchSuggestions.map((sug, idx) => {
-                      const currentInput = doneInputs[sug.menuName] !== undefined ? Math.min(doneInputs[sug.menuName], sug.total) : sug.total;
-                      return (
-                        <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border border-slate-100 rounded-xl">
-                          <div>
-                            <div className="font-bold text-slate-800">
-                              {sug.menuName} <span className="text-slate-500 text-sm font-medium ml-1">x {sug.total}</span>
+                    {/* === รายการที่กำลังทำอยู่ (Active Batches) === */}
+                    {activeBatches.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">กำลังทำบนเตา</h4>
+                        <div className="space-y-2">
+                          {activeBatches.map((batch) => (
+                            <div key={batch.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border rounded-xl ${batch.status === 'done' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                              <div>
+                                <div className={`font-bold ${batch.status === 'done' ? 'text-emerald-900' : 'text-blue-900'}`}>
+                                  {batch.menuName} <span className={`${batch.status === 'done' ? 'text-emerald-600' : 'text-blue-600'} text-sm font-bold ml-1`}>x {batch.amount}</span>
+                                </div>
+                                {batch.status === 'done' ? (
+                                  <div className="text-xs text-emerald-500 mt-0.5 flex items-center gap-1">
+                                    <CheckCircle2 size={12} /> ปรุงเสร็จแล้ว รอส่งมอบ
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
+                                  </div>
+                                )}
+                              </div>
+                              {batch.status !== 'done' && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleCancelBatch(batch.id, batch.menuName, batch.amount)}
+                                    className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                                  >
+                                    ยกเลิก
+                                  </button>
+                                  <button
+                                    onClick={() => handleFinishCooking(batch.id, batch.menuName, batch.amount)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                                  >
+                                    เสร็จแล้ว
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            <div className="text-xs text-slate-400 mt-0.5">Order #{sug.orderIds}</div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                              <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
-                              <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
-                              <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
-                            </div>
-                            <button 
-                              onClick={() => handleStartCooking(sug.menuName, currentInput)}
-                              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                            >
-                              กำลังทำ
-                            </button>
-                          </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
+
+                    {/* === รายการที่รอทำ (Pending Suggestions) === */}
+                    {batchSuggestions.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">รอคิวทำ</h4>
+                        <div className="space-y-3">
+                          {batchSuggestions.map((sug, idx) => {
+                            const currentInput = doneInputs[sug.menuName] !== undefined ? Math.min(doneInputs[sug.menuName], sug.total) : sug.total;
+                            return (
+                              <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border border-slate-100 rounded-xl">
+                                <div>
+                                  <div className="font-bold text-slate-800">
+                                    {sug.menuName} <span className="text-slate-500 text-sm font-medium ml-1">x {sug.total}</span>
+                                  </div>
+                                  <div className="text-xs text-slate-400 mt-0.5">Order #{sug.orderIds}</div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+                                    <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
+                                    <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
+                                    <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
+                                  </div>
+                                  <button
+                                    onClick={() => handleStartCooking(sug.menuName, currentInput)}
+                                    className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                                  >
+                                    กำลังทำ
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
 
 
             </div>
           </div>
 
           {/* คอลัมน์ 3: ออเดอร์หน้าร้าน */}
-          <div className="bg-slate-100 p-4 rounded-3xl shadow-inner h-full flex flex-col overflow-hidden">
+          <div className={`bg-slate-100 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'dine_in' ? 'flex' : 'hidden lg:flex'}`}>
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-emerald-900 shrink-0">
               🍽️ ออเดอร์หน้าร้าน
               <span className="bg-emerald-200/50 text-emerald-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
                 {displayedDineInOrders.length}
               </span>
             </h2>
-            <div className="grid gap-4 overflow-y-auto pb-4 pr-1 flex-1 min-h-0">
+            <div className="flex flex-col gap-4 lg:overflow-y-auto pb-4 pr-1 flex-1 lg:min-h-0">
               {displayedDineInOrders.length === 0 ? (
                 <div className="text-center py-10">
                   <div className="text-slate-300 mb-2 flex justify-center"><CircleDashed size={32} /></div>
@@ -862,67 +898,67 @@ export default function ManageOrdersPage() {
             <div className="p-6 overflow-y-auto flex-1 text-center">
               <h3 className="text-xl font-black mb-1">ชำระเงินก่อนส่งมอบ</h3>
               <p className="text-slate-500 mb-5 font-medium">Order #{codPaymentOrder.id} • <strong className="text-slate-900">฿{codPaymentOrder.total_price.toLocaleString()}</strong></p>
-            
-            <div className="flex gap-2 mb-4">
-              <label className={`flex-1 py-3 border rounded-xl cursor-pointer font-bold transition-colors ${codPaymentMethod === 'cash' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}>
-                <input type="radio" checked={codPaymentMethod === 'cash'} onChange={() => setCodPaymentMethod('cash')} className="hidden" />
-                เงินสด
-              </label>
-              <label className={`flex-1 py-3 border rounded-xl cursor-pointer font-bold transition-colors ${codPaymentMethod === 'qr' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
-                <input type="radio" checked={codPaymentMethod === 'qr'} onChange={() => setCodPaymentMethod('qr')} className="hidden" />
-                สแกน QR
-              </label>
-            </div>
 
-            {codPaymentMethod === 'qr' && shopData && (
-              <div className="mb-4 flex flex-col items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-                {shopData.account_number ? (
-                  <img src={`https://promptpay.io/${shopData.account_number}/${codPaymentOrder.total_price}.png`} className="w-40 h-40 rounded-lg border-4 border-white shadow-sm" alt="PromptPay QR" />
-                ) : shopData.qr_image ? (
-                  <img src={shopData.qr_image} className="w-40 h-40 object-cover rounded-lg border-4 border-white shadow-sm" alt="Shop QR" />
-                ) : (
-                  <div className="w-40 h-40 flex items-center justify-center bg-slate-200 rounded-lg"><ImageOff size={24} className="text-slate-400" /></div>
-                )}
-                <div className="mt-3 text-sm text-slate-600 font-medium">
-                  {shopData.bank_name && <div>{shopData.bank_name}</div>}
-                  {shopData.account_number && <div className="text-indigo-600 font-bold">{shopData.account_number}</div>}
-                </div>
+              <div className="flex gap-2 mb-4">
+                <label className={`flex-1 py-3 border rounded-xl cursor-pointer font-bold transition-colors ${codPaymentMethod === 'cash' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <input type="radio" checked={codPaymentMethod === 'cash'} onChange={() => setCodPaymentMethod('cash')} className="hidden" />
+                  เงินสด
+                </label>
+                <label className={`flex-1 py-3 border rounded-xl cursor-pointer font-bold transition-colors ${codPaymentMethod === 'qr' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <input type="radio" checked={codPaymentMethod === 'qr'} onChange={() => setCodPaymentMethod('qr')} className="hidden" />
+                  สแกน QR
+                </label>
               </div>
-            )}
 
-            {codPaymentMethod === 'qr' && (
-              <div className="mb-4 text-left">
-                <p className="text-sm font-bold text-slate-700 mb-2">อัปโหลดหลักฐานการรับเงิน *</p>
-                <div className="flex gap-2 mb-3">
-                  <button onClick={startCamera} className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
-                    <Camera size={20} /> ถ่ายรูป
-                  </button>
-                  <label className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
-                    <input type="file" accept="image/*" onChange={handleCodFileChange} className="hidden" />
-                    <UploadCloud size={20} /> รูปในเครื่อง
-                  </label>
-                </div>
-                {codSlipImage && (
-                  <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                    <img src={codSlipImage} className="w-full h-40 object-contain bg-slate-100" alt="Slip Preview" />
-                    <button onClick={() => setCodSlipImage(null)} className="absolute top-2 right-2 p-1.5 bg-slate-900/50 text-white rounded-full hover:bg-slate-900/70"><X size={14} /></button>
+              {codPaymentMethod === 'qr' && shopData && (
+                <div className="mb-4 flex flex-col items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  {shopData.account_number ? (
+                    <img src={`https://promptpay.io/${shopData.account_number}/${codPaymentOrder.total_price}.png`} className="w-40 h-40 rounded-lg border-4 border-white shadow-sm" alt="PromptPay QR" />
+                  ) : shopData.qr_image ? (
+                    <img src={shopData.qr_image} className="w-40 h-40 object-cover rounded-lg border-4 border-white shadow-sm" alt="Shop QR" />
+                  ) : (
+                    <div className="w-40 h-40 flex items-center justify-center bg-slate-200 rounded-lg"><ImageOff size={24} className="text-slate-400" /></div>
+                  )}
+                  <div className="mt-3 text-sm text-slate-600 font-medium">
+                    {shopData.bank_name && <div>{shopData.bank_name}</div>}
+                    {shopData.account_number && <div className="text-indigo-600 font-bold">{shopData.account_number}</div>}
                   </div>
-                )}
-              </div>
-            )}
-            <div ref={paymentBottomRef} />
+                </div>
+              )}
+
+              {codPaymentMethod === 'qr' && (
+                <div className="mb-4 text-left">
+                  <p className="text-sm font-bold text-slate-700 mb-2">อัปโหลดหลักฐานการรับเงิน *</p>
+                  <div className="flex gap-2 mb-3">
+                    <button onClick={startCamera} className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
+                      <Camera size={20} /> ถ่ายรูป
+                    </button>
+                    <label className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
+                      <input type="file" accept="image/*" onChange={handleCodFileChange} className="hidden" />
+                      <UploadCloud size={20} /> รูปในเครื่อง
+                    </label>
+                  </div>
+                  {codSlipImage && (
+                    <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                      <img src={codSlipImage} className="w-full h-40 object-contain bg-slate-100" alt="Slip Preview" />
+                      <button onClick={() => setCodSlipImage(null)} className="absolute top-2 right-2 p-1.5 bg-slate-900/50 text-white rounded-full hover:bg-slate-900/70"><X size={14} /></button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div ref={paymentBottomRef} />
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-white flex gap-2">
               <button onClick={() => { setCodPaymentOrder(null); setCodPaymentMethod(''); setCodSlipImage(null); }} className="flex-1 py-3 text-slate-400 hover:text-slate-600 font-bold transition-colors">ยกเลิก</button>
-              <button 
+              <button
                 disabled={!codPaymentMethod || (codPaymentMethod === 'qr' && !codSlipImage)}
-                onClick={() => { 
-                  updateStatus(codPaymentOrder.id, 'done', codSlipImage || undefined); 
-                  setCodPaymentOrder(null); 
-                  setCodPaymentMethod(''); 
+                onClick={() => {
+                  updateStatus(codPaymentOrder.id, 'done', codSlipImage || undefined);
+                  setCodPaymentOrder(null);
+                  setCodPaymentMethod('');
                   setCodSlipImage(null);
-                }} 
+                }}
                 className={`flex-1 py-3 text-white rounded-xl font-bold shadow-md transition-colors ${(!codPaymentMethod || (codPaymentMethod === 'qr' && !codSlipImage)) ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'}`}
               >
                 ยืนยันการรับเงิน
@@ -945,7 +981,7 @@ export default function ManageOrdersPage() {
             ) : (
               <div className="py-10 bg-slate-50 text-slate-400 rounded-xl mb-6 font-bold">ไม่พบรูปสลิป</div>
             )}
-            
+
             {slipPopupOrder.status === 'checking_slip' ? (
               <div className="flex gap-2">
                 <button onClick={() => { updateStatus(slipPopupOrder.id, 'cancel'); setSlipPopupOrder(null); }} className="flex-1 py-3 text-rose-500 hover:bg-rose-50 rounded-xl font-bold transition-colors">ไม่อนุมัติ</button>
@@ -963,7 +999,7 @@ export default function ManageOrdersPage() {
         <div className="fixed inset-0 bg-slate-900 z-[10000] flex flex-col">
           <div className="flex-1 relative flex items-center justify-center bg-black">
             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-            
+
             <div className="absolute top-4 right-4">
               <button onClick={stopCamera} className="p-3 bg-slate-800/80 hover:bg-slate-700 text-white rounded-full backdrop-blur-sm transition-colors">
                 <X size={24} />
