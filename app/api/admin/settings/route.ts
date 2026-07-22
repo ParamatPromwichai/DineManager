@@ -32,35 +32,30 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { max_failed_logins, maintenance_mode, delivery_fee, delivery_fee_per_km, require_shop_approval } = body;
+    const { 
+      max_failed_logins, maintenance_mode, delivery_fee, delivery_fee_per_km, require_shop_approval,
+      base_cooking_time_per_item, delivery_speed_kmh, queue_delay_per_order
+    } = body;
 
-    if (max_failed_logins !== undefined) {
-      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "max_failed_logins"', [max_failed_logins.toString()]);
-    }
-
-    if (maintenance_mode !== undefined) {
-      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "maintenance_mode"', [maintenance_mode.toString()]);
-    }
-
-    if (delivery_fee !== undefined) {
-      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "delivery_fee"', [delivery_fee.toString()]);
-    }
-
-    // 🟢 อัปเดตค่าจัดส่งตามระยะทาง (ต่อกิโลเมตร)
-    if (delivery_fee_per_km !== undefined) {
-      await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "delivery_fee_per_km"', [delivery_fee_per_km.toString()]);
-    }
-
-    // 🟢 อัปเดตตั้งค่าอนุมัติร้านค้าใหม่
-    if (require_shop_approval !== undefined) {
-      // Check if it exists first, if not we insert it
-      const [existing]: any = await db.query('SELECT 1 FROM system_settings WHERE setting_key = "require_shop_approval"');
-      if (existing.length === 0) {
-        await db.query('INSERT INTO system_settings (setting_key, setting_value) VALUES ("require_shop_approval", ?)', [require_shop_approval.toString()]);
-      } else {
-        await db.query('UPDATE system_settings SET setting_value = ? WHERE setting_key = "require_shop_approval"', [require_shop_approval.toString()]);
+    const updateSetting = async (key: string, value: string | undefined) => {
+      if (value !== undefined) {
+        await db.query(
+          'INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', 
+          [key, value.toString(), value.toString()]
+        );
       }
     }
+
+    await updateSetting('max_failed_logins', max_failed_logins);
+    await updateSetting('maintenance_mode', maintenance_mode);
+    await updateSetting('delivery_fee', delivery_fee);
+    await updateSetting('delivery_fee_per_km', delivery_fee_per_km);
+    await updateSetting('require_shop_approval', require_shop_approval);
+    
+    // New time configs
+    await updateSetting('base_cooking_time_per_item', base_cooking_time_per_item);
+    await updateSetting('delivery_speed_kmh', delivery_speed_kmh);
+    await updateSetting('queue_delay_per_order', queue_delay_per_order);
 
     return NextResponse.json({ message: 'บันทึกการตั้งค่าระบบเรียบร้อย' });
   } catch (error) {

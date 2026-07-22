@@ -16,7 +16,10 @@ export async function GET() {
     return NextResponse.json({ 
       maintenance_mode: config.maintenance_mode === 'true',
       delivery_fee: Number(config.delivery_fee || 0),             // ส่งค่าส่งเริ่มต้น (Default 0)
-      delivery_fee_per_km: Number(config.delivery_fee_per_km || 0)  // ส่งค่าส่งต่อกิโลเมตร (Default 0)
+      delivery_fee_per_km: Number(config.delivery_fee_per_km || 0),  // ส่งค่าส่งต่อกิโลเมตร (Default 0)
+      base_cooking_time_per_item: Number(config.base_cooking_time_per_item || 5),
+      delivery_speed_kmh: Number(config.delivery_speed_kmh || 40),
+      queue_delay_per_order: Number(config.queue_delay_per_order || 1)
     });
   } catch (error) {
     console.error("Sysconfig API Error:", error);
@@ -24,7 +27,10 @@ export async function GET() {
     return NextResponse.json({ 
       maintenance_mode: false, 
       delivery_fee: 0, 
-      delivery_fee_per_km: 0 
+      delivery_fee_per_km: 0,
+      base_cooking_time_per_item: 5,
+      delivery_speed_kmh: 40,
+      queue_delay_per_order: 1
     });
   }
 }

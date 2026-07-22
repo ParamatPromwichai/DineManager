@@ -54,6 +54,8 @@ export default function ManageOrdersPage() {
   const { data: homeData } = useSWR(isShop ? '/api/customer/home' : null, fetcher);
   const shopData = homeData?.shop;
 
+  const { data: sysconfig } = useSWR('/api/sysconfig', fetcher);
+
   const orders = fetchedOrders || [];
   const [slipPopupOrder, setSlipPopupOrder] = useState<Order | null>(null);
   const [cookedItems, setCookedItems] = useState<Record<number, Record<string, number>>>({});
@@ -351,9 +353,10 @@ export default function ManageOrdersPage() {
     cookingOrders.forEach(order => {
       const elapsedMinutes = Math.floor((currentTime.getTime() - new Date(order.created_at).getTime()) / 60000);
       const totalQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-      const baseCookingTime = 5 * totalQuantity;
+      const baseCookingTime = (sysconfig?.base_cooking_time_per_item || 5) * totalQuantity;
       const queueCount = allActiveOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
-      const estimatedTotalMinutes = baseCookingTime + queueCount;
+      const queueDelayPerOrder = sysconfig?.queue_delay_per_order || 1;
+      const estimatedTotalMinutes = baseCookingTime + (queueCount * queueDelayPerOrder);
 
       // เงื่อนไข: ถ้าสั่ง 1-3 เมนู ไม่ต้องเอาเวลามาจัดลำดับ (Infinity) แต่ถ้า >3 ค่อยจัดลำดับตามเวลา
       const remainingMinutes = totalQuantity <= 3 ? Infinity : (estimatedTotalMinutes - elapsedMinutes);
@@ -436,9 +439,10 @@ export default function ManageOrdersPage() {
     const elapsedMinutes = Math.floor((new Date().getTime() - new Date(order.created_at).getTime()) / 60000);
 
     const totalQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const baseCookingTime = 5 * totalQuantity;
+    const baseCookingTime = (sysconfig?.base_cooking_time_per_item || 5) * totalQuantity;
     const queueCount = allActiveOrders.filter(o => o.id < order.id && ['pending', 'cooking', 'checking_slip'].includes(o.status)).length;
-    const estimatedTotalMinutes = baseCookingTime + queueCount;
+    const queueDelayPerOrder = sysconfig?.queue_delay_per_order || 1;
+    const estimatedTotalMinutes = baseCookingTime + (queueCount * queueDelayPerOrder);
 
     const remainingMinutes = estimatedTotalMinutes - elapsedMinutes;
     const isDelayed = remainingMinutes < 0 && isPendingCooking;
@@ -619,6 +623,12 @@ export default function ManageOrdersPage() {
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Link
+              href="/dashboard/shop/orders/rider"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-all"
+            >
+              <Truck size={16} /> จัดการออเดอร์ไรเดอร์
+            </Link>
             <Link
               href="/dashboard/shop/orders/history"
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all"

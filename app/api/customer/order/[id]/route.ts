@@ -31,6 +31,17 @@ export async function GET(
 
     const order = orders[0];
 
+    // ดึงค่าการตั้งค่าจากระบบ
+    const [settingsRows]: any = await db.query('SELECT setting_key, setting_value FROM system_settings');
+    const sysSettings = settingsRows.reduce((acc: any, curr: any) => {
+      acc[curr.setting_key] = curr.setting_value;
+      return acc;
+    }, {});
+    
+    const baseCookingTimePerItem = Number(sysSettings.base_cooking_time_per_item || 5);
+    const deliverySpeedKmh = Number(sysSettings.delivery_speed_kmh || 40);
+    const queueDelayPerOrder = Number(sysSettings.queue_delay_per_order || 1);
+
     // 2. ดึงรายการอาหารพร้อม "รูปภาพ" จากตาราง menus
     const [items]: any = await db.query(
       `SELECT oi.*, m.image 
@@ -41,11 +52,11 @@ export async function GET(
     );
     order.items = items;
 
-    // 3. นับจำนวนคิวออเดอร์ที่สั่งก่อนหน้าและยังทำไม่เสร็จ (Cooking หรือ Delivery)
+    // 3. นับจำนวนคิวออเดอร์ที่สั่งก่อนหน้าและยังทำไม่เสร็จ (กำลังรอหรือทำอยู่ในครัว)
     const [precedingOrders]: any = await db.query(
       `SELECT COUNT(*) as queueCount 
        FROM orders 
-       WHERE (status = 'cooking' OR status = 'delivery') 
+       WHERE status IN ('pending', 'checking_slip', 'cooking') 
        AND id < ?`,
       [orderId]
     );
@@ -83,11 +94,11 @@ export async function GET(
       0
     );
 
-    // คำนวณเวลาพื้นฐาน: ทุก 1 เมนู = 5 นาที
-    const baseCookingTime = 5 * Math.ceil(totalQuantity / 1);
+    // คำนวณเวลาพื้นฐาน
+    const baseCookingTime = baseCookingTimePerItem * Math.ceil(totalQuantity / 1);
     
-    // บวกเวลาเผื่อคิว: คิวละ 5 นาที
-    const queueDelay = queueCount;
+    // บวกเวลาเผื่อคิว
+    const queueDelay = queueCount * queueDelayPerOrder;
     const totalCookingTime = baseCookingTime + queueDelay;
 
     if (
@@ -103,7 +114,7 @@ export async function GET(
         customerLng
       );
 
-      const speed = 40; // ความเร็วเฉลี่ยกม./ชม.
+      const speed = deliverySpeedKmh; // ความเร็วเฉลี่ยกม./ชม.
       deliveryTime = (distance / speed) * 60;
 
       // เวลารวมทั้งหมด (ทำอาหาร + คิว + ส่ง)

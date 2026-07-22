@@ -10,6 +10,9 @@ interface SystemSettings {
   delivery_fee: string;
   delivery_fee_per_km: string;
   require_shop_approval: string;
+  base_cooking_time_per_item: string;
+  delivery_speed_kmh: string;
+  queue_delay_per_order: string;
 }
 
 export default function AdminSettingsPage() {
@@ -19,7 +22,10 @@ export default function AdminSettingsPage() {
     maintenance_mode: 'false',
     delivery_fee: '0',
     delivery_fee_per_km: '0',
-    require_shop_approval: 'true'
+    require_shop_approval: 'true',
+    base_cooking_time_per_item: '5',
+    delivery_speed_kmh: '40',
+    queue_delay_per_order: '1'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,7 +40,10 @@ export default function AdminSettingsPage() {
             maintenance_mode: data.maintenance_mode || 'false',
             delivery_fee: data.delivery_fee || '0',
             delivery_fee_per_km: data.delivery_fee_per_km || '0',
-            require_shop_approval: data.require_shop_approval || 'true'
+            require_shop_approval: data.require_shop_approval || 'true',
+            base_cooking_time_per_item: data.base_cooking_time_per_item || '5',
+            delivery_speed_kmh: data.delivery_speed_kmh || '40',
+            queue_delay_per_order: data.queue_delay_per_order || '1'
           });
           setLoading(false);
         })
@@ -167,7 +176,68 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Section 3: Security Settings */}
+        {/* Section 3: Time Settings */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
+            <Loader2 className="text-blue-500" size={24} />
+            <h2 className="font-bold text-lg text-white">การคำนวณเวลา (Time Settings)</h2>
+          </div>
+          
+          <div className="p-6 md:p-8 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex-1">
+                <p className="font-bold text-white text-base">เวลาทำอาหาร (ต่อเมนู)</p>
+                <p className="text-sm text-slate-500 mt-1">ระยะเวลามาตรฐานที่ใช้ในการปรุงอาหาร 1 รายการ</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={formData.base_cooking_time_per_item} 
+                  onChange={(e) => setFormData({ ...formData, base_cooking_time_per_item: e.target.value })}
+                  className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
+                />
+                <span className="text-slate-400 font-bold w-12">นาที</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex-1">
+                <p className="font-bold text-white text-base">เวลาเผื่อล่าช้า (ต่อ 1 คิวรอ)</p>
+                <p className="text-sm text-slate-500 mt-1">จำนวนนาทีที่จะบวกเพิ่มเข้าไปในเวลาที่คาดว่าจะทำเสร็จ สำหรับทุกๆ 1 ออเดอร์ที่อยู่ในคิวก่อนหน้า</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={formData.queue_delay_per_order} 
+                  onChange={(e) => setFormData({ ...formData, queue_delay_per_order: e.target.value })}
+                  className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
+                />
+                <span className="text-slate-400 font-bold w-12">นาที</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex-1">
+                <p className="font-bold text-white text-base">ความเร็วจัดส่งเฉลี่ย</p>
+                <p className="text-sm text-slate-500 mt-1">ความเร็วที่ไรเดอร์ใช้ในการขับรถส่งอาหาร นำไปคำนวณเวลาร่วมกับระยะทางจริง</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={formData.delivery_speed_kmh} 
+                  onChange={(e) => setFormData({ ...formData, delivery_speed_kmh: e.target.value })}
+                  className="w-24 p-3 bg-slate-900 border border-slate-700 rounded-xl font-black text-center text-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
+                />
+                <span className="text-slate-400 font-bold w-16">กม./ชม.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Security Settings */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="p-5 border-b border-slate-800 bg-slate-900/50 flex items-center gap-3">
             <Shield className="text-emerald-500" size={24} />

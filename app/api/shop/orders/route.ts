@@ -7,7 +7,8 @@ export async function GET() {
   try {
     // 1. ดึงออเดอร์ 50 รายการล่าสุด
     const [orders]: any = await db.query(`
-      SELECT o.*, t.name as table_name 
+      SELECT o.*, t.name as table_name,
+        (SELECT COUNT(*) FROM orders q WHERE q.status IN ('pending', 'checking_slip', 'cooking') AND q.id < o.id) as queue_count
       FROM orders o 
       LEFT JOIN tables t ON o.table_id = t.id 
       ORDER BY o.created_at DESC LIMIT 50

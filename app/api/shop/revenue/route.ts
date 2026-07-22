@@ -20,7 +20,7 @@ export async function GET(req: Request) {
       query = `
         SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
-        WHERE status = 'done' AND DATE(created_at) = ?
+        WHERE status = 'done' AND DATE(DATE_ADD(created_at, INTERVAL 7 HOUR)) = ?
       `;
       queryParams = [dateParam];
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       query = `
         SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
-        WHERE status = 'done' AND DATE_FORMAT(created_at, '%Y-%m') = ?
+        WHERE status = 'done' AND DATE_FORMAT(DATE_ADD(created_at, INTERVAL 7 HOUR), '%Y-%m') = ?
       `;
       queryParams = [dateParam];
 
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       query = `
         SELECT id, total_price, payment_method, order_type, created_at 
         FROM orders 
-        WHERE status = 'done' AND YEARWEEK(created_at, 3) = ?
+        WHERE status = 'done' AND YEARWEEK(DATE_ADD(created_at, INTERVAL 7 HOUR), 3) = ?
       `;
       queryParams = [`${year}${week}`];
     }
