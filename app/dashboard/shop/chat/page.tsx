@@ -280,7 +280,7 @@ export default function ShopChatPage() {
                         </div>
                         
                         {/* Message Bubble */}
-                        <div className={`max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl text-sm font-medium shadow-sm border ${
+                        <div className={`max-w-[85%] sm:max-w-[75%] ${cleanText.startsWith('[IMAGE]') ? 'p-1' : 'px-4 py-2.5'} rounded-2xl text-sm font-medium shadow-sm border ${
                           isShop 
                             ? 'bg-blue-600 text-white rounded-tr-sm border-blue-700' 
                             : isGroq
@@ -291,7 +291,11 @@ export default function ShopChatPage() {
                             ? 'bg-blue-50 text-blue-900 rounded-tr-sm border-blue-100'
                             : 'bg-white text-slate-800 rounded-tl-sm border-slate-200'
                         }`}>
-                          <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{cleanText}</span>
+                          {cleanText.startsWith('[IMAGE]') ? (
+                            <img src={cleanText.replace('[IMAGE]', '')} alt="รูปภาพ" className="w-full max-w-[240px] rounded-[14px] shadow-sm bg-white" />
+                          ) : (
+                            <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{cleanText}</span>
+                          )}
                         </div>
                         {isShop && (
                           <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1 mr-1">

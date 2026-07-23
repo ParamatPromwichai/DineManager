@@ -570,18 +570,14 @@ export default function ManageOrdersPage() {
                 <Truck size={16} /> ปรุงเสร็จ
               </button>
             )}
-            {order.status === 'delivery' && (
+            {order.status === 'delivery' && (order.order_type === 'online' || !order.order_type) && (
+              <button disabled className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-slate-100 text-slate-400 border border-slate-200 shadow-sm rounded-lg font-bold text-sm cursor-not-allowed">
+                <Truck size={16} /> รอไรเดอร์จัดส่ง
+              </button>
+            )}
+            {order.status === 'delivery' && order.order_type === 'dine_in' && (
               <button onClick={() => {
-                if (order.slip_image) {
-                  // ถ้าจ่ายแล้วและมีสลิปแล้ว ให้ผ่านเลย
-                  updateStatus(order.id, 'done');
-                } else if (order.order_type === 'dine_in') {
-                  // ทานที่ร้าน ปกติจะไปจ่ายที่หน้าจัดการโต๊ะ
-                  updateStatus(order.id, 'done');
-                } else {
-                  // สำหรับหน้าร้านและออนไลน์ที่ยังไม่มีสลิป ให้เปิด popup ชำระเงิน (สแกน/เงินสด)
-                  setCodPaymentOrder(order);
-                }
+                updateStatus(order.id, 'done');
               }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">
                 <Check size={16} /> ส่งสำเร็จ
               </button>

@@ -140,6 +140,11 @@ export default function ChatPage() {
   // }, [messages]);
 
   const formatMessage = (text: string) => {
+    if (text.startsWith('[IMAGE]')) {
+      const src = text.replace('[IMAGE]', '');
+      return <img src={src} alt="รูปภาพ" style={{ width: '100%', maxWidth: '240px', borderRadius: '12px', display: 'block' }} />;
+    }
+
     // แยกข้อความด้วย URL หรือ [ORDER_BUTTON:xxx]
     const regex = /(https?:\/\/[^\s]+|\[ORDER_BUTTON(?::[^\]]+)?\])/g;
     const parts = text.split(regex);
@@ -422,7 +427,7 @@ export default function ChatPage() {
                   <div style={{
                     background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : isShop ? "#DBEAFE" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
                     color: isUser ? "#ffffff" : isShop ? "#1E3A8A" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
-                    padding: "12px 16px",
+                    padding: cleanText.startsWith('[IMAGE]') ? "6px" : "12px 16px",
                     borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
                     boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
                     border: isUser ? "none" : isShop ? "1px solid #BFDBFE" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),

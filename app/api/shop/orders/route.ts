@@ -52,6 +52,19 @@ export async function PUT(req: Request) {
     } else {
       await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
     }
+
+    // แจ้งเตือนลูกค้าผ่านแชทเมื่อออเดอร์เสร็จสิ้น
+    if (status === 'done') {
+      const [orderRows]: any = await db.query('SELECT user_id FROM orders WHERE id = ?', [id]);
+      const userId = orderRows?.[0]?.user_id;
+      if (userId) {
+        await db.query(
+          "INSERT INTO chats (user_id, sender, message) VALUES (?, 'shop', ?)",
+          [userId, `🎉 ออเดอร์ #${id} ของคุณจัดส่งสำเร็จแล้ว!\nขอบคุณที่ใช้บริการค่ะ/ครับ`]
+        );
+      }
+    }
+
     return NextResponse.json({ message: 'Updated' });
   } catch (error) {
     return NextResponse.json({ message: 'Error' }, { status: 500 });

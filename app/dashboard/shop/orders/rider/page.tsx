@@ -37,6 +37,7 @@ type Order = {
   longitude?: number | null;
   order_type?: string;
   queue_count?: number;
+  user_id?: string;
   items: OrderItem[];
 };
 
@@ -65,8 +66,14 @@ export default function RiderOrdersPage() {
   const paymentBottomRef = useRef<HTMLDivElement>(null);
 
   const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'cod' | 'delivery' | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({});
+
+  // Delivery Photo State
+  const [notifyDeliveryOrder, setNotifyDeliveryOrder] = useState<Order | null>(null);
+  const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
+  const [isSendingPhoto, setIsSendingPhoto] = useState(false);
 
   useEffect(() => {
     if (codPaymentMethod === 'qr' && paymentBottomRef.current) {
@@ -76,7 +83,8 @@ export default function RiderOrdersPage() {
     }
   }, [codPaymentMethod]);
 
-  const startCamera = async () => {
+  const startCamera = async (mode: 'cod' | 'delivery') => {
+    setCameraMode(mode);
     setShowCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -105,7 +113,9 @@ export default function RiderOrdersPage() {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        setCodSlipImage(canvas.toDataURL('image/jpeg', 0.8));
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        if (cameraMode === 'cod') setCodSlipImage(dataUrl);
+        if (cameraMode === 'delivery') setDeliveryPhoto(dataUrl);
         stopCamera();
       }
     }
@@ -117,6 +127,34 @@ export default function RiderOrdersPage() {
       const reader = new FileReader();
       reader.onloadend = () => { setCodSlipImage(reader.result as string); };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDeliveryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => { setDeliveryPhoto(reader.result as string); };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const sendDeliveryPhoto = async () => {
+    if (!notifyDeliveryOrder || !deliveryPhoto || !notifyDeliveryOrder.user_id) return;
+    setIsSendingPhoto(true);
+    try {
+      await fetch(`/api/shop/chat/${notifyDeliveryOrder.user_id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `[IMAGE]${deliveryPhoto}` }),
+      });
+      setNotifyDeliveryOrder(null);
+      setDeliveryPhoto(null);
+    } catch (err) {
+      console.error(err);
+      alert('เกิดข้อผิดพลาดในการส่งรูป');
+    } finally {
+      setIsSendingPhoto(false);
     }
   };
 
@@ -307,6 +345,7 @@ export default function RiderOrdersPage() {
                           onClick={() => {
                             if (order.slip_image) {
                               updateStatus(order.id, 'done');
+                              setNotifyDeliveryOrder(order);
                             } else {
                               setCodPaymentOrder(order);
                             }
@@ -396,7 +435,7 @@ export default function RiderOrdersPage() {
       {/* 💰 Popup ชำระเงินปลายทาง (เหมือนของหน้าร้าน) */}
       {codPaymentOrder && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85vh] shadow-2xl">
+          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85vh] shadow-2xl relative">
             {showCamera && (
               <div className="absolute inset-0 bg-black z-50 flex flex-col">
                 <video ref={videoRef} autoPlay playsInline className="flex-1 object-cover" />
@@ -442,7 +481,7 @@ export default function RiderOrdersPage() {
                 <div className="mb-4 text-left">
                   <p className="text-sm font-bold text-slate-700 mb-2">อัปโหลดหลักฐานการรับเงิน *</p>
                   <div className="flex gap-2 mb-3">
-                    <button onClick={startCamera} className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
+                    <button onClick={() => startCamera('cod')} className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
                       <Camera size={20} /> ถ่ายรูป
                     </button>
                     <label className="flex-1 flex flex-col items-center justify-center gap-2 p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl cursor-pointer transition-colors text-slate-600 font-bold text-sm">
@@ -467,13 +506,81 @@ export default function RiderOrdersPage() {
                 disabled={!codPaymentMethod || (codPaymentMethod === 'qr' && !codSlipImage)}
                 onClick={() => {
                   updateStatus(codPaymentOrder.id, 'done', codSlipImage || undefined);
+                  const completedOrder = codPaymentOrder;
                   setCodPaymentOrder(null);
                   setCodPaymentMethod('');
                   setCodSlipImage(null);
+                  setNotifyDeliveryOrder(completedOrder);
                 }}
                 className={`flex-1 py-3.5 text-white rounded-xl font-bold shadow-md transition-all active:scale-[0.98] ${(!codPaymentMethod || (codPaymentMethod === 'qr' && !codSlipImage)) ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'}`}
               >
                 ยืนยันจบงาน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📸 Popup ถ่ายรูปจัดส่งสำเร็จ (แจ้งลูกค้าในแชท) */}
+      {notifyDeliveryOrder && !codPaymentOrder && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85vh] shadow-2xl relative">
+            
+            {showCamera && (
+              <div className="absolute inset-0 bg-black z-50 flex flex-col">
+                <video ref={videoRef} autoPlay playsInline className="flex-1 object-cover" />
+                <div className="p-4 bg-black flex justify-center gap-4">
+                  <button onClick={stopCamera} className="px-6 py-3 bg-slate-800 text-white rounded-full font-bold">ยกเลิก</button>
+                  <button onClick={capturePhoto} className="w-16 h-16 bg-white rounded-full border-4 border-slate-300"></button>
+                </div>
+              </div>
+            )}
+
+            <div className="p-6 overflow-y-auto flex-1 text-center">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check size={32} strokeWidth={3} />
+              </div>
+              <h3 className="text-xl font-black mb-1">จบงานจัดส่งสำเร็จ!</h3>
+              <p className="text-slate-500 mb-6 font-medium text-sm">
+                ออเดอร์ #{notifyDeliveryOrder.id} ถูกส่งเรียบร้อยแล้ว<br/>ต้องการถ่ายรูปส่งให้ลูกค้าทางแชทไหม? (เช่น รูปอาหารวางไว้ที่จุดรับ)
+              </p>
+
+              <div className="mb-4 text-left">
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => startCamera('delivery')} className="flex-1 flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 rounded-xl cursor-pointer transition-colors text-slate-700 font-bold text-sm group">
+                    <Camera size={24} className="text-slate-400 group-hover:text-blue-500 transition-colors" /> ถ่ายรูปจากกล้อง
+                  </button>
+                  <label className="flex-1 flex flex-col items-center justify-center gap-2 p-4 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 rounded-xl cursor-pointer transition-colors text-slate-700 font-bold text-sm group">
+                    <input type="file" accept="image/*" onChange={handleDeliveryFileChange} className="hidden" />
+                    <UploadCloud size={24} className="text-slate-400 group-hover:text-blue-500 transition-colors" /> เลือกรูปในเครื่อง
+                  </label>
+                </div>
+                {deliveryPhoto && (
+                  <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 mt-4 p-2">
+                    <img src={deliveryPhoto} className="w-full h-48 object-contain rounded-lg" alt="Delivery Preview" />
+                    <button onClick={() => setDeliveryPhoto(null)} className="absolute top-4 right-4 p-2 bg-slate-900/50 text-white rounded-full hover:bg-slate-900/70 backdrop-blur-sm"><X size={16} /></button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2">
+              <button 
+                onClick={() => { setNotifyDeliveryOrder(null); setDeliveryPhoto(null); }} 
+                className="flex-1 py-3.5 text-slate-500 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl font-bold transition-colors shadow-sm"
+              >
+                ไม่ส่ง ข้ามไป
+              </button>
+              <button
+                disabled={!deliveryPhoto || isSendingPhoto}
+                onClick={sendDeliveryPhoto}
+                className={`flex-1 py-3.5 flex items-center justify-center gap-2 text-white rounded-xl font-bold shadow-md transition-all active:scale-[0.98] ${( !deliveryPhoto || isSendingPhoto ) ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {isSendingPhoto ? (
+                  <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> กำลังส่ง...</>
+                ) : (
+                  <>ส่งรูปในแชท</>
+                )}
               </button>
             </div>
           </div>
