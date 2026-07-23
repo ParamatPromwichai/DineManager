@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
-import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles } from "lucide-react";
+import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -11,12 +11,27 @@ export default function ChatPage() {
   // ➕ 2. ดึงข้อมูล session จาก NextAuth แทน localStorage
   const { data: session, status } = useSession();
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('chat_messages');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  const [isSending, setIsSending] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('chat_isSending') === 'true';
+    }
+    return false;
+  });
+  const isSendingRef = useRef(isSending);
+  const [isBotEnabled, setIsBotEnabled] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // ➕ 3. ดึง userId จาก session
   const userId = (session?.user as any)?.id;
@@ -28,7 +43,6 @@ export default function ChatPage() {
     }
   }, [status, router]);
 
-  // ➕ 5. ดึงประวัติแชทเมื่อล็อกอินสำเร็จ
   useEffect(() => {
     // ต้องรอให้ session โหลดเสร็จก่อนและต้องมี userId
     if (status !== "authenticated" || !userId) return;
@@ -37,19 +51,68 @@ export default function ChatPage() {
       try {
         const res = await fetch(`/api/chat?user_id=${userId}`);
         const data = await res.json();
-        setMessages(data || []);
+        
+        setMessages((prev) => {
+          if (isSendingRef.current && prev.length > 0) {
+            const optimisticUserMsg = prev[prev.length - 1];
+            if (optimisticUserMsg.sender === "user") {
+              const dbUserMessages = data.filter((m: any) => m.sender === "user");
+              const localUserMessages = prev.filter((m: any) => m.sender === "user");
+              
+              if (dbUserMessages.length < localUserMessages.length) {
+                // DB ยังไม่มีข้อความล่าสุด (บอทยังคิดไม่เสร็จ) ให้แสดงข้อความที่เพิ่งพิมพ์ไปก่อน
+                return [...data, optimisticUserMsg];
+              } else {
+                // บอทตอบกลับและบันทึกลง DB แล้ว
+                setIsSending(false);
+                isSendingRef.current = false;
+                if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
+                return data;
+              }
+            }
+          }
+          return data || [];
+        });
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
+    
     fetchHistory();
+    // Poll for new messages (e.g. from shop)
+    const interval = setInterval(fetchHistory, 3000);
+    return () => clearInterval(interval);
   }, [status, userId]);
 
+  // บันทึก state ลง sessionStorage เผื่อผู้ใช้เปลี่ยนหน้า
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('chat_messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('chat_isSending', isSending ? 'true' : 'false');
+      isSendingRef.current = isSending;
+    }
+  }, [isSending]);
+
+  useEffect(() => {
+    // Only auto scroll if we are near the bottom or sending a new message
+    if (isSending || !showScrollButton) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, isSending]);
+
+  const handleScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollButton(!isNearBottom);
+  };
 
   const clearChat = async (isAuto = false) => {
     if (!userId) return;
@@ -167,6 +230,7 @@ export default function ChatPage() {
     if (!input.trim() || !userId || isSending) return;
 
     setIsSending(true);
+    isSendingRef.current = true;
     const currentInput = input;
     setInput("");
 
@@ -176,14 +240,26 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: currentInput, user_id: userId }),
+        body: JSON.stringify({ message: currentInput, user_id: userId, disable_bot: !isBotEnabled }),
       });
       const data = await res.json();
-      setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
+      if (data.reply) {
+        setMessages((prev) => {
+          // แทนที่ข้อความสุดท้ายด้วยข้อความของบอท (หรือเก็บไว้ถ้าจะให้ fetchHistory ดึงมาแทน)
+          // เนื่องจาก fetchHistory จะดึงมาอยู่แล้ว เราแค่ set สถานะว่าส่งเสร็จแล้วก็พอ
+          return prev;
+        });
+        // บังคับให้โหลดใหม่ทันที
+        const histRes = await fetch(`/api/chat?user_id=${userId}`);
+        const histData = await histRes.json();
+        setMessages(histData);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setIsSending(false);
+      isSendingRef.current = false;
+      if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
     }
   };
 
@@ -237,37 +313,63 @@ export default function ChatPage() {
             </div>
           </div>
           
-          <button
-            onClick={() => clearChat(false)}
-            style={{
-              padding: "8px 12px",
-              backgroundColor: "#FEF2F2",
-              color: "#EF4444",
-              border: "1px solid #FEE2E2",
-              borderRadius: "12px",
-              cursor: "pointer",
-              fontSize: "0.85rem",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              transition: "background 0.2s"
-            }}
-          >
-            <Trash2 size={16} /> ล้างแชท
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setIsBotEnabled(!isBotEnabled)}
+              style={{
+                padding: "8px 12px",
+                backgroundColor: isBotEnabled ? "#EFF6FF" : "#F3F4F6",
+                color: isBotEnabled ? "#2563EB" : "#6B7280",
+                border: isBotEnabled ? "1px solid #BFDBFE" : "1px solid #E5E7EB",
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: "bold",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                transition: "all 0.2s"
+              }}
+            >
+              {isBotEnabled ? <Bot size={16} /> : <User size={16} />}
+              {isBotEnabled ? "คุยกับบอท" : "คุยกับร้าน"}
+            </button>
+            <button
+              onClick={() => clearChat(false)}
+              style={{
+                padding: "8px 12px",
+                backgroundColor: "#FEF2F2",
+                color: "#EF4444",
+                border: "1px solid #FEE2E2",
+                borderRadius: "12px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: "bold",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                transition: "background 0.2s"
+              }}
+            >
+              <Trash2 size={16} /> ล้างแชท
+            </button>
+          </div>
         </div>
 
         {/* 🌟 Chat History Area */}
-        <div style={{ 
-          flex: 1, 
-          overflowY: "auto", 
-          padding: "20px", 
-          backgroundColor: "#F4F8FF",
-          display: "flex",
-          flexDirection: "column",
-          gap: "18px"
-        }}>
+        <div 
+          ref={chatContainerRef}
+          onScroll={handleScroll}
+          style={{ 
+            flex: 1, 
+            overflowY: "auto", 
+            padding: "20px", 
+            backgroundColor: "#F4F8FF",
+            display: "flex",
+            flexDirection: "column",
+            gap: "18px"
+          }}
+        >
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', margin: 'auto', color: '#64748B' }}>
               <div style={{ width: '60px', height: '60px', backgroundColor: '#E0EFFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
@@ -280,6 +382,8 @@ export default function ChatPage() {
 
           {messages.map((msg, i) => {
             const isUser = msg.sender === "user";
+            const isShop = msg.sender === "shop";
+            const isBot = !isUser && !isShop;
             let cleanText = msg.text || "";
             let isGroq = false;
             let isGemini = false;
@@ -294,39 +398,52 @@ export default function ChatPage() {
               cleanText = cleanText.replace(/\n\n\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").replace(/\*\((ตอบโดย Auto-Bot 🤖|ตอบโดย Auto Bot 🤖)\)\*/g, "").trim();
             }
 
+            const isLastMessage = i === messages.length - 1;
+            const isCurrentlySending = isUser && isLastMessage && isSending;
+
             return (
               <div key={i} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
                 {!isUser && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flexShrink: 0, marginBottom: "4px" }}>
                     <div style={{ 
                       width: '32px', height: '32px', 
-                      backgroundColor: isGroq ? '#FDF4FF' : (isGemini ? '#FFFBEB' : '#ffffff'), 
+                      backgroundColor: isShop ? '#EFF6FF' : isGroq ? '#FDF4FF' : (isGemini ? '#FFFBEB' : '#ffffff'), 
                       borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      border: isGroq ? '1px solid #F0ABFC' : (isGemini ? '1px solid #FDE68A' : '1px solid #DCE8FF')
+                      border: isShop ? '1px solid #BFDBFE' : isGroq ? '1px solid #F0ABFC' : (isGemini ? '1px solid #FDE68A' : '1px solid #DCE8FF')
                     }}>
-                      {isGroq ? <Zap size={16} color="#D946EF" /> : (isGemini ? <Sparkles size={16} color="#F59E0B" /> : <Bot size={16} color="#2563EB" />)}
+                      {isShop ? <User size={16} color="#2563EB" /> : isGroq ? <Zap size={16} color="#D946EF" /> : (isGemini ? <Sparkles size={16} color="#F59E0B" /> : <Bot size={16} color="#2563EB" />)}
                     </div>
-                    <span style={{ fontSize: "0.65rem", color: isGroq ? "#D946EF" : (isGemini ? "#F59E0B" : "#2563EB"), fontWeight: "bold" }}>
-                      {isGroq ? "Groq" : (isGemini ? "Gemini" : "Auto Bot")}
+                    <span style={{ fontSize: "0.65rem", color: isShop ? "#2563EB" : isGroq ? "#D946EF" : (isGemini ? "#F59E0B" : "#2563EB"), fontWeight: "bold" }}>
+                      {isShop ? "ร้านค้าตอบ" : isGroq ? "Groq" : (isGemini ? "Gemini" : "Auto Bot")}
                     </span>
                   </div>
                 )}
-                <div style={{
-                  maxWidth: "75%",
-                  background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
-                  color: isUser ? "#ffffff" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
-                  padding: "12px 16px",
-                  borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                  boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
-                  border: isUser ? "none" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
-                  wordBreak: "break-word",
-                  fontSize: "0.95rem",
-                  fontWeight: "500"
-                }}>
-                  {formatMessage(cleanText)}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', maxWidth: "75%" }}>
+                  <div style={{
+                    background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : isShop ? "#DBEAFE" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
+                    color: isUser ? "#ffffff" : isShop ? "#1E3A8A" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
+                    padding: "12px 16px",
+                    borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                    boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
+                    border: isUser ? "none" : isShop ? "1px solid #BFDBFE" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
+                    wordBreak: "break-word",
+                    fontSize: "0.95rem",
+                    fontWeight: "500"
+                  }}>
+                    {formatMessage(cleanText)}
+                  </div>
+                  {isUser && (
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '3px', marginRight: '4px' }}>
+                      {isCurrentlySending ? (
+                        <><Clock size={10} /> กำลังส่ง...</>
+                      ) : (
+                        <><Check size={12} color="#10B981" /> ส่งแล้ว</>
+                      )}
+                    </span>
+                  )}
                 </div>
                 {isUser && (
-                  <div style={{ width: '28px', height: '28px', backgroundColor: '#DBEAFE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: '28px', height: '28px', backgroundColor: '#DBEAFE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: '20px' }}>
                     <User size={16} color="#1D4ED8" />
                   </div>
                 )}
@@ -349,6 +466,38 @@ export default function ChatPage() {
           
           <div ref={messagesEndRef} style={{ height: '1px' }} />
         </div>
+
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <button
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+              setShowScrollButton(false);
+            }}
+            style={{
+              position: "absolute",
+              bottom: "160px",
+              right: "20px",
+              width: "44px",
+              height: "44px",
+              backgroundColor: "#2563EB",
+              color: "white",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+              zIndex: 20,
+              border: "none",
+              cursor: "pointer",
+              transition: "transform 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.1)"}
+            onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+          >
+            <ChevronDown size={24} />
+          </button>
+        )}
 
         {/* 🌟 Input Area */}
         <div style={{ 

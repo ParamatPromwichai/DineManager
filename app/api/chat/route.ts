@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const message = body?.message;
     const user_id = body?.user_id;
+    const disable_bot = body?.disable_bot;
 
     if (!message || !user_id) {
       return NextResponse.json(
@@ -61,7 +62,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // ❌ ลบโค้ด insert user message ออก (ให้ Python จัดการแทน)
+    if (disable_bot) {
+      // 📝 บันทึกข้อความของ user ลงฐานข้อมูลเองเมื่อปิดบอท
+      await db.query(
+        "INSERT INTO chats (user_id, sender, message) VALUES (?, 'user', ?)",
+        [user_id, message]
+      );
+      return NextResponse.json({ success: true, reply: null });
+    }
+
+    // ❌ ลบโค้ด insert user message ออก (ให้ Python จัดการแทนในโหมดบอท)
 
     // 🔥🔥🔥 เรียก Flask ไปเลย
     const flaskRes = await fetch("https://chatbotdinemanager.vercel.app/chat", { 

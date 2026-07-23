@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation'; 
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
-import { Store, Landmark, UploadCloud, CreditCard, Building, UserSquare2, QrCode, Clock, MapPin, Type, Navigation, Save } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { Store, Landmark, UploadCloud, CreditCard, Building, UserSquare2, QrCode, Clock, MapPin, Type, Navigation, Save, LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ShopProfilePage() {
   const router = useRouter(); 
@@ -31,6 +31,12 @@ export default function ShopProfilePage() {
   
   // สร้าง State สำหรับเช็คว่า "มีการเปลี่ยนแปลงข้อมูลหรือยัง?"
   const [isDirty, setIsDirty] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  const confirmLogout = async () => {
+    setIsLogoutModalOpen(false); 
+    await signOut({ callbackUrl: '/login/shop' });
+  };
 
   // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
   useEffect(() => {
@@ -213,6 +219,16 @@ export default function ShopProfilePage() {
             <span className="hidden sm:inline">{loading ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}</span>
             <span className="sm:hidden">{loading ? '...' : 'บันทึก'}</span>
           </button>
+
+          <div className="w-[1px] h-6 bg-slate-200 hidden sm:block"></div>
+
+          <button 
+            onClick={() => setIsLogoutModalOpen(true)}
+            className="flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:h-10 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all font-bold text-sm group outline-none shrink-0"
+          >
+            <LogOut size={18} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" /> 
+            <span className="hidden sm:inline ml-2">ออก</span>
+          </button>
         </div>
       </div>
 
@@ -321,6 +337,39 @@ export default function ShopProfilePage() {
         </div>
 
       </div>
+
+      {/* --- 🚪 MODAL: ยืนยันการออกจากระบบ --- */}
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white rounded-[2rem] shadow-2xl shadow-slate-900/10 w-full max-w-[340px] p-8 text-center border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <LogOut size={28} strokeWidth={2.5} className="ml-1" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">ออกจากระบบ?</h3>
+              <p className="text-slate-500 font-medium mb-8 text-sm leading-relaxed">
+                เซสชันการทำงานของคุณจะถูกปิดลง<br/>คุณต้องเข้าสู่ระบบใหม่ในครั้งถัดไป
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button onClick={confirmLogout} className="w-full py-3.5 bg-slate-900 text-white hover:bg-slate-800 rounded-xl font-bold shadow-md transition-all active:scale-95">
+                  ยืนยันออกจากระบบ
+                </button>
+                <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl font-bold transition-colors">
+                  ยกเลิก
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

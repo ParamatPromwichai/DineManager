@@ -11,7 +11,8 @@ import {
   User, 
   Bot
 } from 'lucide-react';
-import { rootCertificates } from 'tls';
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
 
 export default function CustomerNavbar() {
   const pathname = usePathname();
@@ -23,6 +24,28 @@ export default function CustomerNavbar() {
     { href: '/dashboard/customer/reserve', label: 'โต๊ะว่าง', Icon: CalendarCheck },
     { href: '/dashboard/customer/profile', label: 'โปรไฟล์', Icon: User },
   ];
+
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id;
+
+  const { data: messages } = useSWR(
+    userId ? `/api/chat?user_id=${userId}` : null,
+    (url) => fetch(url).then(res => res.json()),
+    { refreshInterval: 5000 }
+  );
+
+  let unreadCount = 0;
+  if (typeof window !== 'undefined' && messages) {
+    if (pathname === '/dashboard/customer/chat') {
+      sessionStorage.setItem('last_read_chat_length', messages.length.toString());
+    } else {
+      const lastReadLength = parseInt(sessionStorage.getItem('last_read_chat_length') || '0');
+      if (messages.length > lastReadLength) {
+        const unreadMessages = messages.slice(lastReadLength);
+        unreadCount = unreadMessages.filter((m: any) => m.sender !== 'user').length;
+      }
+    }
+  }
 
   return (
     <>
@@ -59,11 +82,18 @@ export default function CustomerNavbar() {
                   )}
                   
                   {/* ไอคอน */}
-                  <Icon
-                    size={active ? 24 : 22}
-                    strokeWidth={active ? 2.5 : 2}
-                    className={`transition-transform duration-300 ${active ? '-translate-y-0.5' : ''}`}
-                  />
+                  <div className="relative">
+                    <Icon
+                      size={active ? 24 : 22}
+                      strokeWidth={active ? 2.5 : 2}
+                      className={`transition-transform duration-300 ${active ? '-translate-y-0.5' : ''}`}
+                    />
+                    {item.href === '/dashboard/customer/chat' && unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 flex h-[16px] min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold border-[1.5px] border-white shadow-sm z-10">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
                   
                   {/* ข้อความเมนู */}
                   <span 

@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า NextAuth hooks
+import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า NextAuth hooks
 import { 
   Store, 
   TrendingUp, 
   Banknote,
   LayoutGrid,
   LogOut,
-  ArrowRight
+  ArrowRight,
+  MessageCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 type DashboardData = {
   shop: { name: string; is_open: boolean; open_time: string; close_time: string };
@@ -30,7 +31,7 @@ export default function ShopDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [totalUnread, setTotalUnread] = useState(0);
 
   // 🚨 3. ตรวจสอบสิทธิ์ด้วย status จาก NextAuth
   useEffect(() => {
@@ -57,12 +58,47 @@ export default function ShopDashboardPage() {
     }
   };
 
+  const fetchChats = async () => {
+    try {
+      const res = await fetch('/api/shop/chat');
+      const chatData = await res.json();
+      
+      let unread = 0;
+      chatData.forEach((chat: any) => {
+        const totalMsgs = chat.total_msgs || 0;
+        const lastSender = chat.last_sender;
+        
+        // ถ้าฝั่งร้านค้าเป็นคนพิมพ์ล่าสุด ถือว่าอ่าน/ตอบแล้ว
+        if (lastSender === 'shop') return;
+        
+        const readTotal = localStorage.getItem(`shop_read_total_msgs_${chat.user_id}`);
+        if (!readTotal) {
+          // ถ้าไม่มีข้อมูลใน localStorage ให้เพิ่มเข้าไป 1 แจ้งเตือน และเก็บค่า (totalMsgs - 1)
+          localStorage.setItem(`shop_read_total_msgs_${chat.user_id}`, (totalMsgs - 1).toString());
+          unread += 1;
+        } else {
+          const parsedRead = parseInt(readTotal, 10);
+          if (totalMsgs > parsedRead) {
+            unread += (totalMsgs - parsedRead);
+          }
+        }
+      });
+      setTotalUnread(unread);
+    } catch (error) {
+      console.error("Failed to fetch chats", error);
+    }
+  };
+
   // 🚨 4. จะดึงข้อมูลก็ต่อเมื่อผ่านการตรวจสอบสิทธิ์ว่าเป็นร้านค้าแล้วเท่านั้น
   useEffect(() => {
     if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 30000); 
+    fetchChats();
+    const interval = setInterval(() => {
+      fetchDashboard();
+      fetchChats();
+    }, 30000); 
     return () => clearInterval(interval);
   }, [status, session]);
 
@@ -84,11 +120,6 @@ export default function ShopDashboardPage() {
     }
   };
 
-  const confirmLogout = async () => {
-    setIsLogoutModalOpen(false); 
-    // 🚨 5. ใช้ signOut ของ NextAuth ออกจากระบบ แล้วกลับไปหน้า login ร้านค้า
-    await signOut({ callbackUrl: '/login/shop' });
-  };
 
   // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล
   if (status === 'loading' || loading) {
@@ -157,13 +188,19 @@ export default function ShopDashboardPage() {
 
             <div className="w-[1px] h-6 bg-slate-200"></div>
 
-            <button 
-              onClick={() => setIsLogoutModalOpen(true)}
-              className="flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:h-10 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-all font-bold text-sm group outline-none"
+            <Link 
+              href="/dashboard/shop/chat"
+              className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:px-4 sm:h-10 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all font-bold text-sm group outline-none"
             >
-              <LogOut size={18} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" /> 
-              <span className="hidden sm:inline ml-2">ออก</span>
-            </button>
+              <MessageCircle size={18} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" /> 
+              <span className="hidden sm:inline ml-2">แชท</span>
+              {totalUnread > 0 && (
+                <span className="absolute -top-1 -right-1 sm:top-0 sm:-right-2 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 min-w-[20px] text-center rounded-full shadow-sm shadow-rose-500/30 border border-white">
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </span>
+              )}
+            </Link>
+
           </div>
         </div>
 
@@ -288,37 +325,6 @@ export default function ShopDashboardPage() {
 
       </div>
 
-      {/* --- 🚪 MODAL: ยืนยันการออกจากระบบ --- */}
-      <AnimatePresence>
-        {isLogoutModalOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-white rounded-[2rem] shadow-2xl shadow-slate-900/10 w-full max-w-[340px] p-8 text-center border border-slate-100"
-            >
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <LogOut size={28} strokeWidth={2.5} className="ml-1" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">ออกจากระบบ?</h3>
-              <p className="text-slate-500 font-medium mb-8 text-sm leading-relaxed">
-                เซสชันการทำงานของคุณจะถูกปิดลง<br/>คุณต้องเข้าสู่ระบบใหม่ในครั้งถัดไป
-              </p>
-              
-              <div className="flex flex-col gap-3">
-                <button onClick={confirmLogout} className="w-full py-3.5 bg-slate-900 text-white hover:bg-slate-800 rounded-xl font-bold shadow-md transition-all active:scale-95">
-                  ยืนยันออกจากระบบ
-                </button>
-                <button onClick={() => setIsLogoutModalOpen(false)} className="w-full py-3.5 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl font-bold transition-colors">
-                  ยกเลิก
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );
