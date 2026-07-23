@@ -86,12 +86,19 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, [status, userId]);
 
-  // บันทึก state ลง sessionStorage เผื่อผู้ใช้เปลี่ยนหน้า
+  // บันทึก state เผื่อผู้ใช้เปลี่ยนหน้า
   useEffect(() => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('chat_messages', JSON.stringify(messages));
+      if (userId) {
+        const savedKey = `customer_read_chat_length_${userId}`;
+        const lastReadLength = parseInt(localStorage.getItem(savedKey) || '0');
+        if (messages.length > lastReadLength) {
+          localStorage.setItem(savedKey, messages.length.toString());
+        }
+      }
     }
-  }, [messages]);
+  }, [messages, userId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

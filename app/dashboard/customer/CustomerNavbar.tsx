@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -34,18 +35,35 @@ export default function CustomerNavbar() {
     { refreshInterval: 5000 }
   );
 
-  let unreadCount = 0;
-  if (typeof window !== 'undefined' && messages) {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!messages || !userId) return;
+    
+    const savedKey = `customer_read_chat_length_${userId}`;
+    const lastReadLength = parseInt(localStorage.getItem(savedKey) || '0');
+
     if (pathname === '/dashboard/customer/chat') {
-      sessionStorage.setItem('last_read_chat_length', messages.length.toString());
+      // ถ้าอยู่หน้าแชท ให้อัปเดตว่าอ่านหมดแล้ว
+      if (messages.length !== lastReadLength) {
+        localStorage.setItem(savedKey, messages.length.toString());
+      }
+      setUnreadCount(0);
     } else {
-      const lastReadLength = parseInt(sessionStorage.getItem('last_read_chat_length') || '0');
+      // ถ้าอยู่หน้าอื่น ให้คำนวณข้อความที่ยังไม่ได้อ่าน
       if (messages.length > lastReadLength) {
         const unreadMessages = messages.slice(lastReadLength);
-        unreadCount = unreadMessages.filter((m: any) => m.sender !== 'user').length;
+        const count = unreadMessages.filter((m: any) => m.sender !== 'user').length;
+        setUnreadCount(count);
+      } else if (messages.length < lastReadLength) {
+        // กรณีผู้ใช้กดล้างแชท
+        localStorage.setItem(savedKey, messages.length.toString());
+        setUnreadCount(0);
+      } else {
+        setUnreadCount(0);
       }
     }
-  }
+  }, [messages, pathname, userId]);
 
   return (
     <>
