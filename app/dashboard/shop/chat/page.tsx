@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
@@ -8,7 +8,7 @@ import { Send, User, MessageCircle, Bot, ChevronLeft, Zap, Sparkles, Check, Cloc
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-export default function ShopChatPage() {
+function ShopChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -380,5 +380,17 @@ export default function ShopChatPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ShopChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] bg-slate-50">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <ShopChatContent />
+    </Suspense>
   );
 }
