@@ -7,10 +7,11 @@ export async function GET() {
   try {
     // 1. ดึงออเดอร์ 50 รายการล่าสุด
     const [orders]: any = await db.query(`
-      SELECT o.*, t.name as table_name,
+      SELECT o.*, t.name as table_name, u.name as customer_name,
         (SELECT COUNT(*) FROM orders q WHERE q.status IN ('pending', 'checking_slip', 'cooking') AND q.id < o.id) as queue_count
       FROM orders o 
       LEFT JOIN tables t ON o.table_id = t.id 
+      LEFT JOIN users u ON o.user_id = u.id
       ORDER BY o.created_at DESC LIMIT 50
     `);
 
@@ -46,8 +47,11 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const { id, status, slip_image } = await req.json();
-    if (slip_image) {
+    const { id, status, slip_image, cancel_reason, cancelled_by } = await req.json();
+    
+    if (status === 'cancel' && cancel_reason) {
+      await db.query('UPDATE orders SET status = ?, cancel_reason = ?, cancelled_by = ? WHERE id = ?', [status, cancel_reason, cancelled_by || 'shop', id]);
+    } else if (slip_image) {
       await db.query('UPDATE orders SET status = ?, slip_image = ? WHERE id = ?', [status, slip_image, id]);
     } else {
       await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);

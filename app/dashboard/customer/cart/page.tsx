@@ -202,8 +202,8 @@ export default function CartPage() {
           ))}
         </div>
 
-        <button onClick={() => setShowPaymentModal(true)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 20px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: '900', fontSize: '1.1rem', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.3)' }}>
-          <span>สั่งซื้อและชำระเงิน</span>
+        <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 20px', background: (shopData && !shopData.is_open) ? '#94A3B8' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', fontWeight: '900', fontSize: '1.1rem', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 15px rgba(37, 99, 235, 0.3)' }}>
+          <span>{(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'สั่งซื้อและชำระเงิน'}</span>
           <span>{subTotal.toLocaleString()} ฿</span>
         </button>
       </div>
@@ -292,8 +292,8 @@ export default function CartPage() {
               </div>
             )}
 
-            <button disabled={isSubmitting} onClick={handleConfirmOrder} style={{ width: '100%', padding: 15, background: isSubmitting ? '#93C5FD' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: isSubmitting ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
-              {isSubmitting ? 'กำลังสั่ง...' : 'ยืนยันสั่งอาหาร'}
+            <button disabled={isSubmitting || (shopData && !shopData.is_open)} onClick={handleConfirmOrder} style={{ width: '100%', padding: 15, background: (isSubmitting || (shopData && !shopData.is_open)) ? '#94A3B8' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: (isSubmitting || (shopData && !shopData.is_open)) ? 'not-allowed' : 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: (isSubmitting || (shopData && !shopData.is_open)) ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
+              {isSubmitting ? 'กำลังสั่ง...' : ((shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันสั่งอาหาร')}
             </button>
           </div>
         </div>

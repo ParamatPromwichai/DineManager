@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
-import { Store, Landmark, UploadCloud, CreditCard, Building, UserSquare2, QrCode, Clock, MapPin, Type, Navigation, Save, LogOut } from 'lucide-react';
+import { Store, Landmark, UploadCloud, CreditCard, Building, UserSquare2, QrCode, Clock, MapPin, Type, Navigation, Save, LogOut, X, Zap } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+  ssr: false,
+  loading: () => <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>กำลังโหลดแผนที่...</div>
+});
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ShopProfilePage() {
@@ -32,6 +38,9 @@ export default function ShopProfilePage() {
   // สร้าง State สำหรับเช็คว่า "มีการเปลี่ยนแปลงข้อมูลหรือยัง?"
   const [isDirty, setIsDirty] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [tempLocation, setTempLocation] = useState<{lat: number; lng: number} | null>(null);
 
   const confirmLogout = async () => {
     setIsLogoutModalOpen(false); 
@@ -117,6 +126,16 @@ export default function ShopProfilePage() {
         alert('กรุณา "อนุญาต" การเข้าถึงตำแหน่งในเบราว์เซอร์ของคุณ');
       },
       { enableHighAccuracy: true }
+    );
+  };
+
+  const handleMapCurrentLocation = () => {
+    if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ location'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setTempLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => alert('กรุณาอนุญาตการเข้าถึงตำแหน่ง')
     );
   };
 
@@ -239,13 +258,28 @@ export default function ShopProfilePage() {
             <div className="flex items-center gap-2 text-rose-600 font-bold">
               <MapPin size={24} /> ตำแหน่งร้านค้า
             </div>
-            <button 
-              type="button"
-              onClick={handleGetCurrentLocation}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 hover:scale-105 transition-all border border-rose-100 shadow-sm"
-            >
-              <Navigation size={14} /> ดึงพิกัดปัจจุบัน
-            </button>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={handleGetCurrentLocation}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 hover:scale-105 transition-all border border-rose-100 shadow-sm"
+              >
+                <Navigation size={14} /> ดึงพิกัดปัจจุบัน
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setTempLocation({
+                    lat: shop.latitude ? Number(shop.latitude) : 17.1664,
+                    lng: shop.longitude ? Number(shop.longitude) : 104.1486
+                  });
+                  setShowMapModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 hover:scale-105 transition-all border border-indigo-100 shadow-sm"
+              >
+                <MapPin size={14} /> ปักหมุดในแผนที่
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -369,6 +403,37 @@ export default function ShopProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 🗺️ Popup หน้าต่างปักหมุดแผนที่ */}
+      {showMapModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A' }}>เลือกตำแหน่งร้านค้า</h3>
+              <button onClick={() => setShowMapModal(false)} style={{ background: '#F4F8FF', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#2563EB' }}><X size={20} /></button>
+            </div>
+            <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
+                <button type="button" onClick={handleMapCurrentLocation} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
+                  <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
+                </button>
+              </div>
+              <MapPicker tempLocation={tempLocation} setTempLocation={setTempLocation} setAddress={() => {}} />
+            </div>
+            <div style={{ padding: 20 }}>
+              <button onClick={() => { 
+                if (tempLocation) {
+                  handleShopChange('latitude', tempLocation.lat.toString());
+                  handleShopChange('longitude', tempLocation.lng.toString());
+                }
+                setShowMapModal(false); 
+              }} style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer' }}>
+                ยืนยันตำแหน่งนี้
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

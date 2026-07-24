@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
 import { Send, User, MessageCircle, Bot, ChevronLeft, Zap, Sparkles, Check, Clock, ChevronDown } from 'lucide-react';
@@ -10,6 +10,7 @@ const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function ShopChatPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
 
   const { data: customers, mutate: mutateCustomers } = useSWR(
@@ -26,6 +27,25 @@ export default function ShopChatPage() {
   const isSendingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const targetUserId = searchParams.get('userId');
+    const targetName = searchParams.get('name');
+    if (targetUserId && !activeUser) {
+      setActiveUser({ user_id: targetUserId, name: targetName || 'ลูกค้า', email: '' });
+      // Remove query string after setting to avoid reopening on refresh
+      router.replace('/dashboard/shop/chat');
+    }
+  }, [searchParams, activeUser, router]);
+
+  useEffect(() => {
+    if (activeUser && customers) {
+      const foundCustomer = customers.find((c: any) => String(c.user_id) === String(activeUser.user_id));
+      if (foundCustomer && (foundCustomer.name !== activeUser.name || foundCustomer.email !== activeUser.email)) {
+        setActiveUser(prev => prev ? { ...prev, name: foundCustomer.name || prev.name, email: foundCustomer.email || prev.email } : null);
+      }
+    }
+  }, [customers, activeUser]);
 
   const getUnreadCount = (userId: string, totalMsgs: number, lastSender: string) => {
     if (typeof window === 'undefined') return 0;

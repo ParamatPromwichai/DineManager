@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
-import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, ImageOff, Camera, UploadCloud, X } from 'lucide-react';
+import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, ImageOff, Camera, UploadCloud, X, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -35,6 +35,7 @@ type Order = {
   order_type?: string;
   table_id?: number;
   table_name?: string;
+  user_id?: string | number;
   items: OrderItem[];
 };
 
@@ -62,6 +63,8 @@ export default function ManageOrdersPage() {
   const [doneInputs, setDoneInputs] = useState<Record<string, number>>({});
   const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
   const [readyPopupOrder, setReadyPopupOrder] = useState<Order | null>(null);
+  const [cancelPopupOrder, setCancelPopupOrder] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('');
   const promptedOrders = useRef<Set<number>>(new Set());
 
   const todayDate = new Date().toLocaleDateString('en-CA');
@@ -169,14 +172,18 @@ export default function ManageOrdersPage() {
     }
   }, [status, session, router]);
 
-  const updateStatus = async (orderId: number, newStatus: string, slipImage?: string) => {
+  const updateStatus = async (orderId: number, newStatus: string, slipImage?: string, cancelReason?: string) => {
     // ⚡ Optimistic Update: อัปเดต UI ทันทีไม่ต้องรอเซิร์ฟเวอร์
     const optimisticData = orders.map(o => o.id === orderId ? { ...o, status: newStatus as any, ...(slipImage ? { slip_image: slipImage } : {}) } : o);
     mutate(optimisticData, false);
 
+    const payload: any = { id: orderId, status: newStatus };
+    if (slipImage) payload.slip_image = slipImage;
+    if (cancelReason) payload.cancel_reason = cancelReason;
+
     await fetch('/api/shop/orders', {
       method: 'PUT',
-      body: JSON.stringify({ id: orderId, status: newStatus, slip_image: slipImage }),
+      body: JSON.stringify(payload),
       headers: { 'Content-Type': 'application/json' }
     });
 
@@ -193,9 +200,11 @@ export default function ManageOrdersPage() {
       return isTodayDate || isUnfinished;
     }).sort((a, b) => {
       const getStatusWeight = (status: string) => {
-        if (['pending', 'checking_slip', 'cooking'].includes(status)) return 0;
-        if (status === 'delivery') return 1;
-        return 2; // done, cancel
+        if (status === 'pending') return 0;
+        if (status === 'checking_slip') return 1;
+        if (status === 'cooking') return 2;
+        if (status === 'delivery') return 3;
+        return 4; // done, cancel
       };
       const weightA = getStatusWeight(a.status);
       const weightB = getStatusWeight(b.status);
@@ -550,7 +559,12 @@ export default function ManageOrdersPage() {
             </div>
           </div>
 
-          <div className="flex w-full sm:w-auto gap-2">
+          <div className="flex w-full sm:w-auto gap-2 flex-wrap justify-end">
+            {order.user_id && (
+              <Link href={`/dashboard/shop/chat?userId=${order.user_id}&name=${encodeURIComponent(order.customer_name || 'ลูกค้า')}`} className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-bold text-sm transition-colors">
+                <MessageCircle size={16} /> คุยกับลูกค้า
+              </Link>
+            )}
             {order.slip_image && order.status !== 'checking_slip' && (
               <button onClick={() => setSlipPopupOrder(order)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-4 py-2 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 rounded-lg font-bold text-sm transition-colors">
                 <Receipt size={16} /> ดูสลิป
@@ -558,29 +572,41 @@ export default function ManageOrdersPage() {
             )}
             {order.status === 'pending' && (
               <>
-                <button onClick={() => updateStatus(order.id, 'cancel')} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors">ปฏิเสธ</button>
+                <button onClick={() => setCancelPopupOrder(order)} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors">ปฏิเสธ</button>
                 <button onClick={() => updateStatus(order.id, order.payment_method === 'qr' ? 'checking_slip' : 'cooking')} className="flex-1 sm:flex-none px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">รับออเดอร์</button>
               </>
             )}
             {order.status === 'checking_slip' && (
-              <button onClick={() => setSlipPopupOrder(order)} className="flex-1 sm:flex-none px-6 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 rounded-lg font-bold text-sm transition-colors">ตรวจสอบสลิป</button>
+              <>
+                <button onClick={() => setCancelPopupOrder(order)} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors flex items-center gap-1"><XCircle size={16} /> ยกเลิก</button>
+                <button onClick={() => setSlipPopupOrder(order)} className="flex-1 sm:flex-none px-6 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 rounded-lg font-bold text-sm transition-colors">ตรวจสอบสลิป</button>
+              </>
             )}
             {order.status === 'cooking' && (
-              <button onClick={() => updateStatus(order.id, 'delivery')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">
-                <Truck size={16} /> ปรุงเสร็จ
-              </button>
+              <>
+                <button onClick={() => setCancelPopupOrder(order)} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors flex items-center gap-1"><XCircle size={16} /> ยกเลิก</button>
+                <button onClick={() => updateStatus(order.id, 'delivery')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">
+                  <Truck size={16} /> ปรุงเสร็จ
+                </button>
+              </>
             )}
             {order.status === 'delivery' && (order.order_type === 'online' || !order.order_type) && (
-              <button disabled className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-slate-100 text-slate-400 border border-slate-200 shadow-sm rounded-lg font-bold text-sm cursor-not-allowed">
-                <Truck size={16} /> รอไรเดอร์จัดส่ง
-              </button>
+              <>
+                <button onClick={() => setCancelPopupOrder(order)} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors flex items-center gap-1"><XCircle size={16} /> ยกเลิก</button>
+                <button disabled className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-slate-100 text-slate-400 border border-slate-200 shadow-sm rounded-lg font-bold text-sm cursor-not-allowed">
+                  <Truck size={16} /> รอไรเดอร์จัดส่ง
+                </button>
+              </>
             )}
             {order.status === 'delivery' && order.order_type === 'dine_in' && (
-              <button onClick={() => {
-                updateStatus(order.id, 'done');
-              }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">
-                <Check size={16} /> ส่งสำเร็จ
-              </button>
+              <>
+                <button onClick={() => setCancelPopupOrder(order)} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-lg font-bold text-sm transition-colors flex items-center gap-1"><XCircle size={16} /> ยกเลิก</button>
+                <button onClick={() => {
+                  updateStatus(order.id, 'done');
+                }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm rounded-lg font-bold text-sm transition-colors">
+                  <Check size={16} /> ส่งสำเร็จ
+                </button>
+              </>
             )}
           </div>
           </div>
@@ -724,7 +750,10 @@ export default function ManageOrdersPage() {
             <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 rounded-t-[1.3rem] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <CookingPot size={22} className="text-slate-700" />
-                <h3 className="text-slate-800 font-bold text-lg">คิวหน้าเตา (Smart Kitchen)</h3>
+                <h3 className="text-slate-800 font-bold text-lg flex-1">คิวหน้าเตา (Smart Kitchen)</h3>
+                <span className="bg-slate-200 text-slate-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
+                  {batchSuggestions.length + activeBatches.length}
+                </span>
               </div>
             </div>
             <div className="p-2 lg:overflow-y-auto pb-4 flex-1 lg:min-h-0">
@@ -1022,6 +1051,47 @@ export default function ManageOrdersPage() {
           </div>
         </div>
       )}
+      {/* ⚠️ Popup ยกเลิกออเดอร์ */}
+      {cancelPopupOrder && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle size={32} />
+            </div>
+            <h3 className="text-xl text-slate-900 font-black mb-2">
+              ต้องการยกเลิกออเดอร์ #{cancelPopupOrder.id}?
+            </h3>
+            <p className="text-slate-500 font-medium mb-4 text-sm">
+              เมื่อยกเลิกแล้วจะไม่สามารถย้อนกลับได้<br/>คุณแน่ใจใช่ไหม?
+            </p>
+            <div className="mb-6 text-left">
+              <label className="block text-sm font-bold text-slate-700 mb-2">สาเหตุที่ยกเลิกออเดอร์ <span className="text-rose-500">*</span></label>
+              <textarea 
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="ระบุสาเหตุที่ยกเลิกออเดอร์ เช่น ของหมด, ลูกค้าไม่รับสาย..." 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none transition-all resize-none h-24 text-sm"
+              ></textarea>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button 
+                disabled={!cancelReason.trim()}
+                onClick={() => { updateStatus(cancelPopupOrder.id, 'cancel', undefined, cancelReason); setCancelPopupOrder(null); setCancelReason(''); }} 
+                className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors ${cancelReason.trim() ? 'bg-rose-500 hover:bg-rose-600' : 'bg-rose-300 cursor-not-allowed'}`}
+              >
+                ยืนยันการยกเลิก
+              </button>
+              <button 
+                onClick={() => { setCancelPopupOrder(null); setCancelReason(''); }} 
+                className="w-full py-3.5 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition-colors"
+              >
+                ไม่ กลับไปก่อน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

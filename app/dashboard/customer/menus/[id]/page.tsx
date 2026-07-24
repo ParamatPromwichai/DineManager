@@ -61,6 +61,7 @@ export default function MenuDetailPage() {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shopData, setShopData] = useState<any>(null);
   
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
   const [isCartExpanded, setIsCartExpanded] = useState(false);
@@ -78,10 +79,12 @@ export default function MenuDetailPage() {
     // Load data
     Promise.all([
       fetch(`/api/customer/menus/${id}`).then(res => res.json()),
-      fetch(`/api/customer/menus/${id}/reviews`).then(res => res.json())
-    ]).then(([menuData, reviewsData]) => {
+      fetch(`/api/customer/menus/${id}/reviews`).then(res => res.json()),
+      fetch('/api/customer/home').then(res => res.json())
+    ]).then(([menuData, reviewsData, homeData]) => {
       setMenu(menuData);
       setReviews(reviewsData || []);
+      if (homeData?.shop) setShopData(homeData.shop);
     }).catch(err => {
       console.error(err);
     }).finally(() => {
@@ -239,11 +242,11 @@ export default function MenuDetailPage() {
 
               <button 
                 onClick={handleAddToCart}
-                disabled={isMenuSoldOut}
-                style={{ width: '100%', marginTop: 25, padding: 16, background: isMenuSoldOut ? '#CBD5E1' : '#2563EB', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, cursor: isMenuSoldOut ? 'not-allowed' : 'pointer', boxShadow: isMenuSoldOut ? 'none' : '0 8px 20px rgba(37,99,235,0.25)' }}
+                disabled={isMenuSoldOut || (shopData && !shopData.is_open)}
+                style={{ width: '100%', marginTop: 25, padding: 16, background: (isMenuSoldOut || (shopData && !shopData.is_open)) ? '#CBD5E1' : '#2563EB', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, cursor: (isMenuSoldOut || (shopData && !shopData.is_open)) ? 'not-allowed' : 'pointer', boxShadow: (isMenuSoldOut || (shopData && !shopData.is_open)) ? 'none' : '0 8px 20px rgba(37,99,235,0.25)' }}
               >
                 <ShoppingCart size={20} />
-                {isMenuSoldOut ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'}
+                {isMenuSoldOut ? 'สินค้าหมด' : ((shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'เพิ่มลงตะกร้า')}
               </button>
             </div>
 
@@ -338,8 +341,8 @@ export default function MenuDetailPage() {
             </div>
           )}
 
-          <button onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-            ยืนยันและไปหน้าชำระเงิน
+          <button disabled={shopData && !shopData.is_open} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (shopData && !shopData.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+            {(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
       )}

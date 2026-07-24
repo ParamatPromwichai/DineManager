@@ -64,6 +64,9 @@ export default function OrderDetailPage() {
   const [comment, setComment] = useState('');
   const [hasReviewed, setHasReviewed] = useState(false);
 
+  const [showCancelPopup, setShowCancelPopup] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -91,6 +94,31 @@ export default function OrderDetailPage() {
       alert('เกิดข้อผิดพลาด กรุณาลองอีกครั้ง');
     }
   }, [order, rating, comment, hasReviewed]);
+
+  const handleCancelOrder = async () => {
+    if (!order || !cancelReason.trim()) return;
+    try {
+      const res = await fetch('/api/shop/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: order.id,
+          status: 'cancel',
+          cancel_reason: cancelReason,
+          cancelled_by: 'customer'
+        })
+      });
+      if (res.ok) {
+        setOrder({ ...order, status: 'cancel' });
+        setShowCancelPopup(false);
+        setCancelReason('');
+      } else {
+        alert('เกิดข้อผิดพลาดในการยกเลิกออเดอร์');
+      }
+    } catch (e) {
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    }
+  };
 
   // Fetch Data
   useEffect(() => {
@@ -369,6 +397,19 @@ export default function OrderDetailPage() {
             </button>
           </motion.div>
         )}
+        
+        {/* ❌ Cancel Button */}
+        {(order.status === 'pending' || order.status === 'checking_slip') && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-4">
+            <button
+              onClick={() => setShowCancelPopup(true)}
+              className="w-full py-4 rounded-2xl font-black text-lg shadow-sm transition-all flex items-center justify-center gap-2 text-rose-500 bg-rose-50 border border-rose-200 hover:bg-rose-100 active:scale-95"
+            >
+              <XCircle size={20} />
+              ยกเลิกออเดอร์
+            </button>
+          </motion.div>
+        )}
       </div>
 
       {/* 🌟 Modal รีวิว */}
@@ -413,6 +454,54 @@ export default function OrderDetailPage() {
                 </button>
                 <button onClick={submitReview} className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-black rounded-xl py-3.5 transition-colors shadow-[0_4px_12px_rgba(37,99,235,0.25)]">
                   {hasReviewed ? 'บันทึก' : 'ส่งรีวิว'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ⚠️ Modal ยกเลิกออเดอร์ */}
+      <AnimatePresence>
+        {showCancelPopup && (
+          <div className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div
+              className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-[0_10px_40px_rgba(37,99,235,0.15)] border border-[#DCE8FF] text-center"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                <XCircle size={32} />
+              </div>
+              <h3 className="text-xl text-[#1E3A8A] font-black mb-2">
+                ต้องการยกเลิกออเดอร์?
+              </h3>
+              <p className="text-[#64748B] font-medium mb-4 text-sm">
+                เมื่อยกเลิกแล้วจะไม่สามารถย้อนกลับได้<br/>คุณแน่ใจใช่ไหม?
+              </p>
+              <div className="mb-6 text-left">
+                <label className="block text-sm font-bold text-[#1E3A8A] mb-2">สาเหตุที่ยกเลิก <span className="text-rose-500">*</span></label>
+                <textarea 
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder="ระบุสาเหตุที่ยกเลิก..." 
+                  className="w-full px-4 py-3 rounded-xl border border-[#DCE8FF] focus:border-[#2563EB] focus:ring-2 focus:ring-[#BFDBFE] outline-none transition-all resize-none h-24 text-sm"
+                ></textarea>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  disabled={!cancelReason.trim()}
+                  onClick={handleCancelOrder} 
+                  className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors ${cancelReason.trim() ? 'bg-rose-500 hover:bg-rose-600' : 'bg-rose-300 cursor-not-allowed'}`}
+                >
+                  ยืนยันการยกเลิก
+                </button>
+                <button 
+                  onClick={() => { setShowCancelPopup(false); setCancelReason(''); }} 
+                  className="w-full py-3.5 bg-[#F4F8FF] text-[#64748B] hover:bg-[#E2E8F0] rounded-xl font-bold transition-colors border border-[#DCE8FF]"
+                >
+                  ไม่ กลับไปก่อน
                 </button>
               </div>
             </motion.div>

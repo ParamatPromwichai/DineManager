@@ -443,8 +443,8 @@ export default function CustomerHome() {
               </div>
               <div style={{ display: 'flex', gap: 15, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
                 {dashboardData.recommendedMenus.map((m) => (
-                  <div key={`rec-${m.id}`} onClick={() => router.push(`/dashboard/customer/menus/${m.id}`)} style={{ cursor: 'pointer', minWidth: '160px', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: 16, padding: 12, scrollSnapAlign: 'start', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)' }}>
-                    <div style={{ height: '100px', background: '#F0F5FF', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
+                  <div key={`rec-${m.id}`} onClick={() => router.push(`/dashboard/customer/menus/${m.id}`)} style={{ cursor: 'pointer', width: '160px', flex: '0 0 160px', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: 16, padding: 12, scrollSnapAlign: 'start', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: '100px', background: '#F0F5FF', borderRadius: 12, marginBottom: 10, overflow: 'hidden', flexShrink: 0 }}>
                       {m.image ? <img src={m.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageOff size={20} color="#93C5FD" /></div>}
                     </div>
                     <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E3A8A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
@@ -456,8 +456,8 @@ export default function CustomerHome() {
                         </span>
                       </div>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(m); }} style={{ marginTop: 12, width: '100%', padding: '10px', background: '#2563EB', color: 'white', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)' }}>
-                      + สั่งเลย
+                    <button disabled={dashboardData?.shop && !dashboardData.shop.is_open} onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(m); }} style={{ marginTop: 'auto', width: '100%', padding: '10px', background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : '#2563EB', color: 'white', border: 'none', borderRadius: 12, cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'none' : '0 2px 6px rgba(37, 99, 235, 0.3)' }}>
+                      {(dashboardData?.shop && !dashboardData.shop.is_open) ? 'ร้านปิด' : '+ สั่งเลย'}
                     </button>
                   </div>
                 ))}
@@ -501,8 +501,9 @@ export default function CustomerHome() {
                   </span>
                 ) : (
                   <button
+                    disabled={dashboardData?.shop && !dashboardData.shop.is_open}
                     onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }}
-                    style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                    style={{ background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#F1F5F9' : '#EFF6FF', color: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: 38, height: 38, cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                   >
                     <Plus size={20} strokeWidth={3} />
                   </button>
@@ -560,8 +561,8 @@ export default function CustomerHome() {
             </div>
           )}
 
-          <button onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-            ยืนยันและไปหน้าชำระเงิน
+          <button disabled={dashboardData?.shop && !dashboardData.shop.is_open} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', boxShadow: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+            {(dashboardData?.shop && !dashboardData.shop.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
       )}

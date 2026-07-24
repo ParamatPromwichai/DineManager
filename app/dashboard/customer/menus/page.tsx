@@ -379,13 +379,13 @@ function AllMenusContent() {
 
       {/* Grid เมนูอาหาร */}
       {filteredAndSortedMenus.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
           {filteredAndSortedMenus.map(menu => {
             const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
             return (
-              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} style={{ cursor: 'pointer', background: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.04)', display: 'flex', flexDirection: 'column', opacity: isMenuSoldOut ? 0.6 : 1, border: '1px solid #DCE8FF' }}>
-                <div style={{ height: '130px', background: '#F0F5FF', position: 'relative' }}>
+              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} style={{ cursor: 'pointer', background: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.04)', display: 'flex', flexDirection: 'column', opacity: isMenuSoldOut ? 0.6 : 1, border: '1px solid #DCE8FF', height: '100%' }}>
+                <div style={{ height: '130px', background: '#F0F5FF', position: 'relative', flexShrink: 0 }}>
                   {menu.image ? (
                     <img src={menu.image} alt={menu.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> 
                   ) : (
@@ -397,7 +397,7 @@ function AllMenusContent() {
                 </div>
 
                 <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: 4, color: isMenuSoldOut ? '#94a3b8' : '#1E3A8A' }}>{menu.name}</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: 4, color: isMenuSoldOut ? '#94a3b8' : '#1E3A8A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{menu.name}</div>
                   <div style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
                     {renderStars(Number(menu.avg_rating))} 
                     <span style={{ color: '#93C5FD', marginLeft: 4, fontWeight: 'bold' }}>({menu.review_count})</span>
@@ -418,8 +418,9 @@ function AllMenusContent() {
                       <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold' }}>หมด</span>
                     ) : (
                       <button 
+                        disabled={shopData && !shopData.is_open}
                         onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }} 
-                        style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: '34px', height: '34px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', transition: '0.2s' }}
+                        style={{ background: (shopData && !shopData.is_open) ? '#F1F5F9' : '#EFF6FF', color: (shopData && !shopData.is_open) ? '#94A3B8' : '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: '34px', height: '34px', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', transition: '0.2s' }}
                       >
                         <Plus size={18} strokeWidth={2.5} />
                       </button>
@@ -484,8 +485,8 @@ function AllMenusContent() {
             </div>
           )}
 
-          <button onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
-            ยืนยันและไปหน้าชำระเงิน
+          <button disabled={shopData && !shopData.is_open} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (shopData && !shopData.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+            {(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
       )}

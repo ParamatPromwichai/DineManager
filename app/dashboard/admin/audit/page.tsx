@@ -131,7 +131,13 @@ export default function AdminAuditPage() {
                         <td className="p-3 text-slate-300">{Number(order.total_price).toLocaleString()} ฿</td>
                         <td className="p-3">
                           {order.status === 'cancel' ? 
-                            <span className="text-rose-400 text-xs font-bold bg-rose-500/10 px-2 py-1 rounded">ลูกค้ายกเลิก</span> : 
+                            <div>
+                              <span className="text-rose-400 text-xs font-bold bg-rose-500/10 px-2 py-1 rounded">
+                                {order.cancelled_by === 'shop' ? 'ร้านค้ายกเลิก' : 'ลูกค้ายกเลิก'}
+                              </span>
+                              {order.cancel_reason && <div className="text-[10px] text-rose-300 mt-1 pl-1 border-l border-rose-500/30">สาเหตุ: {order.cancel_reason}</div>}
+                            </div>
+                          : 
                             <span className="text-amber-400 text-xs font-bold bg-amber-500/10 px-2 py-1 rounded">ยอดสูงผิดปกติ</span>
                           }
                         </td>

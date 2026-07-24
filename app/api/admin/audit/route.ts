@@ -21,7 +21,7 @@ export async function GET() {
     // 2. ดึงประวัติออเดอร์ที่ "ถูกยกเลิก" หรือ "มีมูลค่าสูงผิดปกติ (เกิน 5,000)" 
     // เพื่อจับตาลูกค้าที่อาจจะป่วนร้าน
     const [suspiciousOrders]: any = await db.query(`
-      SELECT o.id as order_id, o.user_id, u.username, o.total_price, o.status, o.created_at as time
+      SELECT o.id as order_id, o.user_id, u.username, o.total_price, o.status, o.created_at as time, o.cancel_reason, o.cancelled_by
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       WHERE o.status = 'cancel' OR o.total_price > 5000
