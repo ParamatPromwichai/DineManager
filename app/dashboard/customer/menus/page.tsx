@@ -46,6 +46,7 @@ type ShopStatus = {
   qr_image?: string;
   latitude?: string | number; 
   longitude?: string | number;
+  is_open?: boolean | number;
 };
 
 type CartItem = Menu & { 
@@ -418,7 +419,7 @@ function AllMenusContent() {
                       <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold' }}>หมด</span>
                     ) : (
                       <button 
-                        disabled={shopData && !shopData.is_open}
+                        disabled={!!(shopData && !shopData.is_open)}
                         onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }} 
                         style={{ background: (shopData && !shopData.is_open) ? '#F1F5F9' : '#EFF6FF', color: (shopData && !shopData.is_open) ? '#94A3B8' : '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: '34px', height: '34px', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', transition: '0.2s' }}
                       >
@@ -485,7 +486,7 @@ function AllMenusContent() {
             </div>
           )}
 
-          <button disabled={shopData && !shopData.is_open} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (shopData && !shopData.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+          <button disabled={!!(shopData && !shopData.is_open)} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (shopData && !shopData.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
             {(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
