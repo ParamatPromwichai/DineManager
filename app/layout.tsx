@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DineManager", // ปรับชื่อ Title ให้เข้ากับร้านคุณได้นะ
-  description: "Restaurant Management System",
+  title: "ระบบจัดการร้านอาหาร ครบวงจร | DineManager",
+  description: "เว็บจัดการร้านอาหารและระบบจัดการร้านอาหารที่ดีที่สุด รองรับการสั่งอาหารผ่าน QR Code พนักงาน จัดการสต๊อก และรายงานยอดขาย",
+  keywords: ["เว็บจัดการร้านอาหาร", "ระบบจัดการร้านอาหาร", "โปรแกรมร้านอาหาร", "จัดการร้านอาหาร", "POS"],
 };
 
 export default function RootLayout({
