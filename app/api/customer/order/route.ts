@@ -84,6 +84,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // 📝 บันทึกประวัติการใช้งาน
+    await db.query(
+      `INSERT INTO system_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)`,
+      [userId, 'customer', 'create_order', `ลูกค้าทำการสั่งซื้ออาหาร (Order ID: ${orderId}, ยอดรวม: ${finalTotal} บาท)`]
+    );
+
     return NextResponse.json({ message: 'สั่งอาหารสำเร็จ', orderId });
 
   } catch (error) {
@@ -122,6 +128,12 @@ export async function PUT(req: Request) {
         location?.lng || null,
         userId, // 👈 อัปเดตข้อมูลของ userId ตัวจริง
       ]
+    );
+
+    // 📝 บันทึกประวัติการใช้งาน
+    await db.query(
+      `INSERT INTO system_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)`,
+      [userId, 'customer', 'update_profile', `ลูกค้าอัปเดตข้อมูลส่วนตัว (เบอร์โทร: ${phone}, ที่อยู่: ${address})`]
     );
 
     return NextResponse.json({ message: 'บันทึกข้อมูลเรียบร้อย' });

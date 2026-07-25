@@ -223,30 +223,14 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // 🛡️ ป้องกัน Session Hijacking (ขโมย Cookie)
-      // ดึงข้อมูลการเชื่อมต่อปัจจุบัน
+      // 🛡️ ระบบดึง IP และ User Agent เพื่อบันทึกไว้ (แต่ไม่เตะออกถ้าเปลี่ยน ป้องกันปัญหาผู้ใช้เน็ตมือถือ IP เด้ง)
       const headersList = await headers();
       const currentIp = headersList.get('x-forwarded-for') || 'unknown';
       const currentUserAgent = headersList.get('user-agent') || 'unknown';
 
-      // 1. ถ้าเป็นการล็อกอินครั้งแรก (มี user) ให้ฝัง IP และ User-Agent ลงไปใน Token
       if (user) {
         token.ip = currentIp;
         token.userAgent = currentUserAgent;
-      } 
-      // 2. ถ้าระบบใช้ Token เดิม (รีเฟรชหน้า) ให้ตรวจสอบความถูกต้อง
-      else if (token.ip && token.userAgent) {
-        // 🔥 แบบเข้มงวดขั้นสุด (Ultra Strict): 
-        // ถ้า IP เปลี่ยน หรือ เบราว์เซอร์เปลี่ยน แค่อย่างใดอย่างหนึ่ง ระบบจะเตะออกทันที!
-        // (ยกเว้นตอนเทสใน localhost ที่ IP อาจจะเป็น unknown)
-        const isIpChanged = token.ip !== currentIp && currentIp !== 'unknown' && token.ip !== 'unknown';
-        const isBrowserChanged = token.userAgent !== currentUserAgent;
-
-        if (isIpChanged || isBrowserChanged) {
-          console.warn(`🚨 [Security] Session Hijacking blocked! Token IP: ${token.ip}, New IP: ${currentIp}`);
-          // ล้างข้อมูล token ทิ้ง บังคับให้หลุดจากระบบทันที
-          return {};
-        }
       }
 
       return token;

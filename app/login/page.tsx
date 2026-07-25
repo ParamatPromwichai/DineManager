@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { signIn } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -15,6 +15,28 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { data: session, status } = useSession();
+
+  // 🛡️ เช็คว่าถ้าล็อกอินอยู่แล้ว ให้เด้งไปหน้า Dashboard ของตัวเองเลย
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const role = (session?.user as any)?.role;
+      
+      // ถ้าระบบจำค่า role ไม่ได้ (Cookie เก่า) ให้บังคับล็อกเอาท์
+      if (!role) {
+        signOut({ callbackUrl: '/login' });
+        return;
+      }
+
+      if (role === 'shop') {
+        router.push('/dashboard/shop');
+      } else if (role === 'admin') {
+        router.push('/dashboard/admin');
+      } else {
+        router.push('/dashboard/customer');
+      }
+    }
+  }, [status, session, router]);
   
   // 🟢 State สำหรับเช็คโหมดปรับปรุง
   const [isMaintenance, setIsMaintenance] = useState(false);

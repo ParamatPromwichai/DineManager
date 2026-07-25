@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import { QrCode, ChefHat, Package, BarChart3, Users, MessageSquare, ArrowRight, CheckCircle2, Clock, ShieldCheck, TrendingUp, Lightbulb, ChevronLeft, ChevronRight, Bot } from 'lucide-react';
 import styles from './page.module.css';
 
@@ -31,7 +33,29 @@ const slides = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // 🛡️ เช็คว่าถ้าล็อกอินอยู่แล้ว ให้ข้ามหน้าแรกไปหน้า Dashboard เลย (ยกเว้น Admin)
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const role = (session?.user as any)?.role;
+      
+      // ถ้าระบบจำค่า role ไม่ได้ (Cookie เก่า) ให้บังคับล็อกเอาท์
+      if (!role) {
+        signOut({ callbackUrl: '/login' });
+        return;
+      }
+
+      if (role === 'shop') {
+        router.push('/dashboard/shop');
+      } else if (role === 'customer') {
+        router.push('/dashboard/customer');
+      }
+      // ถ้าเป็น admin จะไม่เด้งไปไหน ให้อยู่หน้าแรกได้ปกติ
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -38,8 +38,11 @@ export default function CustomerProfile() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
+    } else if (status === 'authenticated' && !session?.user) {
+      // ถ้าระบบป้องกัน Hijacking ลบข้อมูล user ใน session ทิ้ง (ส่งมาแต่ object ว่างๆ) ให้บังคับล็อกเอาท์
+      signOut({ callbackUrl: '/login' });
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   /* =========================
      🔥 LOAD PROFILE
@@ -49,8 +52,15 @@ export default function CustomerProfile() {
 
     // ➕ 4. ลบการส่ง Headers: {'user-id'} ออก เพราะ Backend ใช้ Session แล้ว
     fetch('/api/customer/profile')
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401) {
+          signOut({ callbackUrl: '/login' });
+          return null;
+        }
+        return res.json();
+      })
       .then(data => {
+        if (!data) return;
         const fetchedData = {
           name: data.name || '',
           email: data.email || '',

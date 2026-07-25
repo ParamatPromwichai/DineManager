@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 // 🛡️ ฟังก์ชันป้องกัน SQL Injection & XSS อย่างง่าย (WAF)
 const sqlInjectionPattern = /('|--|;|%27|%22|\b(UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b.*?(?:FROM|INTO|SET|TABLE))/i;
@@ -14,14 +15,28 @@ function isSuspicious(val: string) {
   return sqlInjectionPattern.test(decoded);
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
 
   // 🛡️ 1. ตรวจสอบ Query Params ว่ามีคำสั่ง SQL หรือไม่
   for (const [key, value] of url.searchParams.entries()) {
     if (isSuspicious(value)) {
       const ip = req.headers.get('x-forwarded-for') || 'Unknown';
+      const userAgent = req.headers.get('user-agent') || 'Unknown';
       console.warn(`🚨 [WAF] Blocked SQL Injection attempt from IP: ${ip} on ${url.pathname}`);
+      
+      // บันทึก Log การโจมตีลงฐานข้อมูล (ทำงานแบบ Background ไม่รอผลลัพธ์)
+      fetch(`${req.nextUrl.origin}/api/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'waf_blocked',
+          details: `Blocked SQL Injection attempt on ${url.pathname}?${key}=${value}`,
+          ip_address: ip,
+          user_agent: userAgent
+        })
+      }).catch(() => {});
+
       return NextResponse.json({ message: 'Forbidden: Invalid Characters Detected' }, { status: 403 });
     }
   }
@@ -48,28 +63,59 @@ export function middleware(req: NextRequest) {
       const isRefererValid = referer ? referer.includes(host) : true;
 
       if (!isOriginValid || !isRefererValid) {
+        const ip = req.headers.get('x-forwarded-for') || 'Unknown';
+        const userAgent = req.headers.get('user-agent') || 'Unknown';
         console.warn(`🚨 [Security] Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}`);
+        
+        // บันทึก Log การโจมตีลงฐานข้อมูล
+        fetch(`${req.nextUrl.origin}/api/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'csrf_blocked',
+            details: `Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}, Path: ${url.pathname}`,
+            ip_address: ip,
+            user_agent: userAgent
+          })
+        }).catch(() => {});
+
         return NextResponse.json({ message: 'Forbidden: API Access Denied' }, { status: 403 });
       }
     }
   }
 
-  // 1. กำหนดชื่อคุกกี้ให้ถูกต้อง (ถ้าเป็น HTTPS/Production จะมีชื่อ __Secure-next-auth.session-token)
-  const sessionToken = req.cookies.get('next-auth.session-token')?.value || 
-                       req.cookies.get('__Secure-next-auth.session-token')?.value;
+  // 🛡️ 4. ตรวจสอบ Token และ Role (ป้องกันการเข้า Dashboard ผิดสิทธิ์)
+  if (url.pathname.startsWith('/dashboard')) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-  // 2. ถ้าไม่มี Token นี้ แสดงว่ายังไม่ได้ล็อกอินผ่าน NextAuth
-  if (!sessionToken && url.pathname.startsWith('/dashboard')) {
-    // ถ้าพยายามเข้าหน้าร้านค้า ให้เด้งกลับไป login/shop
-    if (url.pathname.startsWith('/dashboard/shop')) {
-      return NextResponse.redirect(new URL('/login/shop', req.url));
+    // ถ้าไม่มี Token แสดงว่ายังไม่ล็อกอิน
+    if (!token) {
+      if (url.pathname.startsWith('/dashboard/shop')) {
+        return NextResponse.redirect(new URL('/login/shop', req.url));
+      }
+      return NextResponse.redirect(new URL('/login', req.url));
     }
-    
-    // ถ้าเป็นหน้าอื่นๆ ให้เด้งกลับไป login ปกติ
-    return NextResponse.redirect(new URL('/login', req.url));
+
+    // ถ้ามี Token แล้ว เช็ค Role ว่าตรงกับหน้าที่จะเข้าหรือไม่
+    if (url.pathname.startsWith('/dashboard/shop') && token.role !== 'shop') {
+      // ถ้าไม่ใช่ร้านค้า พยายามเข้าหน้าร้านค้า ให้เตะกลับไปหน้าของตัวเอง
+      const redirectUrl = token.role === 'admin' ? '/dashboard/admin' : '/dashboard/customer';
+      return NextResponse.redirect(new URL(redirectUrl, req.url));
+    }
+
+    if (url.pathname.startsWith('/dashboard/customer') && token.role !== 'customer') {
+      // ถ้าไม่ใช่ลูกค้า พยายามเข้าหน้าลูกค้า ให้เตะกลับไปหน้าของตัวเอง
+      const redirectUrl = token.role === 'shop' ? '/dashboard/shop' : '/dashboard/admin';
+      return NextResponse.redirect(new URL(redirectUrl, req.url));
+    }
+
+    if (url.pathname.startsWith('/dashboard/admin') && token.role !== 'admin') {
+      // ถ้าไม่ใช่แอดมิน พยายามเข้าหน้าแอดมิน ให้เตะกลับไปหน้าแรก
+      return NextResponse.redirect(new URL('/', req.url));
+    }
   }
 
-  // ✅ ถ้ามี token แล้ว หรือไม่ใช่หน้า dashboard ให้ผ่านได้เลย
+  // ✅ ถ้าผ่านทุกด่านแล้ว หรือไม่ใช่หน้า dashboard ให้ผ่านได้เลย
   return NextResponse.next();
 }
 
