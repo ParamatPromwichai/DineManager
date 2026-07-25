@@ -110,8 +110,12 @@ export default function CustomerProfile() {
         if (error.code === 2) errorMsg = 'ไม่สามารถหาตำแหน่งได้ (Position Unavailable) - ตรวจสอบ GPS ของคุณ';
         if (error.code === 3) errorMsg = 'หมดเวลาในการหาตำแหน่ง (Timeout)';
         
-        alert(`เกิดข้อผิดพลาด: ${errorMsg}\n(Code: ${error.code} - ${error.message})`);
-        console.error('Geolocation Error:', error);
+        if (error.code === 3) {
+          // ถ้าเป็น Timeout (มักเกิดในคอมพิวเตอร์) ไม่ต้องแสดงแจ้งเตือน Error น่ากลัวๆ ให้แสดงแค่ข้อความเตือนนุ่มนวล
+          alert('ไม่สามารถดึงพิกัดอัตโนมัติได้ กรุณาระบุที่อยู่ด้วยตนเองครับ');
+        } else {
+          alert(`เกิดข้อผิดพลาด: ${errorMsg}`);
+        }
         setIsFetchingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
