@@ -41,6 +41,15 @@ export async function POST(req: Request) {
     );
   }
 
+  // 🛡️ 2.1 เพิ่มการตรวจสอบชื่อ (Name)
+  const isValidName = (text: string) => /^[a-zA-Zก-๙\s]{2,50}$/.test(text);
+  if (!isValidName(name)) {
+    return NextResponse.json(
+      { message: 'ชื่อ-นามสกุล ต้องเป็นตัวอักษรเท่านั้น และมีความยาวอย่างน้อย 2 ตัว' }, 
+      { status: 400 }
+    );
+  }
+
   // 🛡️ 3. ตรวจสอบความปลอดภัยของรหัสผ่าน
   const isLengthValid = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);

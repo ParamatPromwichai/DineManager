@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+// ฟังก์ชันช่วยเหลือสำหรับตรวจสอบสิทธิ์
+async function checkAuth(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return { error: 'Unauthorized (ยังไม่ได้ล็อกอิน)', status: 401 };
+  }
+  const userRole = (session.user as any)?.role;
+  if (userRole !== 'shop' && userRole !== 'admin') {
+    return { error: 'Forbidden (ไม่มีสิทธิ์)', status: 403 };
+  }
+  return { session, error: null };
+}
 
 // 1. ดึงข้อมูลโต๊ะทั้งหมด (เรียงตาม ID)
 export async function GET() {
@@ -24,8 +39,15 @@ export async function GET() {
 // 2. เพิ่มโต๊ะใหม่ (POST)
 export async function POST(req: Request) {
   try {
+    const auth = await checkAuth(req);
+    if (auth.error) return NextResponse.json({ message: auth.error }, { status: auth.status });
+
     const { name, capacity } = await req.json();
     
+    if (!name || name.length > 50) {
+      return NextResponse.json({ message: 'ชื่อโต๊ะไม่ถูกต้อง หรือยาวเกินไป' }, { status: 400 });
+    }
+
     // เพิ่มข้อมูลลงใน DB (ค่าเริ่มต้น is_occupied จะเป็น false ตามโครงสร้างฐานข้อมูล)
     await db.query(
       'INSERT INTO tables (name, capacity) VALUES (?, ?)', 
@@ -41,11 +63,21 @@ export async function POST(req: Request) {
 // 3. แก้ไขโต๊ะ (เปลี่ยนสถานะ ว่าง/ไม่ว่าง หรือ แก้ไขชื่อ/จำนวนที่นั่ง)
 export async function PUT(req: Request) {
   try {
+    const auth = await checkAuth(req);
+    if (auth.error) return NextResponse.json({ message: auth.error }, { status: auth.status });
+
     const { id, is_occupied, name, capacity, slip_image } = await req.json();
     
+    if (!id) {
+      return NextResponse.json({ message: 'ไม่พบ ID โต๊ะ' }, { status: 400 });
+    }
+
     // เช็คว่าหน้าเว็บส่งอะไรมา
     // ถ้าส่ง name มาด้วย แปลว่าเป็นการ "แก้ไขรายละเอียดโต๊ะ (ชื่อ, จำนวนที่นั่ง)"
     if (name !== undefined && capacity !== undefined) {
+      if (name.length > 50) {
+        return NextResponse.json({ message: 'ชื่อโต๊ะยาวเกินไป' }, { status: 400 });
+      }
       await db.query(
         'UPDATE tables SET name = ?, capacity = ? WHERE id = ?', 
         [name, capacity, id]
@@ -103,7 +135,13 @@ export async function PUT(req: Request) {
 // 4. ลบโต๊ะ (DELETE)
 export async function DELETE(req: Request) {
   try {
+    const auth = await checkAuth(req);
+    if (auth.error) return NextResponse.json({ message: auth.error }, { status: auth.status });
+
     const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ message: 'ไม่พบ ID โต๊ะ' }, { status: 400 });
+    }
     
     await db.query('DELETE FROM tables WHERE id = ?', [id]);
 
