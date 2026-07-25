@@ -104,8 +104,14 @@ export default function CustomerProfile() {
         });
         setIsFetchingLocation(false);
       },
-      () => {
-        alert('กรุณาอนุญาตการเข้าถึงตำแหน่งก่อนใช้งาน');
+      (error) => {
+        let errorMsg = 'กรุณาอนุญาตการเข้าถึงตำแหน่งก่อนใช้งาน';
+        if (error.code === 1) errorMsg = 'การเข้าถึงตำแหน่งถูกปฏิเสธ (Permission Denied)';
+        if (error.code === 2) errorMsg = 'ไม่สามารถหาตำแหน่งได้ (Position Unavailable) - ตรวจสอบ GPS ของคุณ';
+        if (error.code === 3) errorMsg = 'หมดเวลาในการหาตำแหน่ง (Timeout)';
+        
+        alert(`เกิดข้อผิดพลาด: ${errorMsg}\n(Code: ${error.code} - ${error.message})`);
+        console.error('Geolocation Error:', error);
         setIsFetchingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
