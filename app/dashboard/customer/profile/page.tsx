@@ -34,15 +34,17 @@ export default function CustomerProfile() {
   /* =========================
      🔐 CHECK LOGIN
   ========================= */
-  // ➕ 3. เช็คสถานะการล็อกอินด้วย status จาก NextAuth
+  // 🛡️ เช็คว่าถ้ายังไม่ได้ล็อกอินให้เด้งไปหน้า Login
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-    } else if (status === 'authenticated' && !session?.user) {
-      // ถ้าระบบป้องกัน Hijacking ลบข้อมูล user ใน session ทิ้ง (ส่งมาแต่ object ว่างๆ) ให้บังคับล็อกเอาท์
-      signOut({ callbackUrl: '/login' });
+    if (status === 'unauthenticated' || (status === 'authenticated' && !session?.user)) {
+      fetch('/api/auth/force-logout', { method: 'POST' }).then(() => {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/login';
+      });
     }
-  }, [status, session, router]);
+  }, [status, session]);
 
   /* =========================
      🔥 LOAD PROFILE

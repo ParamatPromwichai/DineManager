@@ -131,8 +131,8 @@ function LoginContent() {
   const currentFaceColor = faceColors[anger];
   const isAngry = anger > 0;
 
-  // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบ
-  if (checkingSystem) {
+  // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบหรือสถานะการล็อกอิน
+  if (checkingSystem || status === 'loading') {
     return (
       <div className="clean-container">
         <div className="login-box" style={{ background: 'transparent', boxShadow: 'none', border: 'none' }}>

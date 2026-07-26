@@ -43,9 +43,14 @@ export default function OrderHistoryPage() {
   // ➕ 3. เช็คสถานะการล็อกอิน ถ้ายังไม่ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      fetch('/api/auth/force-logout', { method: 'POST' }).then(() => {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/login';
+      });
     }
-  }, [status, router]);
+  }, [status]);
 
   // ➕ 4. ดึงข้อมูลออเดอร์เมื่อล็อกอินสำเร็จ
   useEffect(() => {

@@ -171,6 +171,19 @@ export const authOptions: NextAuthOptions = {
           token.role = (user as any).role;
         }
       }
+      // 🚨 ตรวจสอบสถานะการแบน (is_locked) ตลอดการใช้งาน
+      if (token && token.id) {
+        try {
+          const [checkLock]: any = await db.query("SELECT is_locked FROM users WHERE id = ?", [token.id]);
+          // ถ้าพบว่าโดนแบน (is_locked = 1) ให้ทำลาย Token ทิ้งเพื่อบังคับล็อกเอาท์
+          if (checkLock.length > 0 && checkLock[0].is_locked) {
+            return { exp: 1 } as any;
+          }
+        } catch (error) {
+          console.error("Error checking lock status in JWT:", error);
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -192,6 +205,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 365 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

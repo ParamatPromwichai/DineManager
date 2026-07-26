@@ -39,6 +39,21 @@ function ShopLoginContent() {
   const [anger, setAnger] = useState(0);
   const angerTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // 🟢 State สำหรับเช็คโหมดปรับปรุง
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [checkingSystem, setCheckingSystem] = useState(true);
+
+  // 🛡️ ดึงข้อมูลตั้งค่าระบบก่อนว่าเว็บปิดปรับปรุงอยู่ไหม
+  useEffect(() => {
+    fetch('/api/sysconfig')
+      .then(res => res.json())
+      .then(data => {
+        setIsMaintenance(data.maintenance_mode);
+        setCheckingSystem(false);
+      })
+      .catch(() => setCheckingSystem(false));
+  }, []);
+
   // 🛡️ ดักจับ Error จาก URL
   useEffect(() => {
     const error = searchParams.get('error');
@@ -115,6 +130,36 @@ function ShopLoginContent() {
   const faceColors = ["#fde68a", "#fcd34d", "#fbbf24", "#f59e0b", "#d97706", "#b45309"];
   const currentFaceColor = faceColors[anger];
   const isAngry = anger > 0;
+
+  // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบหรือสถานะการล็อกอิน
+  if (checkingSystem || status === 'loading') {
+    return (
+      <div className="clean-container">
+        <div className="login-box" style={{ background: 'transparent', boxShadow: 'none', border: 'none' }}>
+          <h2 className="title" style={{ fontSize: '20px' }}>กำลังเชื่อมต่อระบบ...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔴 หน้าจอแสดงผลเมื่ออยู่ใน "โหมดปิดปรับปรุง"
+  if (isMaintenance) {
+    return (
+      <div className="clean-container">
+        <div className="login-box">
+          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+          </div>
+          <h1 className="title" style={{ color: '#b45309' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
+          <p className="subtitle" style={{ color: '#d97706', lineHeight: '1.6' }}>
+            ขออภัยในความไม่สะดวก ขณะนี้ระบบร้านค้ากำลังปิดปรับปรุงเพื่อเพิ่มประสิทธิภาพให้ดียิ่งขึ้น กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="clean-container">

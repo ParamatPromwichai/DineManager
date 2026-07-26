@@ -233,12 +233,35 @@ export const authOptions: NextAuthOptions = {
         token.userAgent = currentUserAgent;
       }
 
+      // 🚨 ตรวจสอบสถานะการแบน (is_locked) และ โหมดปรับปรุงระบบ (Maintenance) ตลอดการใช้งาน
+      if (token && token.id) {
+        try {
+          const [checkLockResult, maintenanceResult] = await Promise.all([
+            db.query("SELECT is_locked FROM users WHERE id = ?", [token.id]),
+            db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'maintenance_mode'")
+          ]);
+          
+          const checkLock: any = checkLockResult[0];
+          const settings: any = maintenanceResult[0];
+          
+          const isLocked = checkLock.length > 0 && checkLock[0].is_locked;
+          const isMaintenance = settings.length > 0 && settings[0].setting_value === 'true';
+
+          // ถ้าพบว่าโดนแบน หรือ เปิดโหมดปรับปรุง (และไม่ใช่ admin) ให้ทำลาย Token ทิ้งเพื่อบังคับล็อกเอาท์
+          if (isLocked || (isMaintenance && token.role !== 'admin')) {
+            return { exp: 1 } as any; // ตั้งค่าให้ token หมดอายุทันที เพื่อให้เบราว์เซอร์ลบคุกกี้ทิ้ง
+          }
+        } catch (error) {
+          console.error("Error checking lock/maintenance status in JWT:", error);
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (!token || !token.id) {
-        // ถ้าระบบ Hijacking ลบ token ทิ้งไปแล้ว ให้คืนค่า session เปล่าๆ
-        return { ...session, user: undefined } as any;
+        // ถ้าระบบ Hijacking ลบ token ทิ้งไปแล้ว (เช่น โดนแบน หรือ เปิดโหมดปรับปรุง) ให้คืนค่า session เปล่าๆ เพื่อบังคับล็อกเอาท์
+        return {} as any;
       }
       
       if (session.user) {
@@ -259,6 +282,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 365 * 24 * 60 * 60, // 365 วัน (1 ปี) เพื่อให้จำการล็อกอินได้นานเหมือน Facebook
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

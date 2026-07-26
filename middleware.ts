@@ -84,14 +84,28 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 🛡️ 4. ตรวจสอบ Token และ Role (ป้องกันการเข้า Dashboard ผิดสิทธิ์)
-  if (url.pathname.startsWith('/dashboard')) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  // 🛡️ 4. ตรวจสอบ Token (ดึง Token ครั้งเดียวใช้ได้ทุกเงื่อนไข)
+  let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: true });
+  if (!token) {
+    token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
+  }
 
-    // ถ้าไม่มี Token แสดงว่ายังไม่ล็อกอิน
-    if (!token) {
+  // 🛡️ 5. ถ้าล็อกอินอยู่แล้ว พยายามเข้าหน้า / หรือ /login ให้ redirect ไป Dashboard ทันที (แก้ปัญหาหน้าจอกระพริบ)
+  if ((url.pathname === '/' || url.pathname === '/login' || url.pathname === '/login/shop') && token && token.role) {
+    if (token.role === 'shop') return NextResponse.redirect(new URL('/dashboard/shop', req.url));
+    if (token.role === 'customer') return NextResponse.redirect(new URL('/dashboard/customer', req.url));
+    if (token.role === 'admin' && url.pathname.startsWith('/login')) return NextResponse.redirect(new URL('/dashboard/admin', req.url));
+  }
+
+  // 🛡️ 6. ตรวจสอบสิทธิ์การเข้า Dashboard
+  if (url.pathname.startsWith('/dashboard')) {
+    // ถ้าไม่มี Token หรือ Token ว่างเปล่า (ถูกแบนแล้วลบ Token ทิ้ง) ให้ถือว่ายังไม่ล็อกอิน
+    if (!token || !token.id) {
       if (url.pathname.startsWith('/dashboard/shop')) {
         return NextResponse.redirect(new URL('/login/shop', req.url));
+      }
+      if (url.pathname.startsWith('/dashboard/admin')) {
+        return NextResponse.redirect(new URL('/login/admin', req.url));
       }
       return NextResponse.redirect(new URL('/login', req.url));
     }
@@ -120,6 +134,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // นำไปใช้กับทุก API, หน้า Dashboard และหน้า Login เพื่อป้องกัน Admin
-  matcher: ['/api/:path*', '/dashboard/:path*', '/login/:path*'],
+  // นำไปใช้กับทุก API, หน้า Dashboard, หน้า Login และหน้าแรก (/)
+  matcher: ['/', '/api/:path*', '/dashboard/:path*', '/login/:path*'],
 };

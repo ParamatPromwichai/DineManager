@@ -133,15 +133,25 @@ export default function CustomerHome() {
         setBaseDeliveryFee(data.delivery_fee || 0);
         setDeliveryFeePerKm(data.delivery_fee_per_km || 0);
         setCheckingSystem(false);
+
+        // 🔴 ถ้าเปิดโหมดซ่อมบำรุง ให้บังคับ Log out ทันที
+        if (data.maintenance_mode && status === 'authenticated') {
+          fetch('/api/auth/force-logout', { method: 'POST' });
+        }
       })
       .catch(() => setCheckingSystem(false)); 
-  }, []);
+  }, [status]);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
+    if (status === 'unauthenticated' && !isMaintenance) {
+      fetch('/api/auth/force-logout', { method: 'POST' }).then(() => {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/login';
+      });
     }
-  }, [status, router]);
+  }, [status, isMaintenance]);
 
   // โหลดข้อมูลจาก LocalStorage ตอนเปิดหน้าเว็บ
   useEffect(() => {
@@ -333,6 +343,23 @@ export default function CustomerHome() {
     }
   }
 
+  // 🚨 ถ้าเป็นโหมดซ่อมบำรุง ให้โชว์หน้าซ่อมบำรุงเลย ไม่ต้องรอโหลดอย่างอื่น
+  if (isMaintenance) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4F8FF', padding: 20 }}>
+        <div style={{ background: '#fff', padding: 40, borderRadius: 20, textAlign: 'center', boxShadow: '0 10px 40px rgba(37, 99, 235, 0.1)', maxWidth: 400 }}>
+          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#b45309', margin: '0 0 10px 0' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
+          <p style={{ color: '#d97706', lineHeight: '1.6', margin: 0 }}>ขออภัยในความไม่สะดวก ขณะนี้ระบบกำลังปิดปรับปรุง กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ</p>
+        </div>
+      </div>
+    );
+  }
+
   if (checkingSystem || status === 'loading' || loading) {
     return (
       <div style={{ padding: '20px 20px 100px 20px', minHeight: '100vh', background: '#F8FAFC' }}>
@@ -371,21 +398,6 @@ export default function CustomerHome() {
     );
   }
 
-  if (isMaintenance) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4F8FF', padding: 20 }}>
-        <div style={{ background: '#fff', padding: 40, borderRadius: 20, textAlign: 'center', boxShadow: '0 10px 40px rgba(37, 99, 235, 0.1)', maxWidth: 400 }}>
-          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-            </svg>
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#b45309', margin: '0 0 10px 0' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
-          <p style={{ color: '#d97706', lineHeight: '1.6', margin: 0 }}>ขออภัยในความไม่สะดวก ขณะนี้ระบบกำลังปิดปรับปรุง กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-72' : 'pb-24'}`}>

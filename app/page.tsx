@@ -64,6 +64,15 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  // 🟢 ป้องกันหน้าจอกระพริบ (Flicker) ระหว่างที่กำลังโหลดสถานะเซสชั่น
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a' }}>
+        <div style={{ color: '#0ea5e9', fontSize: '20px', fontWeight: 'bold' }}>กำลังโหลด...</div>
+      </div>
+    );
+  }
+
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
   const prevSlide = () => setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
 

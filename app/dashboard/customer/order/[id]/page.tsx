@@ -70,12 +70,17 @@ export default function OrderDetailPage() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ➕ 3. เช็คสถานะล็อกอิน ถ้าไม่ได้ล็อกอินให้เด้งกลับไปหน้า login
+  // 🛡️ เช็คสถานะการล็อกอิน
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      fetch('/api/auth/force-logout', { method: 'POST' }).then(() => {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = '/login';
+      });
     }
-  }, [status, router]);
+  }, [status]);
 
   // Submit Review 
   const submitReview = useCallback(async () => {
