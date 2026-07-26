@@ -32,8 +32,6 @@ export default function ShopProfilePage() {
   });
   
   const [loading, setLoading] = useState(false);
-  const [qrFile, setQrFile] = useState<File | null>(null);
-  const [qrPreview, setQrPreview] = useState<string>('');
   
   // สร้าง State สำหรับเช็คว่า "มีการเปลี่ยนแปลงข้อมูลหรือยัง?"
   const [isDirty, setIsDirty] = useState(false);
@@ -78,7 +76,6 @@ export default function ShopProfilePage() {
             latitude: data.shop.latitude?.toString() || '',
             longitude: data.shop.longitude?.toString() || ''
           });
-          if (data.shop.qr_image) setQrPreview(data.shop.qr_image);
           
           // โหลดข้อมูลเสร็จ ให้ตั้งค่าว่ายังไม่มีการแก้ไข
           setIsDirty(false);
@@ -139,14 +136,6 @@ export default function ShopProfilePage() {
     );
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setQrFile(file);
-      setQrPreview(URL.createObjectURL(file)); 
-      setIsDirty(true); // 🖼️ เปลี่ยนรูป = ข้อมูลเปลี่ยน
-    }
-  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -160,9 +149,7 @@ export default function ShopProfilePage() {
       formData.append('account_number', shop.account_number || '');
       formData.append('account_name', shop.account_name || '');
       formData.append('latitude', shop.latitude || '');   
-      formData.append('longitude', shop.longitude || ''); 
-      
-      if (qrFile) formData.append('qr_image', qrFile); 
+      formData.append('longitude', shop.longitude || '');
 
       const res = await fetch('/api/shop/profile', {
         method: 'PUT',
@@ -332,40 +319,18 @@ export default function ShopProfilePage() {
           <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4 text-indigo-600 font-bold">
             <Landmark size={24} /> ข้อมูลการชำระเงิน
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">ชื่อธนาคาร / พร้อมเพย์</label>
-                <input type="text" placeholder="เช่น กสิกรไทย" value={shop.bank_name || ''} onChange={e => handleShopChange('bank_name', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">เลขที่บัญชี</label>
-                <input type="text" placeholder="012-3-45678-9" value={shop.account_number || ''} onChange={e => handleShopChange('account_number', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-indigo-700 tracking-wider focus:ring-2 focus:ring-indigo-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">ชื่อบัญชี</label>
-                <input type="text" placeholder="ชื่อ-นามสกุล" value={shop.account_name || ''} onChange={e => handleShopChange('account_name', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
-              </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">ชื่อธนาคาร / พร้อมเพย์</label>
+              <input type="text" placeholder="เช่น กสิกรไทย, พร้อมเพย์" value={shop.bank_name || ''} onChange={e => handleShopChange('bank_name', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
-               <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">อัปโหลดรูป QR Code</label>
-               <label className="relative flex flex-col items-center justify-center w-full h-full min-h-[220px] border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 cursor-pointer overflow-hidden group hover:border-indigo-400 hover:bg-indigo-50/30 transition-all">
-                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                {qrPreview ? (
-                  <div className="relative w-full h-full p-2">
-                    <img src={qrPreview} alt="QR" className="w-full h-full object-contain rounded-xl" />
-                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl m-2">
-                       <span className="bg-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xl"><UploadCloud size={16}/> เปลี่ยนรูป</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center text-slate-400 group-hover:text-indigo-500 transition-colors">
-                    <QrCode size={36} className="mx-auto mb-3 opacity-50 group-hover:opacity-100" />
-                    <p className="text-sm font-bold">กดเพื่ออัปโหลด QR Code</p>
-                    <p className="text-xs mt-1 opacity-70">ไฟล์ JPG, PNG</p>
-                  </div>
-                )}
-              </label>
+              <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">เบอร์พร้อมเพย์</label>
+              <input type="text" placeholder="เบอร์โทรศัพท์มือถือ หรือ เลขบัตรประชาชน" value={shop.account_number || ''} onChange={e => handleShopChange('account_number', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-indigo-700 tracking-wider focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">ชื่อบัญชี</label>
+              <input type="text" placeholder="ชื่อ-นามสกุล" value={shop.account_name || ''} onChange={e => handleShopChange('account_name', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
           </div>
         </div>

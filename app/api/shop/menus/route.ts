@@ -7,7 +7,7 @@ export async function GET() {
   try {
     // 1. ดึงเมนูทั้งหมด
     const [menus]: any = await db.query(`SELECT * FROM menus ORDER BY id DESC`);
-    
+
     // 2. ดึงออปชันเสริมส่วนกลางทั้งหมด
     const [globalOptions]: any = await db.query(`SELECT * FROM global_options ORDER BY id ASC`);
 
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const name = formData.get('name') as string;
     const price = Number(formData.get('price'));
     const imageFile = formData.get('image') as File | null;
-    
+
     // 🟢 รับค่าฟิลด์ใหม่
     const categoryIdVal = formData.get('category_id');
     const categoryId = categoryIdVal ? Number(categoryIdVal) : null;
@@ -82,8 +82,8 @@ export async function PUT(req: Request) {
     const id = formData.get('id');
     const name = formData.get('name') as string;
     const price = Number(formData.get('price'));
-    const imageFile = formData.get('image'); 
-    
+    const imageFile = formData.get('image');
+
     const categoryIdVal = formData.get('category_id');
     const categoryId = categoryIdVal ? Number(categoryIdVal) : null;
     const description = formData.get('description') as string || null;
@@ -101,8 +101,8 @@ export async function PUT(req: Request) {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const filename = `${uniqueSuffix}-${file.name}`;
       const blob = await put(filename, file, { access: 'public' });
-      
-      updateQuery += `, image = ?`; 
+
+      updateQuery += `, image = ?`;
       queryParams.push(blob.url);
     }
 
@@ -139,7 +139,7 @@ export async function PATCH(req: Request) {
     }
 
     if (updateFields.length === 0) return NextResponse.json({ message: 'ไม่มีข้อมูล' }, { status: 400 });
-    
+
     queryParams.push(id);
     await db.query(`UPDATE menus SET ${updateFields.join(', ')} WHERE id = ?`, queryParams);
 
@@ -164,7 +164,7 @@ export async function DELETE(req: Request) {
     console.error("DELETE Menu Error:", error);
     if (String(error).includes('foreign key constraint fails')) {
       return NextResponse.json(
-        { message: 'ไม่สามารถลบได้ เนื่องจากเมนูนี้อยู่ในประวัติการสั่งซื้อของลูกค้า แนะนำให้เปลี่ยนเป็น "ของหมด" แทน' }, 
+        { message: 'ไม่สามารถลบได้ เนื่องจากเมนูนี้อยู่ในประวัติการสั่งซื้อของลูกค้า แนะนำให้เปลี่ยนเป็น "ของหมด" แทน' },
         { status: 400 }
       );
     }

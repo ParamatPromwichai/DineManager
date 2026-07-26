@@ -16,6 +16,12 @@ const MapPicker = dynamic(() => import('@/components/MapPicker'), {
 });
 
 // --- Types ---
+type Category = {
+  id: number;
+  name: string;
+  sort_order: number;
+};
+
 type MenuOption = {
   id: number;
   menu_id: number;
@@ -34,6 +40,7 @@ type Menu = {
   review_count: number; 
   order_count?: number;
   is_sold_out?: number | boolean | string; 
+  category_id?: number;
   options?: MenuOption[]; 
   addon_option_ids?: number[];
   globalOptions?: MenuOption[];
@@ -90,6 +97,7 @@ function AllMenusContent() {
   const searchParams = useSearchParams();
 
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -99,6 +107,8 @@ function AllMenusContent() {
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [activeFilter, setActiveFilter] = useState<'all' | 'popular' | 'rating' | 'price'>('all');
+  const [activeCategory, setActiveCategory] = useState<number | 'all'>('all');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
 
   // Form & UI States
   const [showPayment, setShowPayment] = useState(false);
@@ -144,6 +154,11 @@ function AllMenusContent() {
         console.error(err);
         setLoading(false);
       });
+      
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => setCategories(data))
+      .catch(err => console.error(err));
       
     fetch('/api/customer/home').then(res => res.json()).then(data => { if (data?.shop) setShopData(data.shop); }).catch(err => console.error(err));
     fetch('/api/customer/profile').then(res => res.json()).then(data => {
@@ -308,6 +323,10 @@ function AllMenusContent() {
   const filteredAndSortedMenus = useMemo(() => {
     let result = [...menus];
 
+    if (activeCategory !== 'all') {
+      result = result.filter(m => m.category_id === activeCategory);
+    }
+
     if (searchQuery.trim() !== '') {
       result = result.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
@@ -327,11 +346,10 @@ function AllMenusContent() {
       if (aSoldOut === bSoldOut) return 0;
       return aSoldOut ? 1 : -1;
     });
-  }, [menus, searchQuery, activeFilter]);
+  }, [menus, searchQuery, activeFilter, activeCategory]);
 
   return (
     <div style={{ padding: '20px 20px 280px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      
       {/* Header & ปุ่มย้อนกลับ */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
         <button 
@@ -369,6 +387,84 @@ function AllMenusContent() {
           )}
         </div>
       </div>
+
+      {/* หมวดหมู่อาหาร (Custom UI Dropdown) */}
+      {categories.length > 0 && (
+        <div style={{ position: 'relative', marginBottom: 15 }}>
+          <div
+            onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+            style={{
+              width: '100%',
+              padding: '14px 20px',
+              background: '#ffffff',
+              border: '1px solid #BFDBFE',
+              borderRadius: '16px',
+              fontSize: '1rem',
+              fontWeight: 'bold',
+              color: '#1E3A8A',
+              cursor: 'pointer',
+              boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <span>
+              {activeCategory === 'all' 
+                ? '🍽️ ทุกหมวดหมู่' 
+                : `📍 ${categories.find(c => c.id === activeCategory)?.name || 'ทุกหมวดหมู่'}`}
+            </span>
+            <ChevronDown size={20} color="#3B82F6" style={{ transform: isCategoryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
+          </div>
+
+          {/* เมนูที่กางออกมา */}
+          {isCategoryDropdownOpen && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '100%', 
+              left: 0, 
+              right: 0, 
+              marginTop: '8px', 
+              background: '#ffffff', 
+              borderRadius: '16px', 
+              boxShadow: '0 10px 25px rgba(37, 99, 235, 0.1)', 
+              zIndex: 100,
+              border: '1px solid #EBF1FF',
+              overflow: 'hidden'
+            }}>
+              <div
+                onClick={() => { setActiveCategory('all'); setIsCategoryDropdownOpen(false); }}
+                style={{
+                  padding: '14px 20px',
+                  cursor: 'pointer',
+                  fontWeight: activeCategory === 'all' ? 'bold' : 'normal',
+                  color: activeCategory === 'all' ? '#2563EB' : '#475569',
+                  background: activeCategory === 'all' ? '#F4F8FF' : '#ffffff',
+                  borderBottom: '1px solid #F1F5F9'
+                }}
+              >
+                🍽️ ทุกหมวดหมู่
+              </div>
+              {categories.map(cat => (
+                <div
+                  key={cat.id}
+                  onClick={() => { setActiveCategory(cat.id); setIsCategoryDropdownOpen(false); }}
+                  style={{
+                    padding: '14px 20px',
+                    cursor: 'pointer',
+                    fontWeight: activeCategory === cat.id ? 'bold' : 'normal',
+                    color: activeCategory === cat.id ? '#2563EB' : '#475569',
+                    background: activeCategory === cat.id ? '#F4F8FF' : '#ffffff',
+                    borderBottom: '1px solid #F1F5F9'
+                  }}
+                >
+                  📍 {cat.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* แถบตัวกรอง */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 12, marginBottom: 20, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
