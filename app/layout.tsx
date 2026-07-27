@@ -17,6 +17,7 @@ import type { Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "ระบบจัดการร้านอาหาร ครบวงจร | DineManager",
+  applicationName: "DineManager",
   description: "เว็บจัดการร้านอาหารและระบบจัดการร้านอาหารที่ดีที่สุด รองรับการสั่งอาหารผ่าน QR Code พนักงาน จัดการสต๊อก และรายงานยอดขาย",
   keywords: ["เว็บจัดการร้านอาหาร", "ระบบจัดการร้านอาหาร", "โปรแกรมร้านอาหาร", "จัดการร้านอาหาร", "POS"],
   appleWebApp: {
