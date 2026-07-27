@@ -18,6 +18,32 @@ function isSuspicious(val: string) {
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
 
+  // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค
+  if (url.pathname === '/api/admin/blocked-ips') return NextResponse.next();
+
+  const ip = req.headers.get('x-forwarded-for') || 'Unknown';
+
+  // 🛡️ 0. ตรวจสอบ IP Blocklist
+  try {
+    // ดึงข้อมูล IP ที่ถูกบล็อค โดยมีการแคช 60 วินาที
+    const res = await fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, { next: { revalidate: 60 } });
+    if (res.ok) {
+      const data = await res.json();
+      const blockedIps = data.ips?.map((row: any) => row.ip_address) || [];
+      // ลบ whitespace และตัด string ให้เหลือแค่ ip แรก (สำหรับ Vercel ที่มักส่งมาเป็น x.x.x.x, y.y.y.y)
+      const clientIp = ip.split(',')[0].trim();
+      
+      if (blockedIps.includes(clientIp) || blockedIps.includes(ip)) {
+        return new NextResponse(JSON.stringify({ message: 'Forbidden: Your IP is blocked' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+  } catch (error) {
+    // ถ้า Fetch ไม่ได้ให้ปล่อยผ่านไปก่อน
+  }
+
   // 🛡️ 1. ตรวจสอบ Query Params ว่ามีคำสั่ง SQL หรือไม่
   for (const [key, value] of url.searchParams.entries()) {
     if (isSuspicious(value)) {
