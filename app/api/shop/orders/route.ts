@@ -48,6 +48,14 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const { id, status, slip_image, cancel_reason, cancelled_by } = await req.json();
+
+    // ดึงสถานะปัจจุบันมาตรวจสอบก่อน เพื่อป้องกันการส่งข้อความซ้ำ
+    const [existingOrderRows]: any = await db.query('SELECT status, user_id FROM orders WHERE id = ?', [id]);
+    const existingOrder = existingOrderRows?.[0];
+
+    if (!existingOrder) {
+      return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    }
     
     if (status === 'cancel' && cancel_reason) {
       await db.query('UPDATE orders SET status = ?, cancel_reason = ?, cancelled_by = ? WHERE id = ?', [status, cancel_reason, cancelled_by || 'shop', id]);
@@ -57,10 +65,9 @@ export async function PUT(req: Request) {
       await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
     }
 
-    // แจ้งเตือนลูกค้าผ่านแชทเมื่อออเดอร์เสร็จสิ้น
-    if (status === 'done') {
-      const [orderRows]: any = await db.query('SELECT user_id FROM orders WHERE id = ?', [id]);
-      const userId = orderRows?.[0]?.user_id;
+    // แจ้งเตือนลูกค้าผ่านแชทเมื่อออเดอร์เสร็จสิ้น (เช็คว่าเปลี่ยนเป็น done ครั้งแรก)
+    if (status === 'done' && existingOrder.status !== 'done') {
+      const userId = existingOrder.user_id;
       if (userId) {
         await db.query(
           "INSERT INTO chats (user_id, sender, message) VALUES (?, 'shop', ?)",
@@ -71,6 +78,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ message: 'Updated' });
   } catch (error) {
+    console.error("Order Update Error:", error);
     return NextResponse.json({ message: 'Error' }, { status: 500 });
   }
 }
