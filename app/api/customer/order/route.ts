@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       if (realBasePrice === undefined) {
         return NextResponse.json({ message: `ไม่พบเมนูในระบบ (ID: ${item.id})` }, { status: 400 });
       }
-      minCalculatedPrice += realBasePrice * Number(item.quantity);
+      minCalculatedPrice += Number(realBasePrice) * Number(item.quantity);
     }
 
     // ราคาที่ลูกค้าส่งมา ต้องไม่น้อยกว่า ราคาพื้นฐานของทุกเมนูรวมกัน (ป้องกันแฮกแก้ราคาให้ถูกลง)
