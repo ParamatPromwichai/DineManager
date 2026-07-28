@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
-import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown } from "lucide-react";
+import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown, MoreVertical } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -29,7 +29,9 @@ export default function ChatPage() {
   const isSendingRef = useRef(isSending);
   const [isBotEnabled, setIsBotEnabled] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +125,8 @@ export default function ChatPage() {
 
   const clearChat = async (isAuto = false) => {
     if (!userId) return;
-    if (!isAuto && !confirm("ต้องการล้างประวัติการแชททั้งหมดใช่หรือไม่?")) return;
+    
+    // ลบ confirm แบบเก่าออกเพราะใช้ sheet แทนแล้ว
 
     try {
       await fetch(`/api/chat?user_id=${userId}`, { method: "DELETE" });
@@ -238,15 +241,35 @@ export default function ChatPage() {
     });
   };
 
+  const deleteMessage = async (id: string) => {
+    if (!id || !userId) return;
+    try {
+      await fetch(`/api/chat?user_id=${userId}&id=${id}`, { method: "DELETE" });
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      setSelectedMessage(null);
+    } catch (err) {
+      console.error("Failed to delete message", err);
+    }
+  };
+
+  const handleMessageLongPress = (msg: any, isUser: boolean, e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (msg.id) {
+      setSelectedMessage({ ...msg, isUser });
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || !userId || isSending) return;
 
     setIsSending(true);
     isSendingRef.current = true;
+    
     const currentInput = input;
+    
     setInput("");
 
-    setMessages((prev) => [...prev, { sender: "user", text: currentInput }]);
+    setMessages((prev) => [...prev, { sender: "user", text: currentInput, created_at: new Date().toISOString() }]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -290,7 +313,7 @@ export default function ChatPage() {
       top: 0,
       left: 0,
       right: 0,
-      bottom: "70px", 
+      bottom: "calc(64px + env(safe-area-inset-bottom))", 
       backgroundColor: "#F4F8FF", 
       display: "flex",
       flexDirection: "column",
@@ -328,8 +351,8 @@ export default function ChatPage() {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={() => setIsBotEnabled(!isBotEnabled)}
+              className="p-2 sm:px-3 sm:py-2"
               style={{
-                padding: "8px 12px",
                 backgroundColor: isBotEnabled ? "#EFF6FF" : "#F3F4F6",
                 color: isBotEnabled ? "#2563EB" : "#6B7280",
                 border: isBotEnabled ? "1px solid #BFDBFE" : "1px solid #E5E7EB",
@@ -344,12 +367,12 @@ export default function ChatPage() {
               }}
             >
               {isBotEnabled ? <Bot size={16} /> : <User size={16} />}
-              {isBotEnabled ? "คุยกับบอท" : "คุยกับร้าน"}
+              <span className="hidden sm:inline">{isBotEnabled ? "คุยกับบอท" : "คุยกับร้าน"}</span>
             </button>
             <button
-              onClick={() => clearChat(false)}
+              onClick={() => setShowClearConfirm(true)}
+              className="p-2 sm:px-3 sm:py-2"
               style={{
-                padding: "8px 12px",
                 backgroundColor: "#FEF2F2",
                 color: "#EF4444",
                 border: "1px solid #FEE2E2",
@@ -363,7 +386,7 @@ export default function ChatPage() {
                 transition: "background 0.2s"
               }}
             >
-              <Trash2 size={16} /> ล้างแชท
+              <Trash2 size={16} /> <span className="hidden sm:inline">ล้างแชท</span>
             </button>
           </div>
         </div>
@@ -431,28 +454,41 @@ export default function ChatPage() {
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', maxWidth: "75%" }}>
-                  <div style={{
-                    background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : isShop ? "#DBEAFE" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
-                    color: isUser ? "#ffffff" : isShop ? "#1E3A8A" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
-                    padding: cleanText.startsWith('[IMAGE]') ? "6px" : "12px 16px",
-                    borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                    boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
-                    border: isUser ? "none" : isShop ? "1px solid #BFDBFE" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
-                    wordBreak: "break-word",
-                    fontSize: "0.95rem",
-                    fontWeight: "500"
-                  }}>
+                  <div 
+                    onContextMenu={(e) => handleMessageLongPress(msg, isUser, e)}
+                    style={{
+                      background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : isShop ? "#DBEAFE" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
+                      color: isUser ? "#ffffff" : isShop ? "#1E3A8A" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
+                      padding: cleanText.startsWith('[IMAGE]') ? "6px" : "12px 16px",
+                      borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                      boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
+                      border: isUser ? "none" : isShop ? "1px solid #BFDBFE" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
+                      wordBreak: "break-word",
+                      fontSize: "0.95rem",
+                      fontWeight: "500",
+                      cursor: msg.id ? "pointer" : "default",
+                      userSelect: "none",
+                      WebkitUserSelect: "none"
+                    }}
+                  >
                     {formatMessage(cleanText)}
                   </div>
-                  {isUser && (
-                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '3px', marginRight: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingRight: isUser ? '4px' : '0', paddingLeft: !isUser ? '4px' : '0' }}>
+                    {msg.created_at && (
+                      <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                        {new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                    {isUser && (
+                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px' }}>
                       {isCurrentlySending ? (
                         <><Clock size={10} /> กำลังส่ง...</>
                       ) : (
                         <><Check size={12} color="#10B981" /> ส่งแล้ว</>
                       )}
                     </span>
-                  )}
+                    )}
+                  </div>
                 </div>
                 {isUser && (
                   <div style={{ width: '28px', height: '28px', backgroundColor: '#DBEAFE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: '20px' }}>
@@ -514,7 +550,6 @@ export default function ChatPage() {
         {/* 🌟 Input Area */}
         <div style={{ 
           padding: "16px 20px", 
-          paddingBottom: "calc(16px + env(safe-area-inset-bottom))", 
           backgroundColor: "#ffffff", 
           borderTop: "1px solid #DCE8FF",
           display: "flex",
@@ -568,6 +603,73 @@ export default function ChatPage() {
           }
         `}} />
       </div>
+      {/* 🎉 Clear Chat Confirm Modal (Top) */}
+      {showClearConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(2px)' }}>
+          <div style={{ background: '#ffffff', borderRadius: 24, padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', animation: 'slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', marginTop: '60px', width: '85%', maxWidth: '340px' }}>
+            <div style={{ width: 56, height: 56, background: '#FEF2F2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', color: '#EF4444' }}>
+              <Trash2 size={28} strokeWidth={2.5} />
+            </div>
+            
+            <h2 style={{ color: '#1E3A8A', margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center' }}>ล้างประวัติการแชท?</h2>
+            <p style={{ color: '#64748B', margin: '0 0 24px 0', textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
+              ข้อความจะถูกลบและไม่สามารถกู้คืนได้
+            </p>
+            
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <button 
+                onClick={() => setShowClearConfirm(false)}
+                style={{ flex: 1, padding: '12px', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: 12, fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={() => {
+                  setShowClearConfirm(false);
+                  clearChat(false);
+                }}
+                style={{ flex: 1, padding: '12px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: 12, fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.2)', transition: 'all 0.2s' }}
+              >
+                ลบประวัติ
+              </button>
+            </div>
+            
+            <style>{`
+              @keyframes slideDown {
+                from { transform: translateY(-30px) scale(0.95); opacity: 0; }
+                to { transform: translateY(0) scale(1); opacity: 1; }
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 Message Context Menu (Long Press) */}
+      {selectedMessage && (
+        <div 
+          onClick={() => setSelectedMessage(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(2px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#ffffff', borderRadius: 16, width: '220px', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', overflow: 'hidden', animation: 'scaleIn 0.2s ease-out' }}
+          >
+            <button 
+              onClick={() => deleteMessage(selectedMessage.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#EF4444', textAlign: 'left' }}
+            >
+              <Trash2 size={18} color="#EF4444" /> ลบข้อความ
+            </button>
+            
+            <style>{`
+              @keyframes scaleIn {
+                from { transform: scale(0.9); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

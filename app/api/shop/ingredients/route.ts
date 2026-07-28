@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const [rows]: any = await db.query(`SELECT * FROM quick_ingredients ORDER BY id ASC`);
     return NextResponse.json(rows);
   } catch (error) {
@@ -13,6 +20,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { name, icon, color } = await req.json();
     if (!name) return NextResponse.json({ message: 'กรุณาระบุชื่อวัตถุดิบ' }, { status: 400 });
 
@@ -33,6 +45,11 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await req.json();
     if (!id) return NextResponse.json({ message: 'ไม่พบ ID' }, { status: 400 });
 

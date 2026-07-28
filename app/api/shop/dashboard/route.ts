@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     // 1. ข้อมูลร้านค้า
     const [shops]: any = await db.query(`SELECT * FROM shops LIMIT 1`);
     const shop = shops[0] || { is_open: false, name: 'My Restaurant' };
@@ -51,6 +58,11 @@ export async function GET() {
 // ส่วน PUT สำหรับเปิด/ปิดร้านคงเดิม
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { is_open } = await req.json();
     await db.query(`UPDATE shops SET is_open = ?`, [is_open ? 1 : 0]);
     return NextResponse.json({ message: 'อัปเดตสถานะร้านเรียบร้อย' });

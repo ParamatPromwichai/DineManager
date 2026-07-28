@@ -135,12 +135,38 @@ export default function CustomerRegisterPage() {
     });
   }
 
+  const [loadProgress, setLoadProgress] = useState(0);
+
+  useEffect(() => {
+    if (checkingSystem) {
+      const interval = setInterval(() => {
+        setLoadProgress(prev => (prev >= 99 ? 99 : prev + Math.floor(Math.random() * 5) + 1));
+      }, 50);
+      return () => clearInterval(interval);
+    }
+  }, [checkingSystem]);
+
   // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบ
   if (checkingSystem) {
     return (
       <div className="clean-container">
-        <div className="register-box" style={{ background: 'transparent', boxShadow: 'none', border: 'none' }}>
-          <h2 className="title" style={{ fontSize: '20px' }}>กำลังเชื่อมต่อระบบ...</h2>
+        <div className="register-box flex flex-col items-center justify-center p-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-6">กำลังเชื่อมต่อระบบ...</h2>
+          
+          {/* Progress Bar Container */}
+          <div className="w-full bg-slate-100 rounded-full h-4 mb-3 relative overflow-hidden shadow-inner border border-slate-200">
+            {/* Progress Fill */}
+            <div 
+              className="bg-sky-500 h-full rounded-full transition-all duration-200 ease-out flex items-center justify-end"
+              style={{ width: `${loadProgress}%` }}
+            >
+              {/* Shine effect */}
+              <div className="w-full h-full bg-white/20 animate-pulse"></div>
+            </div>
+          </div>
+          
+          {/* Percentage text */}
+          <div className="text-sky-600 font-bold text-lg">{loadProgress}%</div>
         </div>
       </div>
     );
@@ -326,8 +352,8 @@ export default function CustomerRegisterPage() {
         {password && (
           <div className="strength-container">
             <div className="strength-bar-bg">
-              <div 
-                className="strength-bar-fill" 
+              <div
+                className="strength-bar-fill"
                 style={{ width: strengthPercent, backgroundColor: strengthColor }}
               ></div>
             </div>
@@ -375,11 +401,11 @@ export default function CustomerRegisterPage() {
         </button>
 
         <div className="divider">หรือสมัครสมาชิกด้วย</div>
-        
-        <button 
-          className="social-btn" 
-          onClick={() => handleSocialRegister('google')} 
-          type="button" 
+
+        <button
+          className="social-btn"
+          onClick={() => handleSocialRegister('google')}
+          type="button"
           disabled={loading}
         >
           <svg className="social-icon" viewBox="0 0 48 48">

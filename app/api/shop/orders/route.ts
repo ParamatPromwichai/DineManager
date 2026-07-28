@@ -2,9 +2,16 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     // 1. ดึงออเดอร์ 50 รายการล่าสุด
     const [orders]: any = await db.query(`
       SELECT o.*, t.name as table_name, u.name as customer_name,
@@ -47,6 +54,11 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id, status, slip_image, cancel_reason, cancelled_by } = await req.json();
 
     // ดึงสถานะปัจจุบันมาตรวจสอบก่อน เพื่อป้องกันการส่งข้อความซ้ำ

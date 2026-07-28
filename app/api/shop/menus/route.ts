@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { put } from '@vercel/blob';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // 🔍 ดึงข้อมูลเมนูทั้งหมดพร้อมตัวเลือกเสริม (GET)
 export async function GET() {
@@ -41,6 +43,11 @@ export async function GET() {
 // ➕ เพิ่มเมนูใหม่ (POST)
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const name = formData.get('name') as string;
     const price = Number(formData.get('price'));
@@ -78,6 +85,11 @@ export async function POST(req: Request) {
 // ✏️ แก้ไขเมนู (PUT)
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const id = formData.get('id');
     const name = formData.get('name') as string;
@@ -121,6 +133,11 @@ export async function PUT(req: Request) {
 // ⭐ สลับเมนูแนะนำ และ 🔴 สถานะของหมด (PATCH)
 export async function PATCH(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { id, is_recommended, is_sold_out } = body;
 
@@ -153,6 +170,11 @@ export async function PATCH(req: Request) {
 // 🗑️ ลบเมนู (DELETE) 
 export async function DELETE(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.role !== 'shop') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { id } = body;
 

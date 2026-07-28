@@ -33,7 +33,7 @@ export async function middleware(req: NextRequest) {
       // ลบ whitespace และตัด string ให้เหลือแค่ ip แรก (สำหรับ Vercel ที่มักส่งมาเป็น x.x.x.x, y.y.y.y)
       const clientIp = ip.split(',')[0].trim();
       
-      if (blockedIps.includes(clientIp) || blockedIps.includes(ip)) {
+      if (blockedIps.includes(clientIp) || blockedIps.includes(ip) || clientIp.startsWith('192.42.116.')) {
         return new NextResponse(JSON.stringify({ message: 'Forbidden: Your IP is blocked' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
@@ -60,6 +60,16 @@ export async function middleware(req: NextRequest) {
           details: `Blocked SQL Injection attempt on ${url.pathname}?${key}=${value}`,
           ip_address: ip,
           user_agent: userAgent
+        })
+      }).catch(() => {});
+
+      // Auto-ban IP ที่พยายามโจมตี
+      fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip_address: ip,
+          reason: 'Auto-banned by WAF (SQL Injection/XSS)'
         })
       }).catch(() => {});
 
@@ -102,6 +112,16 @@ export async function middleware(req: NextRequest) {
             details: `Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}, Path: ${url.pathname}`,
             ip_address: ip,
             user_agent: userAgent
+          })
+        }).catch(() => {});
+
+        // Auto-ban IP ที่พยายามโจมตีข้ามโดเมน
+        fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip_address: ip,
+            reason: 'Auto-banned by WAF (CSRF/API Abuse)'
           })
         }).catch(() => {});
 

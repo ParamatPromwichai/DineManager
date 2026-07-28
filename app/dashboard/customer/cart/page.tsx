@@ -41,7 +41,7 @@ export default function CartPage() {
   const [slipImage, setSlipImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-
+  const [showSuccessSheet, setShowSuccessSheet] = useState(false);
   const [shopData, setShopData] = useState<any>(null);
   const [baseDeliveryFee, setBaseDeliveryFee] = useState(0);
   const [deliveryFeePerKm, setDeliveryFeePerKm] = useState(0);
@@ -145,10 +145,10 @@ export default function CartPage() {
       await fetch('/api/customer/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, address, location }) });
       const res = await fetch('/api/customer/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: cart, phone, address, location, paymentMethod, subTotal, deliveryFee, totalPrice: total, slipImage }) });
       if (!res.ok) throw new Error('Order failed');
-      alert('สั่งอาหารสำเร็จ ขอบคุณที่ใช้บริการครับ!');
-      setCart([]); setSlipImage(null); setPaymentMethod(''); setShowPaymentModal(false);
+      setSlipImage(null); setPaymentMethod(''); setShowPaymentModal(false);
       localStorage.removeItem('dinemanager_cart');
-      router.push('/dashboard/customer/orders');
+      setShowSuccessSheet(true);
+
     } catch (error) { 
       alert('เกิดข้อผิดพลาด'); 
     } finally { 
@@ -320,6 +320,47 @@ export default function CartPage() {
                 ยืนยันตำแหน่งนี้
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎉 Success Sheet */}
+      {showSuccessSheet && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#ffffff', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: '35px 25px 40px 25px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)', animation: 'slideUp 0.3s ease-out' }}>
+            <div style={{ width: 60, height: 6, background: '#E2E8F0', borderRadius: 10, margin: '0 auto 25px' }} />
+            
+            <div style={{ width: 80, height: 80, background: '#10B981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'white', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)', animation: 'bounceIn 0.5s ease-out' }}>
+              <CheckCircle2 size={44} strokeWidth={2.5} />
+            </div>
+            
+            <h2 style={{ color: '#1E3A8A', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: '900', textAlign: 'center' }}>สั่งอาหารสำเร็จ!</h2>
+            <p style={{ color: '#64748B', margin: '0 0 30px 0', textAlign: 'center', fontSize: '1rem', lineHeight: '1.5' }}>
+              ขอบคุณที่ใช้บริการค่ะ <br/> ทางร้านได้รับออเดอร์แล้ว และกำลังเตรียมอาหารให้คุณ
+            </p>
+            
+            <button 
+              onClick={() => {
+                setShowSuccessSheet(false);
+                setCart([]);
+                router.push('/dashboard/customer/orders');
+              }}
+              style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 6px 15px rgba(37, 99, 235, 0.25)', transition: 'all 0.2s' }}
+            >
+              ดูสถานะออเดอร์
+            </button>
+            
+            <style>{`
+              @keyframes slideUp {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+              }
+              @keyframes bounceIn {
+                0% { transform: scale(0.5); opacity: 0; }
+                70% { transform: scale(1.1); opacity: 1; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
           </div>
         </div>
       )}

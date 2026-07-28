@@ -47,6 +47,34 @@ export async function POST(req: Request) {
     const finalTotal = Math.round(totalPrice); 
     const finalDeliveryFee = Math.round(deliveryFee || 0); // ✅ จัดการทศนิยมของค่าจัดส่ง
 
+    // ✅ Sanity Check: ป้องกันการแฮกแก้ไขราคา (Price Manipulation)
+    if (finalTotal > 15000) {
+      return NextResponse.json({ message: 'ยอดสั่งซื้อสูงผิดปกติ (เกิน 15,000 บาท) กรุณาติดต่อพนักงาน' }, { status: 400 });
+    }
+
+    if (finalTotal < 0 || finalDeliveryFee < 0) {
+      return NextResponse.json({ message: 'ราคาไม่สามารถติดลบได้' }, { status: 400 });
+    }
+
+    // ดึงราคาพื้นฐานของทุกเมนูจากฐานข้อมูลมาเปรียบเทียบ
+    const menuIds = items.map((i: any) => i.id);
+    const [realMenus]: any = await db.query(`SELECT id, price FROM menus WHERE id IN (?)`, [menuIds]);
+    const menuPriceMap = new Map(realMenus.map((m: any) => [m.id, Number(m.price)]));
+
+    let minCalculatedPrice = 0;
+    for (const item of items) {
+      const realBasePrice = menuPriceMap.get(item.id);
+      if (realBasePrice === undefined) {
+        return NextResponse.json({ message: `ไม่พบเมนูในระบบ (ID: ${item.id})` }, { status: 400 });
+      }
+      minCalculatedPrice += realBasePrice * Number(item.quantity);
+    }
+
+    // ราคาที่ลูกค้าส่งมา ต้องไม่น้อยกว่า ราคาพื้นฐานของทุกเมนูรวมกัน (ป้องกันแฮกแก้ราคาให้ถูกลง)
+    if (finalTotal < minCalculatedPrice) {
+      return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการคำนวณราคา กรุณาลองใหม่อีกครั้ง' }, { status: 400 });
+    }
+
     // 🚨 อัปเดตคำสั่ง SQL: เพิ่ม delivery_fee ลงไปในตาราง
     const [orderResult]: any = await db.query(
       `INSERT INTO orders 

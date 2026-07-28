@@ -3,12 +3,12 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { signIn, useSession, signOut } from 'next-auth/react'; 
+import { signIn, useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 
 function ShopLoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams(); 
+  const searchParams = useSearchParams();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -81,9 +81,9 @@ function ShopLoginContent() {
 
     window.grecaptcha.ready(function () {
       const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
-      
+
       window.grecaptcha.execute(siteKey, { action: 'login_shop' }).then(async function (token: string) {
-        
+
         // 🚀 ให้ NextAuth จัดการล็อกอิน Username/Password ให้แทน
         const res = await signIn('credentials', {
           redirect: false,
@@ -112,10 +112,10 @@ function ShopLoginContent() {
   // 🌐 ฟังก์ชัน Social Login สำหรับร้านค้า (Google)
   const handleSocialLogin = async (provider: 'google') => {
     setLoading(true);
-    
+
     // 🟢 เพิ่มบรรทัดนี้: ฝัง Cookie เพื่อบอก Backend (NextAuth) ว่ามาจากหน้าร้านค้า
-    document.cookie = "login_type=shop; path=/; max-age=120"; 
-    
+    document.cookie = "login_type=shop; path=/; max-age=120";
+
     await signIn(provider, { callbackUrl: '/dashboard/shop' });
   };
 
@@ -131,12 +131,38 @@ function ShopLoginContent() {
   const currentFaceColor = faceColors[anger];
   const isAngry = anger > 0;
 
+  const [loadProgress, setLoadProgress] = useState(0);
+
+  useEffect(() => {
+    if (checkingSystem || status === 'loading') {
+      const interval = setInterval(() => {
+        setLoadProgress(prev => (prev >= 99 ? 99 : prev + Math.floor(Math.random() * 5) + 1));
+      }, 50);
+      return () => clearInterval(interval);
+    }
+  }, [checkingSystem, status]);
+
   // 🟢 หน้าจอโหลดระหว่างเช็คสถานะระบบหรือสถานะการล็อกอิน
   if (checkingSystem || status === 'loading') {
     return (
       <div className="clean-container">
-        <div className="login-box" style={{ background: 'transparent', boxShadow: 'none', border: 'none' }}>
-          <h2 className="title" style={{ fontSize: '20px' }}>กำลังเชื่อมต่อระบบ...</h2>
+        <div className="login-box flex flex-col items-center justify-center p-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-6">กำลังเชื่อมต่อระบบร้านค้า...</h2>
+          
+          {/* Progress Bar Container */}
+          <div className="w-full bg-slate-100 rounded-full h-4 mb-3 relative overflow-hidden shadow-inner border border-slate-200">
+            {/* Progress Fill */}
+            <div 
+              className="bg-amber-500 h-full rounded-full transition-all duration-200 ease-out flex items-center justify-end"
+              style={{ width: `${loadProgress}%` }}
+            >
+              {/* Shine effect */}
+              <div className="w-full h-full bg-white/20 animate-pulse"></div>
+            </div>
+          </div>
+          
+          {/* Percentage text */}
+          <div className="text-amber-600 font-bold text-lg">{loadProgress}%</div>
         </div>
       </div>
     );
@@ -163,9 +189,9 @@ function ShopLoginContent() {
 
   return (
     <div className="clean-container">
-      <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
-        strategy="afterInteractive" 
+      <Script
+        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`}
+        strategy="afterInteractive"
       />
 
       <style>{`
@@ -245,11 +271,11 @@ function ShopLoginContent() {
         </button>
 
         <div className="divider">หรือเชื่อมต่อด้วย</div>
-        
-        <button 
-          className="social-btn" 
-          onClick={() => handleSocialLogin('google')} 
-          type="button" 
+
+        <button
+          className="social-btn"
+          onClick={() => handleSocialLogin('google')}
+          type="button"
           disabled={loading}
         >
           <svg className="social-icon" viewBox="0 0 48 48">

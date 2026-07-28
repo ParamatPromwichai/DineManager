@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     // ✅ เปลี่ยนจาก ORDER BY created_at เป็น ORDER BY id ASC 
     // เพื่อป้องกันปัญหาข้อความสลับลำดับเวลาเซฟในวินาทีเดียวกัน
     const [rows]: any = await db.query(
-      "SELECT sender, message AS text FROM chats WHERE user_id = ? ORDER BY id ASC",
+      "SELECT id, sender, message AS text, created_at FROM chats WHERE user_id = ? ORDER BY id ASC",
       [user_id]
     );
 
@@ -32,9 +32,16 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const user_id = searchParams.get("user_id");
+    const message_id = searchParams.get("id");
+
+    if (message_id) {
+      // ลบข้อความใดข้อความหนึ่ง
+      await db.query("DELETE FROM chats WHERE id = ?", [message_id]);
+      return NextResponse.json({ success: true, message: "Deleted message" });
+    }
 
     if (!user_id) {
-      return NextResponse.json({ error: "missing user_id" }, { status: 400 });
+      return NextResponse.json({ error: "missing user_id or id" }, { status: 400 });
     }
 
     // ลบข้อมูลแชททั้งหมดของ user คนนี้
