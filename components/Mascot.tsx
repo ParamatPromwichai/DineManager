@@ -23,8 +23,8 @@ export default function Mascot() {
       // หยุดเสียงเก่าก่อนถ้ากำลังพูดอยู่
       window.speechSynthesis.cancel();
       
-      // เอา Emoji / สติ๊กเกอร์ ออกก่อนอ่าน (จะได้ไม่อ่านชื่ออีโมจิ)
-      const cleanText = text.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+      // เอา Emoji, สัญลักษณ์, และเครื่องหมายวรรคตอนต่างๆ ออกให้หมดก่อนอ่าน (เพื่อป้องกันการอ่านออกเสียงแปลกๆ เช่น จุลภาค)
+      const cleanText = text.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s]/g, '');
       
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'th-TH'; // ภาษาไทย
@@ -61,6 +61,8 @@ export default function Mascot() {
       msg = 'ออเดอร์กำลังดำเนินการครับ นั่งรอชิลๆ ได้เลย ⏳';
     } else if (pathname.includes('/customer/profile')) {
       msg = 'จัดการข้อมูลส่วนตัว หรือตั้งค่าปิดมาสคอตได้ที่นี่ครับ ⚙️';
+    } else if (pathname.includes('/customer/reserve')) {
+      msg = 'สำหรับหน้านี้เป็นหน้าเอาไว้ดูสถานะโต๊ะในร้านนะครับ 🪑';
     } else {
       msg = 'มีอะไรให้ผมช่วยบอกได้เสมอนะครับ 😊';
     }

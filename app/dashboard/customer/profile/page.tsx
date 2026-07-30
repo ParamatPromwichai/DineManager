@@ -256,19 +256,6 @@ export default function CustomerProfile() {
             <LogOut size={18} />
           </button>
 
-          <button
-            onClick={handleSave}
-            disabled={!isDirty || isSaving}
-            className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-1.5 transition-all ${
-              (!isDirty || isSaving) 
-                ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-lg shadow-blue-600/20'
-            }`}
-          >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {isSaving ? 'กำลังบันทึก' : 'บันทึก'}
-          </button>
-
         </div>
       </div>
 
@@ -332,8 +319,29 @@ export default function CustomerProfile() {
             </button>
           </div>
 
+          {/* 💾 Save Button */}
+          <div className="mt-6">
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || isSaving}
+              className={`w-full py-4 rounded-2xl font-black text-[1.05rem] flex items-center justify-center gap-2 transition-all ${
+                (!isDirty || isSaving) 
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-lg shadow-blue-600/20'
+              }`}
+            >
+              {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+              {isSaving ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลส่วนตัว'}
+            </button>
+          </div>
+        </div>
+
+        {/* ⚙️ Settings Area (New Card) */}
+        <div className="mt-6 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-blue-100 dark:border-slate-700 transition-colors">
+          <h2 className="text-[1.1rem] font-black text-blue-900 dark:text-blue-50 m-0 mb-4">การตั้งค่าแอปพลิเคชัน</h2>
+
           {/* 🤖 Mascot Settings */}
-          <div className="mt-5 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
             <div className="flex justify-between items-center gap-4">
               <div className="flex-1">
                 <div className="font-bold text-blue-900 dark:text-blue-50 text-[0.95rem]">มาสคอต AI นำทาง</div>
@@ -377,7 +385,6 @@ export default function CustomerProfile() {
               </button>
             </div>
           )}
-
         </div>
       </div>
 
