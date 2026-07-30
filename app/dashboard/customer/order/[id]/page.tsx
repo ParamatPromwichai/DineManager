@@ -103,7 +103,7 @@ export default function OrderDetailPage() {
   const handleCancelOrder = async () => {
     if (!order || !cancelReason.trim()) return;
     try {
-      const res = await fetch('/api/shop/orders', {
+      const res = await fetch('/api/customer/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

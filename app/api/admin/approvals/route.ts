@@ -63,7 +63,18 @@ export async function DELETE(req: Request) {
 
     if (!id) return NextResponse.json({ message: 'Missing ID' }, { status: 400 });
 
-    await db.query('DELETE FROM users WHERE id = ? AND role = "shop" AND is_locked = 1', [id]);
+    const [result]: any = await db.query(
+      'DELETE FROM users WHERE id = ? AND role = "shop" AND is_locked = 1', 
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { message: 'ไม่พบข้อมูลคำขอ หรือคำขอนี้ไม่ได้อยู่ในสถานะรออนุมัติแล้ว' }, 
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({ message: 'ปฏิเสธและลบคำขอเรียบร้อย' });
 
   } catch (error: any) {

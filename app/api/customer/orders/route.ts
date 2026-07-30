@@ -39,3 +39,44 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: 'Error fetching orders' }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
+    }
+
+    const userId = (session.user as any).id;
+    const { id, status, cancel_reason } = await req.json();
+
+    if (status !== 'cancel') {
+      return NextResponse.json({ message: 'Invalid status update' }, { status: 400 });
+    }
+
+    // เช็คว่าออเดอร์นี้เป็นของลูกค้านี้จริง และสถานะอนุญาตให้ยกเลิกได้
+    const [existingRows]: any = await db.query(
+      'SELECT status, user_id FROM orders WHERE id = ?',
+      [id]
+    );
+    
+    const order = existingRows?.[0];
+    if (!order || order.user_id !== userId) {
+      return NextResponse.json({ message: 'Order not found or unauthorized' }, { status: 404 });
+    }
+
+    if (order.status !== 'pending' && order.status !== 'checking_slip') {
+      return NextResponse.json({ message: 'Cannot cancel this order' }, { status: 400 });
+    }
+
+    await db.query(
+      'UPDATE orders SET status = ?, cancel_reason = ?, cancelled_by = ? WHERE id = ?',
+      ['cancel', cancel_reason, 'customer', id]
+    );
+
+    return NextResponse.json({ message: 'Order cancelled successfully' });
+  } catch (error) {
+    console.error("PUT Customer Order Error:", error);
+    return NextResponse.json({ message: 'Error updating order' }, { status: 500 });
+  }
+}
