@@ -45,35 +45,38 @@ export async function middleware(req: NextRequest) {
   }
 
   // 🛡️ 1. ตรวจสอบ Query Params ว่ามีคำสั่ง SQL หรือไม่
-  for (const [key, value] of url.searchParams.entries()) {
-    if (isSuspicious(value)) {
-      const ip = req.headers.get('x-forwarded-for') || 'Unknown';
-      const userAgent = req.headers.get('user-agent') || 'Unknown';
-      console.warn(`🚨 [WAF] Blocked SQL Injection attempt from IP: ${ip} on ${url.pathname}`);
-      
-      // บันทึก Log การโจมตีลงฐานข้อมูล (ทำงานแบบ Background ไม่รอผลลัพธ์)
-      fetch(`${req.nextUrl.origin}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'waf_blocked',
-          details: `Blocked SQL Injection attempt on ${url.pathname}?${key}=${value}`,
-          ip_address: ip,
-          user_agent: userAgent
-        })
-      }).catch(() => {});
+  // ข้ามการตรวจสอบ WAF สำหรับ NextAuth เพื่อป้องกัน False Positive จาก parameter 'state' ที่มี '--' (base64url)
+  if (!url.pathname.startsWith('/api/auth/')) {
+    for (const [key, value] of url.searchParams.entries()) {
+      if (isSuspicious(value)) {
+        const ip = req.headers.get('x-forwarded-for') || 'Unknown';
+        const userAgent = req.headers.get('user-agent') || 'Unknown';
+        console.warn(`🚨 [WAF] Blocked SQL Injection attempt from IP: ${ip} on ${url.pathname}`);
+        
+        // บันทึก Log การโจมตีลงฐานข้อมูล (ทำงานแบบ Background ไม่รอผลลัพธ์)
+        fetch(`${req.nextUrl.origin}/api/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'waf_blocked',
+            details: `Blocked SQL Injection attempt on ${url.pathname}?${key}=${value}`,
+            ip_address: ip,
+            user_agent: userAgent
+          })
+        }).catch(() => {});
 
-      // Auto-ban IP ที่พยายามโจมตี
-      fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ip_address: ip,
-          reason: 'Auto-banned by WAF (SQL Injection/XSS)'
-        })
-      }).catch(() => {});
+        // Auto-ban IP ที่พยายามโจมตี
+        fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip_address: ip,
+            reason: 'Auto-banned by WAF (SQL Injection/XSS)'
+          })
+        }).catch(() => {});
 
-      return NextResponse.json({ message: 'Forbidden: Invalid Characters Detected' }, { status: 403 });
+        return NextResponse.json({ message: 'Forbidden: Invalid Characters Detected' }, { status: 403 });
+      }
     }
   }
 
