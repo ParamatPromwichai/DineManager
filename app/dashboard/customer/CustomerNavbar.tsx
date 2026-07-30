@@ -71,7 +71,7 @@ export default function CustomerNavbar() {
       <div className="h-20" />
 
       <nav 
-        className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]"
+        className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.3)] transition-colors"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} // รองรับขอบจอด้านล่างของ iPhone
       >
         <div className="flex justify-around items-center h-16 max-w-md mx-auto px-2">
@@ -87,14 +87,14 @@ export default function CustomerNavbar() {
               >
                 <div
                   className={`flex flex-col items-center justify-center w-14 h-12 rounded-2xl transition-all duration-300 ${
-                    active ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                    active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200'
                   }`}
                 >
                   {/* แอนิเมชันไฮไลท์พื้นหลังเมนูที่กำลังใช้งานอยู่ */}
                   {active && (
                     <motion.div
                       layoutId="navbar-indicator"
-                      className="absolute inset-0 bg-blue-50 rounded-2xl -z-10 m-1"
+                      className="absolute inset-0 bg-blue-50 dark:bg-slate-800 rounded-2xl -z-10 m-1 transition-colors"
                       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                     />
                   )}

@@ -201,10 +201,10 @@ export default function OrderDetailPage() {
   // ➕ 5. โชว์ Loading ให้คลุมจังหวะที่ Session กำลังโหลดด้วย
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F4F8FF]">
+      <div className="flex items-center justify-center min-h-screen bg-blue-50 dark:bg-slate-900 transition-colors">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-[#1E3A8A] tracking-wide">กำลังโหลดออเดอร์...</span>
+          <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-wide">กำลังโหลดออเดอร์...</span>
         </div>
       </div>
     );
@@ -212,12 +212,12 @@ export default function OrderDetailPage() {
 
   if (error || !order) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F4F8FF] p-4">
-        <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full border border-[#DCE8FF] shadow-[0_4px_20px_rgba(37,99,235,0.05)]">
+      <div className="flex items-center justify-center min-h-screen bg-blue-50 dark:bg-slate-900 p-4 transition-colors">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 text-center max-w-sm w-full border border-blue-100 dark:border-slate-700 shadow-sm transition-colors">
           <XCircle size={56} className="text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-black text-[#1E3A8A] mb-2">เกิดข้อผิดพลาด</h2>
-          <p className="text-[#64748B] font-medium mb-6">{error || 'ไม่พบข้อมูลออเดอร์นี้'}</p>
-          <button onClick={() => router.back()} className="w-full py-3.5 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1D4ED8] rounded-xl font-bold transition-colors">
+          <h2 className="text-xl font-black text-blue-900 dark:text-blue-50 mb-2">เกิดข้อผิดพลาด</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-6">{error || 'ไม่พบข้อมูลออเดอร์นี้'}</p>
+          <button onClick={() => router.back()} className="w-full py-3.5 bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 text-blue-700 dark:text-blue-300 rounded-xl font-bold transition-colors">
             กลับไปหน้าหลัก
           </button>
         </div>
@@ -239,14 +239,14 @@ export default function OrderDetailPage() {
   const deliveryFee = order.delivery_fee ?? (order.total_price - subTotal);
 
   return (
-    <div className="min-h-screen bg-[#F4F8FF] font-sans text-slate-900 pb-24">
+    <div className="min-h-screen bg-blue-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 pb-24 transition-colors">
 
       {/* 🌟 Header */}
-      <div className="bg-white px-4 py-4 sm:px-6 sticky top-0 z-40 border-b border-[#DCE8FF] shadow-[0_2px_10px_rgba(37,99,235,0.03)] flex items-center justify-between">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-[#1D4ED8] font-bold text-sm transition-colors bg-[#EFF6FF] hover:bg-[#DBEAFE] px-3 py-2 rounded-xl border border-[#BFDBFE]">
+      <div className="bg-white dark:bg-slate-800 px-4 py-4 sm:px-6 sticky top-0 z-40 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center justify-between transition-colors">
+        <button onClick={() => router.back()} className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-sm transition-colors bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 px-3 py-2 rounded-xl border border-blue-200 dark:border-slate-600">
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-lg font-black text-[#1E3A8A] flex items-center gap-2">
+        <h1 className="text-lg font-black text-blue-900 dark:text-blue-50 flex items-center gap-2">
           ออเดอร์ #{order.id}
         </h1>
         <div className="w-16 text-right text-2xl relative">
@@ -259,31 +259,31 @@ export default function OrderDetailPage() {
       <div className="max-w-xl mx-auto px-4 sm:px-6 pt-6">
 
         {/* 🟡 Status Tracking Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`bg-white rounded-3xl p-6 shadow-[0_4px_15px_rgba(37,99,235,0.04)] border mb-6 ${statusInfo?.border || 'border-[#DCE8FF]'}`}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border mb-6 transition-colors ${statusInfo?.border || 'border-blue-100 dark:border-slate-700'}`}>
           <div className="flex items-start justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${statusInfo?.bg || 'bg-[#F4F8FF]'} ${statusInfo?.color || 'text-[#2563EB]'}`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${statusInfo?.bg || 'bg-blue-50 dark:bg-slate-700'} dark:bg-opacity-20 ${statusInfo?.color || 'text-blue-600 dark:text-blue-400'}`}>
                 <StatusIcon size={24} strokeWidth={2.5} />
               </div>
               <div>
-                <span className="text-sm font-bold text-[#64748B] block mb-0.5">สถานะปัจจุบัน</span>
-                <span className={`text-lg font-black ${statusInfo?.color || 'text-[#1E3A8A]'}`}>{statusInfo?.text || 'ไม่ทราบสถานะ'}</span>
+                <span className="text-sm font-bold text-slate-500 dark:text-slate-400 block mb-0.5">สถานะปัจจุบัน</span>
+                <span className={`text-lg font-black ${statusInfo?.color || 'text-blue-900 dark:text-blue-50'}`}>{statusInfo?.text || 'ไม่ทราบสถานะ'}</span>
               </div>
             </div>
 
             {/* Timer */}
             {order.status !== 'done' && order.status !== 'cancel' && !isLate && (
-              <div className="text-right bg-[#F4F8FF] px-4 py-2 rounded-2xl border border-[#DCE8FF]">
-                <div className="text-2xl font-black text-[#1E3A8A] tabular-nums">
+              <div className="text-right bg-blue-50 dark:bg-slate-700 px-4 py-2 rounded-2xl border border-blue-100 dark:border-slate-600 transition-colors">
+                <div className="text-2xl font-black text-blue-900 dark:text-blue-50 tabular-nums">
                   {minutes}:{seconds.toString().padStart(2, '0')}
                 </div>
-                <div className="text-[10px] font-bold text-[#60A5FA]">นาทีโดยประมาณ</div>
+                <div className="text-[10px] font-bold text-blue-400 dark:text-blue-300">นาทีโดยประมาณ</div>
               </div>
             )}
             {isLate && order.status !== 'done' && order.status !== 'cancel' && (
-              <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 0.8, repeat: Infinity }} className="text-right bg-rose-50 px-3 py-2 rounded-2xl border border-rose-100">
-                <div className="text-sm font-black text-rose-600 flex items-center gap-1"><Flame size={16} /> ล่าช้า!</div>
-                <div className="text-[10px] font-bold text-rose-400">กำลังเร่งดำเนินการ</div>
+              <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 0.8, repeat: Infinity }} className="text-right bg-rose-50 dark:bg-rose-900/30 px-3 py-2 rounded-2xl border border-rose-100 dark:border-rose-800">
+                <div className="text-sm font-black text-rose-600 dark:text-rose-400 flex items-center gap-1"><Flame size={16} /> ล่าช้า!</div>
+                <div className="text-[10px] font-bold text-rose-400 dark:text-rose-500">กำลังเร่งดำเนินการ</div>
               </motion.div>
             )}
           </div>
@@ -291,54 +291,54 @@ export default function OrderDetailPage() {
           {/* Progress Bar */}
           {order.status !== 'done' && order.status !== 'cancel' && (
             <div className="mb-6">
-              <div className="relative h-2.5 bg-[#E0EFFF] rounded-full overflow-hidden mb-2">
+              <div className="relative h-2.5 bg-blue-100 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
                 <motion.div
-                  className={`absolute top-0 left-0 h-full rounded-full ${order.status === 'delivery' ? 'bg-[#8B5CF6]' : 'bg-[#2563EB]'}`}
+                  className={`absolute top-0 left-0 h-full rounded-full ${order.status === 'delivery' ? 'bg-purple-500' : 'bg-blue-600'}`}
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(progress, 100)}%` }}
                   transition={{ duration: 0.5 }}
                 />
               </div>
-              <p className="text-[11px] font-semibold text-[#64748B] text-center flex items-center justify-center gap-1">
-                <Timer size={12} className="text-[#93C5FD]" /> *รวมคิวที่รอแล้ว ร้านมีเวลาเตรียมอาหารอย่างเหมาะสม
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 text-center flex items-center justify-center gap-1">
+                <Timer size={12} className="text-blue-400 dark:text-blue-500" /> *รวมคิวที่รอแล้ว ร้านมีเวลาเตรียมอาหารอย่างเหมาะสม
               </p>
             </div>
           )}
 
           {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-2">
-            <div className="bg-[#F4F8FF] rounded-2xl p-3 flex flex-col items-center justify-center text-center relative border border-[#DCE8FF]">
-              <Timer size={16} className="text-[#60A5FA] mb-1" />
-              <div className="text-xs font-black text-[#1E3A8A]">{estimatedTotalTimeMin}m</div>
-              <div className="text-[9px] font-bold text-[#64748B] mt-0.5">รวมทั้งหมด</div>
+            <div className="bg-blue-50 dark:bg-slate-700 rounded-2xl p-3 flex flex-col items-center justify-center text-center relative border border-blue-100 dark:border-slate-600 transition-colors">
+              <Timer size={16} className="text-blue-400 dark:text-blue-400 mb-1" />
+              <div className="text-xs font-black text-blue-900 dark:text-blue-50">{estimatedTotalTimeMin}m</div>
+              <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">รวมทั้งหมด</div>
               {(order.status === 'pending' || order.status === 'checking_slip') && queueCount > 0 && (
-                <div className="absolute -top-2 -right-2 bg-[#2563EB] text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm">
+                <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm">
                   +{queueCount}m
                 </div>
               )}
             </div>
-            <div className="bg-[#F4F8FF] rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-[#DCE8FF]">
-              <ChefHat size={16} className="text-[#60A5FA] mb-1" />
-              <div className="text-xs font-black text-[#1E3A8A]">{order.cooking_time_min}m</div>
-              <div className="text-[9px] font-bold text-[#64748B] mt-0.5">เตรียมอาหาร</div>
+            <div className="bg-blue-50 dark:bg-slate-700 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-blue-100 dark:border-slate-600 transition-colors">
+              <ChefHat size={16} className="text-blue-400 dark:text-blue-400 mb-1" />
+              <div className="text-xs font-black text-blue-900 dark:text-blue-50">{order.cooking_time_min}m</div>
+              <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">เตรียมอาหาร</div>
             </div>
-            <div className="bg-[#F4F8FF] rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-[#DCE8FF]">
-              <MapPin size={16} className="text-[#60A5FA] mb-1" />
-              <div className="text-xs font-black text-[#1E3A8A]">{order.distance_km}km</div>
-              <div className="text-[9px] font-bold text-[#64748B] mt-0.5">ระยะทาง</div>
+            <div className="bg-blue-50 dark:bg-slate-700 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-blue-100 dark:border-slate-600 transition-colors">
+              <MapPin size={16} className="text-blue-400 dark:text-blue-400 mb-1" />
+              <div className="text-xs font-black text-blue-900 dark:text-blue-50">{order.distance_km}km</div>
+              <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">ระยะทาง</div>
             </div>
-            <div className="bg-[#F4F8FF] rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-[#DCE8FF]">
-              <Footprints size={16} className="text-[#60A5FA] mb-1" />
-              <div className="text-xs font-black text-[#1E3A8A]">{order.delivery_time_min}m</div>
-              <div className="text-[9px] font-bold text-[#64748B] mt-0.5">การจัดส่ง</div>
+            <div className="bg-blue-50 dark:bg-slate-700 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-blue-100 dark:border-slate-600 transition-colors">
+              <Footprints size={16} className="text-blue-400 dark:text-blue-400 mb-1" />
+              <div className="text-xs font-black text-blue-900 dark:text-blue-50">{order.delivery_time_min}m</div>
+              <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">การจัดส่ง</div>
             </div>
           </div>
         </motion.div>
 
         {/* 📝 Order Items & Receipt */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-3xl p-6 shadow-[0_4px_15px_rgba(37,99,235,0.04)] border border-[#DCE8FF] mb-6">
-          <h2 className="text-base font-black mb-5 flex items-center gap-2 text-[#1E3A8A] pb-4 border-b border-[#EBF1FF]">
-            <Receipt size={18} className="text-[#2563EB]" /> ใบเสร็จรับเงิน
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-blue-100 dark:border-slate-700 mb-6 transition-colors">
+          <h2 className="text-base font-black mb-5 flex items-center gap-2 text-blue-900 dark:text-blue-50 pb-4 border-b border-blue-50 dark:border-slate-700 transition-colors">
+            <Receipt size={18} className="text-blue-600 dark:text-blue-400" /> ใบเสร็จรับเงิน
           </h2>
 
           <div className="space-y-4 mb-6">
@@ -346,7 +346,7 @@ export default function OrderDetailPage() {
               {order.items?.map((item, index) => (
                 <motion.div key={index} className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#F4F8FF] border border-[#DCE8FF] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 overflow-hidden flex-shrink-0 flex items-center justify-center transition-colors">
                       {(item as any).image ? (
                         <img
                           src={(item as any).image}
@@ -354,34 +354,34 @@ export default function OrderDetailPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Utensils size={20} className="text-[#93C5FD]" />
+                        <Utensils size={20} className="text-blue-300 dark:text-slate-500" />
                       )}
                     </div>
 
                     <div>
-                      <div className="font-bold text-[#1E40AF] text-sm leading-tight">{item.menu_name}</div>
-                      <div className="text-xs font-bold text-[#64748B] mt-1">x{item.quantity}</div>
+                      <div className="font-bold text-blue-800 dark:text-blue-200 text-sm leading-tight">{item.menu_name}</div>
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">x{item.quantity}</div>
                     </div>
                   </div>
-                  <div className="font-black text-[#2563EB] text-sm">฿{(item.price * item.quantity).toLocaleString()}</div>
+                  <div className="font-black text-blue-600 dark:text-blue-400 text-sm">฿{(item.price * item.quantity).toLocaleString()}</div>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
 
-          <div className="bg-[#F4F8FF] p-4 rounded-2xl border border-[#DCE8FF] space-y-2">
+          <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-2xl border border-blue-100 dark:border-slate-600 space-y-2 transition-colors">
             <div className="flex justify-between items-center text-sm">
-              <span className="font-bold text-[#64748B]">ค่าอาหารรวม</span>
-              <span className="font-black text-[#1E3A8A]">฿{subTotal.toLocaleString()}</span>
+              <span className="font-bold text-slate-500 dark:text-slate-400">ค่าอาหารรวม</span>
+              <span className="font-black text-blue-900 dark:text-blue-50">฿{subTotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="font-bold text-[#64748B]">ค่าจัดส่ง ({order.distance_km} กม.)</span>
-              <span className="font-black text-[#1E3A8A]">฿{deliveryFee.toLocaleString()}</span>
+              <span className="font-bold text-slate-500 dark:text-slate-400">ค่าจัดส่ง ({order.distance_km} กม.)</span>
+              <span className="font-black text-blue-900 dark:text-blue-50">฿{deliveryFee.toLocaleString()}</span>
             </div>
-            <div className="border-t border-[#BFDBFE] my-2"></div>
+            <div className="border-t border-blue-200 dark:border-slate-600 my-2 transition-colors"></div>
             <div className="flex justify-between items-center">
-              <span className="font-black text-[#1E3A8A]">ยอดชำระสุทธิ</span>
-              <span className="text-xl font-black text-[#2563EB]">฿{order.total_price.toLocaleString()}</span>
+              <span className="font-black text-blue-900 dark:text-blue-50">ยอดชำระสุทธิ</span>
+              <span className="text-xl font-black text-blue-600 dark:text-blue-400">฿{order.total_price.toLocaleString()}</span>
             </div>
           </div>
         </motion.div>
@@ -393,11 +393,11 @@ export default function OrderDetailPage() {
               onClick={() => setShowReview(true)}
               className={`w-full py-4 rounded-2xl font-black text-lg shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 ${
                 hasReviewed 
-                ? 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] hover:bg-[#DBEAFE]' 
-                : 'bg-gradient-to-r from-[#1D4ED8] to-[#2563EB] text-white hover:shadow-[0_8px_20px_rgba(37,99,235,0.3)]'
+                ? 'bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 hover:bg-blue-100 dark:hover:bg-slate-700' 
+                : 'bg-gradient-to-r from-blue-700 to-blue-600 text-white hover:shadow-lg shadow-blue-600/30'
                 }`}
             >
-              <Star size={20} className={hasReviewed ? 'text-[#60A5FA]' : 'fill-[#FCD34D] text-[#FCD34D]'} />
+              <Star size={20} className={hasReviewed ? 'text-blue-400 dark:text-blue-500' : 'fill-amber-400 text-amber-400'} />
               {hasReviewed ? 'แก้ไขรีวิวของคุณ' : 'รีวิวอาหารมื้อนี้'}
             </button>
           </motion.div>
@@ -420,26 +420,26 @@ export default function OrderDetailPage() {
       {/* 🌟 Modal รีวิว */}
       <AnimatePresence>
         {showReview && (
-          <div className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <motion.div
-              className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-[0_10px_40px_rgba(37,99,235,0.15)] border border-[#DCE8FF]"
+              className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 w-full max-w-sm shadow-xl border border-blue-100 dark:border-slate-700 transition-colors"
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
             >
-              <div className="w-16 h-16 bg-[#F4F8FF] border border-[#DCE8FF] rounded-full flex items-center justify-center mx-auto mb-4">
-                <Star size={32} className="fill-[#F59E0B] text-[#F59E0B]" />
+              <div className="w-16 h-16 bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors">
+                <Star size={32} className="fill-amber-500 text-amber-500" />
               </div>
-              <h2 className="text-xl font-black mb-1 text-center text-[#1E3A8A]">
+              <h2 className="text-xl font-black mb-1 text-center text-blue-900 dark:text-blue-50">
                 {hasReviewed ? 'แก้ไขรีวิว' : 'ให้คะแนนอาหาร'}
               </h2>
-              <p className="text-center text-[#64748B] font-medium text-sm mb-6">ช่วยบอกให้เรารู้ว่ามื้อนี้เป็นยังไงบ้าง 😊</p>
+              <p className="text-center text-slate-500 dark:text-slate-400 font-medium text-sm mb-6">ช่วยบอกให้เรารู้ว่ามื้อนี้เป็นยังไงบ้าง 😊</p>
 
               {/* ดาว */}
               <div className="flex gap-2 mb-6 justify-center">
                 {[1, 2, 3, 4, 5].map((starIdx) => (
                   <button key={starIdx} onClick={() => setRating(starIdx)} className="focus:outline-none transition-transform hover:scale-110 active:scale-95">
-                    <Star size={36} className={`transition-colors ${starIdx <= rating ? 'fill-[#F59E0B] text-[#F59E0B]' : 'text-[#E2E8F0]'}`} />
+                    <Star size={36} className={`transition-colors ${starIdx <= rating ? 'fill-amber-500 text-amber-500' : 'text-slate-200 dark:text-slate-600'}`} />
                   </button>
                 ))}
               </div>
@@ -449,15 +449,15 @@ export default function OrderDetailPage() {
                 placeholder="เขียนรีวิวถึงร้านค้า (ไม่บังคับ)..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="w-full bg-[#F4F8FF] border border-[#BFDBFE] focus:border-[#2563EB] focus:ring-4 focus:ring-[#E0EFFF] outline-none rounded-2xl p-4 mb-6 transition-all font-medium text-[#1E3A8A] resize-none"
+                className="w-full bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 outline-none rounded-2xl p-4 mb-6 transition-all font-medium text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 resize-none"
                 rows={3}
               />
 
               <div className="flex gap-3">
-                <button onClick={() => setShowReview(false)} className="flex-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl py-3.5 font-bold text-[#475569] hover:bg-[#E2E8F0] transition-colors">
+                <button onClick={() => setShowReview(false)} className="flex-1 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl py-3.5 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
                   ยกเลิก
                 </button>
-                <button onClick={submitReview} className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-black rounded-xl py-3.5 transition-colors shadow-[0_4px_12px_rgba(37,99,235,0.25)]">
+                <button onClick={submitReview} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl py-3.5 transition-colors shadow-lg shadow-blue-600/30">
                   {hasReviewed ? 'บันทึก' : 'ส่งรีวิว'}
                 </button>
               </div>
@@ -469,42 +469,42 @@ export default function OrderDetailPage() {
       {/* ⚠️ Modal ยกเลิกออเดอร์ */}
       <AnimatePresence>
         {showCancelPopup && (
-          <div className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <motion.div
-              className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-[0_10px_40px_rgba(37,99,235,0.15)] border border-[#DCE8FF] text-center"
+              className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 w-full max-w-sm shadow-xl border border-blue-100 dark:border-slate-700 text-center transition-colors"
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
             >
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-100">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/30 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-800 transition-colors">
                 <XCircle size={32} />
               </div>
-              <h3 className="text-xl text-[#1E3A8A] font-black mb-2">
+              <h3 className="text-xl text-blue-900 dark:text-blue-50 font-black mb-2">
                 ต้องการยกเลิกออเดอร์?
               </h3>
-              <p className="text-[#64748B] font-medium mb-4 text-sm">
+              <p className="text-slate-500 dark:text-slate-400 font-medium mb-4 text-sm">
                 เมื่อยกเลิกแล้วจะไม่สามารถย้อนกลับได้<br/>คุณแน่ใจใช่ไหม?
               </p>
               <div className="mb-6 text-left">
-                <label className="block text-sm font-bold text-[#1E3A8A] mb-2">สาเหตุที่ยกเลิก <span className="text-rose-500">*</span></label>
+                <label className="block text-sm font-bold text-blue-900 dark:text-blue-50 mb-2">สาเหตุที่ยกเลิก <span className="text-rose-500">*</span></label>
                 <textarea 
                   value={cancelReason}
                   onChange={e => setCancelReason(e.target.value)}
                   placeholder="ระบุสาเหตุที่ยกเลิก..." 
-                  className="w-full px-4 py-3 rounded-xl border border-[#DCE8FF] focus:border-[#2563EB] focus:ring-2 focus:ring-[#BFDBFE] outline-none transition-all resize-none h-24 text-sm"
+                  className="w-full px-4 py-3 rounded-xl border border-blue-100 dark:border-slate-600 focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-400 outline-none transition-all resize-none h-24 text-sm"
                 ></textarea>
               </div>
               <div className="flex flex-col gap-3">
                 <button 
                   disabled={!cancelReason.trim()}
                   onClick={handleCancelOrder} 
-                  className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors ${cancelReason.trim() ? 'bg-rose-500 hover:bg-rose-600' : 'bg-rose-300 cursor-not-allowed'}`}
+                  className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors ${cancelReason.trim() ? 'bg-rose-500 hover:bg-rose-600' : 'bg-rose-300 dark:bg-rose-800 cursor-not-allowed shadow-none'}`}
                 >
                   ยืนยันการยกเลิก
                 </button>
                 <button 
                   onClick={() => { setShowCancelPopup(false); setCancelReason(''); }} 
-                  className="w-full py-3.5 bg-[#F4F8FF] text-[#64748B] hover:bg-[#E2E8F0] rounded-xl font-bold transition-colors border border-[#DCE8FF]"
+                  className="w-full py-3.5 bg-blue-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-bold transition-colors border border-blue-100 dark:border-slate-600"
                 >
                   ไม่ กลับไปก่อน
                 </button>

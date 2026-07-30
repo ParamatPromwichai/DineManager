@@ -349,22 +349,22 @@ function AllMenusContent() {
   }, [menus, searchQuery, activeFilter, activeCategory]);
 
   return (
-    <div style={{ padding: '20px 20px 280px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div className={`p-5 bg-blue-50 dark:bg-slate-900 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-[160px]' : 'pb-6'}`}>
       {/* Header & ปุ่มย้อนกลับ */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
+      <div className="flex items-center mb-5 gap-2.5">
         <button 
           onClick={() => router.push('/dashboard/customer')} 
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontWeight: 'bold', cursor: 'pointer', padding: '8px 14px', borderRadius: '20px', fontSize: '0.9rem' }}
+          className="flex items-center gap-1 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-300 font-bold cursor-pointer px-3.5 py-2 rounded-full text-[0.9rem] transition-colors"
         >
           <ArrowLeft size={16} /> กลับ
         </button>
-        <h1 style={{ margin: 0, flex: 1, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#1E3A8A', fontSize: '1.3rem', fontWeight: '900' }}>
-          <Utensils size={24} color="#2563EB" /> เมนูทั้งหมด
+        <h1 className="m-0 flex-1 text-center flex items-center justify-center gap-2 text-blue-900 dark:text-blue-50 text-[1.3rem] font-black">
+          <Utensils size={24} className="text-blue-600 dark:text-blue-400" /> เมนูทั้งหมด
         </h1>
-        <button onClick={() => router.push('/dashboard/customer/cart')} style={{ position: 'relative', background: '#ffffff', border: '1px solid #DCE8FF', color: '#2563EB', cursor: 'pointer', padding: '10px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(37,99,235,0.05)' }}>
+        <button onClick={() => router.push('/dashboard/customer/cart')} className="relative bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-blue-600 dark:text-blue-400 cursor-pointer p-2.5 rounded-full flex items-center justify-center shadow-sm transition-colors">
           <ShoppingCart size={22} />
           {cart.reduce((a, b) => a + b.quantity, 0) > 0 && (
-            <span style={{ position: 'absolute', top: -6, right: -6, background: '#EF4444', color: 'white', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', border: '2px solid #ffffff' }}>
+            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-[22px] h-[22px] flex items-center justify-center text-[0.75rem] font-bold border-2 border-white dark:border-slate-800 transition-colors">
               {cart.reduce((a, b) => a + b.quantity, 0)}
             </span>
           )}
@@ -372,76 +372,45 @@ function AllMenusContent() {
       </div>
 
       {/* ช่องค้นหา */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 15 }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <Search size={18} color="#93C5FD" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+      <div className="flex gap-2.5 mb-4">
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-300 dark:text-slate-400" />
           <input 
             type="text" 
             placeholder="ค้นหาชื่ออาหารที่คุณต้องการ..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', padding: '14px 14px 14px 42px', border: '1px solid #BFDBFE', borderRadius: '16px', outline: 'none', background: '#ffffff', fontSize: '0.95rem', boxSizing: 'border-box', color: '#1E3A8A', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.02)' }}
+            className="w-full p-3.5 pl-11 border border-blue-200 dark:border-slate-700 rounded-2xl outline-none bg-white dark:bg-slate-800 text-[0.95rem] text-blue-900 dark:text-blue-50 shadow-sm placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
           />
           {searchQuery && (
-            <X size={16} color="#64748B" onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }} />
+            <X size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-slate-500 dark:text-slate-400" onClick={() => setSearchQuery('')} />
           )}
         </div>
       </div>
 
       {/* หมวดหมู่อาหาร (Custom UI Dropdown) */}
       {categories.length > 0 && (
-        <div style={{ position: 'relative', marginBottom: 15 }}>
+        <div className="relative mb-4">
           <div
             onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              background: '#ffffff',
-              border: '1px solid #BFDBFE',
-              borderRadius: '16px',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              color: '#1E3A8A',
-              cursor: 'pointer',
-              boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
+            className="w-full p-3.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-2xl text-[1rem] font-bold text-blue-900 dark:text-blue-100 cursor-pointer shadow-sm flex justify-between items-center transition-colors"
           >
             <span>
               {activeCategory === 'all' 
                 ? '🍽️ ทุกหมวดหมู่' 
                 : `📍 ${categories.find(c => c.id === activeCategory)?.name || 'ทุกหมวดหมู่'}`}
             </span>
-            <ChevronDown size={20} color="#3B82F6" style={{ transform: isCategoryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
+            <ChevronDown size={20} className={`text-blue-500 dark:text-blue-400 transition-transform duration-300 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
           </div>
 
           {/* เมนูที่กางออกมา */}
           {isCategoryDropdownOpen && (
-            <div style={{ 
-              position: 'absolute', 
-              top: '100%', 
-              left: 0, 
-              right: 0, 
-              marginTop: '8px', 
-              background: '#ffffff', 
-              borderRadius: '16px', 
-              boxShadow: '0 10px 25px rgba(37, 99, 235, 0.1)', 
-              zIndex: 100,
-              border: '1px solid #EBF1FF',
-              overflow: 'hidden'
-            }}>
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-lg z-[100] border border-blue-50 dark:border-slate-700 overflow-hidden transition-colors">
               <div
                 onClick={() => { setActiveCategory('all'); setIsCategoryDropdownOpen(false); }}
-                style={{
-                  padding: '14px 20px',
-                  cursor: 'pointer',
-                  fontWeight: activeCategory === 'all' ? 'bold' : 'normal',
-                  color: activeCategory === 'all' ? '#2563EB' : '#475569',
-                  background: activeCategory === 'all' ? '#F4F8FF' : '#ffffff',
-                  borderBottom: '1px solid #F1F5F9'
-                }}
+                className={`p-3.5 cursor-pointer border-b border-slate-100 dark:border-slate-700 transition-colors ${
+                  activeCategory === 'all' ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-slate-700' : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800'
+                }`}
               >
                 🍽️ ทุกหมวดหมู่
               </div>
@@ -449,14 +418,9 @@ function AllMenusContent() {
                 <div
                   key={cat.id}
                   onClick={() => { setActiveCategory(cat.id); setIsCategoryDropdownOpen(false); }}
-                  style={{
-                    padding: '14px 20px',
-                    cursor: 'pointer',
-                    fontWeight: activeCategory === cat.id ? 'bold' : 'normal',
-                    color: activeCategory === cat.id ? '#2563EB' : '#475569',
-                    background: activeCategory === cat.id ? '#F4F8FF' : '#ffffff',
-                    borderBottom: '1px solid #F1F5F9'
-                  }}
+                  className={`p-3.5 cursor-pointer border-b border-slate-100 dark:border-slate-700 transition-colors ${
+                    activeCategory === cat.id ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-slate-700' : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800'
+                  }`}
                 >
                   📍 {cat.name}
                 </div>
@@ -467,57 +431,69 @@ function AllMenusContent() {
       )}
 
       {/* แถบตัวกรอง */}
-      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 12, marginBottom: 20, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
-        <button onClick={() => setActiveFilter('all')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'all' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'all' ? '#2563EB' : '#fff', color: activeFilter === 'all' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>🍛 ทั้งหมด</button>
-        <button onClick={() => setActiveFilter('popular')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'popular' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'popular' ? '#2563EB' : '#fff', color: activeFilter === 'popular' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>🔥 ยอดฮิต (รีวิวเยอะ)</button>
-        <button onClick={() => setActiveFilter('rating')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'rating' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'rating' ? '#2563EB' : '#fff', color: activeFilter === 'rating' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>⭐ เรตติ้งสูง (4.5+)</button>
-        <button onClick={() => setActiveFilter('price')} style={{ padding: '10px 18px', borderRadius: '20px', border: activeFilter === 'price' ? '2px solid #2563EB' : '1px solid #DCE8FF', background: activeFilter === 'price' ? '#2563EB' : '#fff', color: activeFilter === 'price' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer', transition: '0.2s' }}>💰 ราคาประหยัด</button>
+      <div className="flex gap-2.5 overflow-x-auto pb-3 mb-5 snap-x snap-mandatory">
+        <button onClick={() => setActiveFilter('all')} className={`px-4 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap cursor-pointer transition-colors border-2 snap-start shrink-0 ${
+          activeFilter === 'all' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+        }`}>🍛 ทั้งหมด</button>
+        <button onClick={() => setActiveFilter('popular')} className={`px-4 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap cursor-pointer transition-colors border-2 snap-start shrink-0 ${
+          activeFilter === 'popular' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+        }`}>🔥 ยอดฮิต (รีวิวเยอะ)</button>
+        <button onClick={() => setActiveFilter('rating')} className={`px-4 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap cursor-pointer transition-colors border-2 snap-start shrink-0 ${
+          activeFilter === 'rating' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+        }`}>⭐ เรตติ้งสูง (4.5+)</button>
+        <button onClick={() => setActiveFilter('price')} className={`px-4 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap cursor-pointer transition-colors border-2 snap-start shrink-0 ${
+          activeFilter === 'price' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+        }`}>💰 ราคาประหยัด</button>
       </div>
 
       {/* Grid เมนูอาหาร */}
       {filteredAndSortedMenus.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 items-stretch">
           {filteredAndSortedMenus.map(menu => {
             const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
             return (
-              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} style={{ cursor: 'pointer', background: '#ffffff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.04)', display: 'flex', flexDirection: 'column', opacity: isMenuSoldOut ? 0.6 : 1, border: '1px solid #DCE8FF', height: '100%' }}>
-                <div style={{ height: '130px', background: '#F0F5FF', position: 'relative', flexShrink: 0 }}>
+              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} className={`cursor-pointer bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col border border-blue-100 dark:border-slate-700 h-full transition-colors ${isMenuSoldOut ? 'opacity-60' : 'opacity-100'}`}>
+                <div className="h-[130px] bg-blue-50 dark:bg-slate-700 relative shrink-0 transition-colors">
                   {menu.image ? (
-                    <img src={menu.image} alt={menu.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> 
+                    <img src={menu.image} alt={menu.name} className="w-full h-full object-cover" /> 
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#93C5FD' }}>
-                      <ImageOff size={24} style={{ marginBottom: 5 }} />
-                      <span style={{ fontSize: '0.75rem' }}>ไม่มีรูปภาพ</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center text-blue-300 dark:text-slate-500">
+                      <ImageOff size={24} className="mb-1" />
+                      <span className="text-[0.75rem]">ไม่มีรูปภาพ</span>
                     </div>
                   )}
                 </div>
 
-                <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', marginBottom: 4, color: isMenuSoldOut ? '#94a3b8' : '#1E3A8A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{menu.name}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
+                <div className="p-3 flex-1 flex flex-col">
+                  <div className={`font-bold text-[0.95rem] mb-1 whitespace-nowrap overflow-hidden text-ellipsis ${isMenuSoldOut ? 'text-slate-400 dark:text-slate-500' : 'text-blue-900 dark:text-blue-50'}`}>{menu.name}</div>
+                  <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 mb-2 flex items-center">
                     {renderStars(Number(menu.avg_rating))} 
-                    <span style={{ color: '#93C5FD', marginLeft: 4, fontWeight: 'bold' }}>({menu.review_count})</span>
+                    <span className="text-blue-300 dark:text-slate-500 ml-1 font-bold">({menu.review_count})</span>
                   </div>
                   
                   {menu.addon_option_ids && menu.addon_option_ids.length > 0 && (
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ fontSize: '0.7rem', background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                    <div className="mb-2">
+                      <span className="text-[0.7rem] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-md font-bold border border-blue-200 dark:border-blue-800/50">
                         + มีตัวเลือกเสริม
                       </span>
                     </div>
                   )}
                   
-                  <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: isMenuSoldOut ? '#94a3b8' : '#2563EB', fontWeight: '900', fontSize: '1.1rem' }}>{Number(menu.price).toLocaleString()} ฿</span>
+                  <div className="mt-auto flex justify-between items-center">
+                    <span className={`font-black text-[1.1rem] ${isMenuSoldOut ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>{Number(menu.price).toLocaleString()} ฿</span>
                     
                     {isMenuSoldOut ? (
-                      <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 12px', fontSize: '0.75rem', fontWeight: 'bold' }}>หมด</span>
+                      <span className="bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-none rounded-2xl px-3 py-1.5 text-[0.75rem] font-bold">หมด</span>
                     ) : (
                       <button 
                         disabled={!!(shopData && !shopData.is_open)}
                         onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }} 
-                        style={{ background: (shopData && !shopData.is_open) ? '#F1F5F9' : '#EFF6FF', color: (shopData && !shopData.is_open) ? '#94A3B8' : '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: '34px', height: '34px', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', transition: '0.2s' }}
+                        className={`w-[34px] h-[34px] rounded-full flex items-center justify-center transition-all border ${
+                          (shopData && !shopData.is_open) 
+                            ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-transparent cursor-not-allowed' 
+                            : 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-slate-600 cursor-pointer hover:bg-blue-100 dark:hover:bg-slate-600'
+                        }`}
                       >
                         <Plus size={18} strokeWidth={2.5} />
                       </button>
@@ -529,9 +505,9 @@ function AllMenusContent() {
           })}
         </div>
       ) : (
-        <div style={{ textAlign: 'center', padding: '50px 20px', color: '#64748B', background: '#fff', borderRadius: '20px', border: '1px solid #DCE8FF' }}>
-          <ImageOff size={40} color="#93C5FD" style={{ marginBottom: 10 }} />
-          <p style={{ margin: 0, fontWeight: 'bold' }}>ไม่พบรายการอาหารที่ตรงกับตัวกรอง</p>
+        <div className="text-center p-12 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 transition-colors">
+          <ImageOff size={40} className="mb-2.5 mx-auto text-blue-300 dark:text-slate-500" />
+          <p className="m-0 font-bold">ไม่พบรายการอาหารที่ตรงกับตัวกรอง</p>
         </div>
       )}
 
@@ -546,34 +522,34 @@ function AllMenusContent() {
 
       {/* --- ตะกร้า (Cart Overlay) --- */}
       {cart.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 85, left: 15, right: 15, background: '#ffffff', borderRadius: 20, padding: '15px 20px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.15)', zIndex: 90, border: '1px solid #DCE8FF' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCartExpanded ? 15 : 10 }}>
-            <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
-              <ShoppingCart size={20} color="#2563EB" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
+        <div className="fixed bottom-[85px] left-4 right-4 bg-white dark:bg-slate-800 rounded-3xl p-4 shadow-xl border border-blue-100 dark:border-slate-700 z-[90] transition-colors">
+          <div className={`flex justify-between items-center ${isCartExpanded ? 'mb-4' : 'mb-2.5'}`}>
+            <h4 className="m-0 text-[1.1rem] flex items-center gap-2 text-blue-900 dark:text-blue-100">
+              <ShoppingCart size={20} className="text-blue-600 dark:text-blue-400" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
             </h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-              <span style={{ fontWeight: '900', fontSize: '1.3em', color: '#2563EB' }}>{subTotal.toLocaleString()} ฿</span>
-              <button onClick={() => setIsCartExpanded(!isCartExpanded)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}>
+            <div className="flex items-center gap-4">
+              <span className="font-black text-xl text-blue-600 dark:text-blue-400">{subTotal.toLocaleString()} ฿</span>
+              <button onClick={() => setIsCartExpanded(!isCartExpanded)} className="bg-slate-100 dark:bg-slate-700 border-none rounded-full w-8 h-8 flex items-center justify-center cursor-pointer text-slate-500 dark:text-slate-300 transition-colors">
                 {isCartExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
               </button>
             </div>
           </div>
 
           {isCartExpanded && (
-            <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: 15, borderBottom: '1px solid #EBF1FF', paddingBottom: 10 }}>
+            <div className="max-h-[160px] overflow-y-auto mb-4 border-b border-blue-50 dark:border-slate-700 pb-2.5 transition-colors">
               {cart.map(item => (
-                <div key={item.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ flex: 1, paddingRight: 10 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E40AF' }}>{item.originalName}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.3 }}>{item.name.replace(item.originalName, '').trim()}</div>
-                    <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
+                <div key={item.cartItemId} className="flex justify-between items-start mb-3">
+                  <div className="flex-1 pr-2.5">
+                    <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.originalName}</div>
+                    <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 leading-snug">{item.name.replace(item.originalName, '').trim()}</div>
+                    <div className="text-blue-600 dark:text-blue-400 font-bold text-[0.85rem]">{item.price.toLocaleString()} ฿</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                    <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
+                  <div className="flex items-center bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 rounded-full overflow-hidden transition-colors">
+                    <button onClick={() => removeFromCart(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-red-500 flex items-center">
                       <Minus size={14} strokeWidth={3} />
                     </button>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                    <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
+                    <span className="text-[0.95rem] font-bold w-5 text-center text-blue-900 dark:text-blue-100">{item.quantity}</span>
+                    <button onClick={() => addToCartDirectly(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-blue-600 dark:text-blue-400 flex items-center">
                       <Plus size={14} strokeWidth={3} />
                     </button>
                   </div>
@@ -582,7 +558,11 @@ function AllMenusContent() {
             </div>
           )}
 
-          <button disabled={!!(shopData && !shopData.is_open)} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (shopData && !shopData.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+          <button disabled={!!(shopData && !shopData.is_open)} onClick={() => router.push('/dashboard/customer/cart')} className={`w-full p-3 rounded-2xl border-none text-[1.05rem] font-bold transition-all ${
+            (shopData && !shopData.is_open) 
+              ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+              : 'bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 text-white cursor-pointer shadow-lg shadow-blue-600/30'
+          }`}>
             {(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
@@ -596,36 +576,36 @@ function AllMenusContent() {
 export default function AllMenusPage() {
   return (
     <Suspense fallback={
-      <div style={{ padding: '20px 20px 100px 20px', minHeight: '100vh', background: '#F8FAFC' }}>
-        <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+      <div className="px-5 pt-5 pb-[100px] min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+        <div className="animate-pulse flex flex-col gap-6">
           {/* Header Skeleton */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div style={{ width: '80px', height: '36px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
-            <div style={{ height: '24px', width: '120px', backgroundColor: '#E2E8F0', borderRadius: '12px' }}></div>
-            <div style={{ width: '45px', height: '45px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-[80px] h-[36px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+            <div className="h-[24px] w-[120px] bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+            <div className="w-[45px] h-[45px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
           </div>
           
           {/* Search & Categories Skeleton */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <div style={{ width: '100%', height: '50px', backgroundColor: '#E2E8F0', borderRadius: '25px' }}></div>
-            <div style={{ display: 'flex', gap: '10px', overflowX: 'hidden' }}>
+          <div className="flex flex-col gap-4">
+            <div className="w-full h-[50px] bg-slate-200 dark:bg-slate-800 rounded-3xl"></div>
+            <div className="flex gap-2.5 overflow-hidden">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} style={{ minWidth: '90px', height: '40px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
+                <div key={i} className="min-w-[90px] h-[40px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
               ))}
             </div>
           </div>
           
           {/* Vertical List Cards Skeleton */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div className="flex flex-col gap-4">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ display: 'flex', height: '110px', backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #EBF1FF', overflow: 'hidden' }}>
-                <div style={{ width: '120px', height: '100%', backgroundColor: '#E2E8F0' }}></div>
-                <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div key={i} className="flex h-[110px] bg-white dark:bg-slate-800 rounded-3xl border border-blue-50 dark:border-slate-700 overflow-hidden">
+                <div className="w-[120px] h-full bg-slate-200 dark:bg-slate-700"></div>
+                <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <div style={{ height: '18px', width: '70%', backgroundColor: '#E2E8F0', borderRadius: '8px', marginBottom: '8px' }}></div>
-                    <div style={{ height: '14px', width: '40%', backgroundColor: '#E2E8F0', borderRadius: '8px' }}></div>
+                    <div className="h-[18px] w-[70%] bg-slate-200 dark:bg-slate-700 rounded-lg mb-2"></div>
+                    <div className="h-[14px] w-[40%] bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
                   </div>
-                  <div style={{ height: '20px', width: '30%', backgroundColor: '#E2E8F0', borderRadius: '8px' }}></div>
+                  <div className="h-[20px] w-[30%] bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
                 </div>
               </div>
             ))}
@@ -730,41 +710,41 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
     });
   }
 
-  const pillStyle = (active: boolean) => ({
-    padding: '10px 16px', fontSize: '0.9rem', borderRadius: '20px', cursor: 'pointer',
-    border: active ? '2px solid #2563EB' : '1px solid #DCE8FF',
-    background: active ? '#EFF6FF' : '#ffffff',
-    color: active ? '#1D4ED8' : '#475569',
-    fontWeight: active ? 'bold' : 'normal',
-    transition: 'all 0.2s ease-in-out'
-  });
-
+  
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 1100 }}>
-      <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: '32px 32px 0 0', padding: '25px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 -10px 25px rgba(37, 99, 235, 0.15)' }}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-end z-[1100]">
+      <div className="bg-white dark:bg-slate-800 w-full max-w-[500px] rounded-t-[32px] p-6 max-h-[85vh] overflow-y-auto shadow-[0_-10px_25px_rgba(0,0,0,0.1)] transition-colors">
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: '#1E3A8A' }}>{menu.name}</h2>
-          <button onClick={onClose} style={{ background: '#F4F8FF', border: 'none', cursor: 'pointer', color: '#2563EB', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="m-0 text-[1.35rem] font-black text-blue-900 dark:text-blue-50">{menu.name}</h2>
+          <button onClick={onClose} className="bg-blue-50 dark:bg-slate-700 border-none cursor-pointer text-blue-600 dark:text-blue-400 w-9 h-9 rounded-full flex items-center justify-center transition-colors">
             <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 25 }}>
+        <div className="flex flex-col gap-6">
           {Object.entries(groupedOptions).map(([groupName, options]) => {
             const isMultiple = Boolean(Number(options[0].is_multiple));
             return (
               <div key={groupName}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-                  {isMultiple ? <CheckSquare size={18} color="#2563EB" /> : <CheckCircle2 size={18} color="#2563EB" />} 
-                  {groupName} {!isMultiple && <span style={{ color: '#EF4444' }}>*</span>}
+                <h4 className="m-0 mb-3 text-[1rem] text-blue-800 dark:text-blue-200 flex items-center gap-1.5 font-bold">
+                  {isMultiple ? <CheckSquare size={18} className="text-blue-600 dark:text-blue-400" /> : <CheckCircle2 size={18} className="text-blue-600 dark:text-blue-400" />} 
+                  {groupName} {!isMultiple && <span className="text-red-500">*</span>}
                 </h4>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="flex gap-2 flex-wrap">
                   {options.map(opt => {
                     const isSelected = selectedOptions[groupName]?.some(o => o.id === opt.id);
                     const priceText = Number(opt.extra_price) > 0 ? ` (+${opt.extra_price} ฿)` : '';
                     return (
-                      <button key={opt.id} onClick={() => toggleOption(groupName, opt)} style={pillStyle(isSelected)}>
+                      <button 
+                        key={opt.id} 
+                        onClick={() => toggleOption(groupName, opt)} 
+                        className={`px-4 py-2.5 text-[0.9rem] rounded-full cursor-pointer border-2 transition-all ${
+                          isSelected 
+                            ? 'border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold' 
+                            : 'border-blue-100 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-normal'
+                        }`}
+                      >
                         {opt.option_name}{priceText}
                       </button>
                     );
@@ -775,20 +755,20 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
           })}
 
           <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <PenLine size={18} color="#2563EB" /> หมายเหตุเพิ่มเติม
+            <h4 className="m-0 mb-3 text-[1rem] text-blue-800 dark:text-blue-200 flex items-center gap-1.5 font-bold">
+              <PenLine size={18} className="text-blue-600 dark:text-blue-400" /> หมายเหตุเพิ่มเติม
             </h4>
             <input
               type="text"
               placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..."
               value={optionNote}
               onChange={(e) => setOptionNote(e.target.value)}
-              style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #BFDBFE', outline: 'none', background: '#F4F8FF', boxSizing: 'border-box', fontSize: '0.95rem', color: '#1E3A8A' }}
+              className="w-full p-3.5 rounded-2xl border border-blue-200 dark:border-slate-600 outline-none bg-blue-50 dark:bg-slate-700 text-[0.95rem] text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors"
             />
           </div>
         </div>
 
-        <button onClick={handleConfirm} style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', marginTop: 30, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)' }}>
+        <button onClick={handleConfirm} className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-2xl text-[1.1rem] font-black cursor-pointer mt-7 shadow-[0_8px_20px_rgba(37,99,235,0.3)] transition-colors">
           เพิ่มลงตะกร้า • {calculatedOptionPrice.toLocaleString()} ฿
         </button>
       </div>

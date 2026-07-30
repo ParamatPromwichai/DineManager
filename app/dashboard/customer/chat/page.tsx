@@ -170,12 +170,12 @@ export default function ChatPage() {
           const lat = mapMatch[1];
           const lon = mapMatch[2];
           return (
-            <div key={index} style={{ marginTop: '12px', marginBottom: '8px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #DCE8FF', boxShadow: '0 4px 12px rgba(37,99,235,0.1)' }}>
+            <div key={index} className="mt-3 mb-2 rounded-xl overflow-hidden border-2 border-blue-100 dark:border-slate-700 shadow-sm transition-colors">
               <iframe
                 width="100%"
                 height="220"
                 frameBorder="0"
-                style={{ border: 0, display: 'block' }}
+                className="border-0 block"
                 referrerPolicy="no-referrer-when-downgrade"
                 src={`https://maps.google.com/maps?q=${lat},${lon}&hl=th&z=16&output=embed`}
                 allowFullScreen
@@ -190,7 +190,7 @@ export default function ChatPage() {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: "#93C5FD", textDecoration: "underline", wordBreak: "break-all", fontWeight: "600" }}
+            className="text-blue-400 dark:text-blue-300 underline break-all font-semibold transition-colors hover:text-blue-500 dark:hover:text-blue-400"
           >
             {part}
           </a>
@@ -210,34 +210,14 @@ export default function ChatPage() {
           <button
             key={index}
             onClick={() => router.push(targetUrl)}
-            style={{
-              display: "block",
-              marginTop: "8px",
-              padding: "8px 16px",
-              backgroundColor: "#10B981", // สีเขียวโดดเด่น
-              color: "white",
-              border: "none",
-              borderRadius: "20px",
-              fontWeight: "bold",
-              cursor: "pointer",
-              boxShadow: "0 4px 6px rgba(16, 185, 129, 0.2)",
-              transition: "transform 0.1s, boxShadow 0.1s"
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = "scale(1.02)";
-              e.currentTarget.style.boxShadow = "0 6px 12px rgba(16, 185, 129, 0.3)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.boxShadow = "0 4px 6px rgba(16, 185, 129, 0.2)";
-            }}
+            className="block mt-2 py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white border-none rounded-full font-bold cursor-pointer shadow-md transition-all hover:scale-[1.02] hover:shadow-lg active:scale-95"
           >
             🛒 {buttonText}
           </button>
         );
       }
       
-      return <span key={index} style={{ whiteSpace: "pre-wrap", lineHeight: "1.5" }}>{part}</span>;
+      return <span key={index} className="whitespace-pre-wrap leading-relaxed">{part}</span>;
     });
   };
 
@@ -300,91 +280,48 @@ export default function ChatPage() {
 
   // รวม Loading ของระบบแชทกับ NextAuth เข้าด้วยกัน
   if (status === "loading" || loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#F4F8FF', gap: 15 }}>
-      <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-      <p style={{ color: '#1E3A8A', fontWeight: 'bold' }}>กำลังโหลดหน้าต่างแชท...</p>
-      <style dangerouslySetInnerHTML={{__html: `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}} />
+    <div className="flex flex-col justify-center items-center h-screen bg-blue-50 dark:bg-slate-900 gap-4 transition-colors">
+      <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-blue-900 dark:text-blue-100 font-bold">กำลังโหลดหน้าต่างแชท...</p>
     </div>
   );
 
   return (
-    <div style={{ 
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: "calc(64px + env(safe-area-inset-bottom))", 
-      backgroundColor: "#F4F8FF", 
-      display: "flex",
-      flexDirection: "column",
-      zIndex: 10, 
-      fontFamily: "sans-serif"
-    }}>
+    <div className="fixed top-0 left-0 right-0 bottom-[calc(64px+env(safe-area-inset-bottom))] bg-blue-50 dark:bg-slate-900 flex flex-col z-10 font-sans transition-colors">
       
-      <div style={{ maxWidth: "600px", margin: "0 auto", width: "100%", height: "100%", display: "flex", flexDirection: "column", backgroundColor: "#F4F8FF", position: "relative", boxShadow: "0 0 20px rgba(0,0,0,0.05)" }}>
+      <div className="max-w-[600px] mx-auto w-full h-full flex flex-col bg-blue-50 dark:bg-slate-900 relative shadow-sm transition-colors">
         
         {/* 🌟 Header */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          padding: "16px 20px",
-          backgroundColor: "#ffffff",
-          borderBottom: "1px solid #DCE8FF",
-          boxShadow: "0 2px 10px rgba(37,99,235,0.03)",
-          zIndex: 10
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '36px', height: '36px', backgroundColor: '#EFF6FF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #BFDBFE' }}>
-                <Bot size={20} color="#2563EB" />
+        <div className="flex justify-between items-center py-4 px-5 bg-white dark:bg-slate-800 border-b border-blue-100 dark:border-slate-700 shadow-sm z-10 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-blue-50 dark:bg-slate-700 rounded-full flex items-center justify-center border border-blue-200 dark:border-slate-600 transition-colors">
+                <Bot size={20} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "900", color: "#1E3A8A" }}>DineManager Bot</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#10B981', fontWeight: 'bold' }}>
-                  <div style={{ width: '8px', height: '8px', backgroundColor: '#10B981', borderRadius: '50%' }}></div> ออนไลน์
+                <h2 className="m-0 text-[1.05rem] font-black text-blue-900 dark:text-blue-50">DineManager Bot</h2>
+                <div className="flex items-center gap-1 text-[0.75rem] text-emerald-500 font-bold">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div> ออนไลน์
                 </div>
               </div>
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex gap-2">
             <button
               onClick={() => setIsBotEnabled(!isBotEnabled)}
-              className="p-2 sm:px-3 sm:py-2"
-              style={{
-                backgroundColor: isBotEnabled ? "#EFF6FF" : "#F3F4F6",
-                color: isBotEnabled ? "#2563EB" : "#6B7280",
-                border: isBotEnabled ? "1px solid #BFDBFE" : "1px solid #E5E7EB",
-                borderRadius: "12px",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                transition: "all 0.2s"
-              }}
+              className={`p-2 sm:px-3 sm:py-2 flex items-center gap-1.5 text-[0.85rem] font-bold rounded-xl cursor-pointer transition-all ${
+                isBotEnabled 
+                  ? "bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-slate-600" 
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+              }`}
             >
               {isBotEnabled ? <Bot size={16} /> : <User size={16} />}
               <span className="hidden sm:inline">{isBotEnabled ? "คุยกับบอท" : "คุยกับร้าน"}</span>
             </button>
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="p-2 sm:px-3 sm:py-2"
-              style={{
-                backgroundColor: "#FEF2F2",
-                color: "#EF4444",
-                border: "1px solid #FEE2E2",
-                borderRadius: "12px",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                transition: "background 0.2s"
-              }}
+              className="p-2 sm:px-3 sm:py-2 flex items-center gap-1.5 text-[0.85rem] font-bold rounded-xl cursor-pointer bg-red-50 dark:bg-red-900/30 text-red-500 border border-red-100 dark:border-red-800 transition-colors hover:bg-red-100 dark:hover:bg-red-900/50"
             >
               <Trash2 size={16} /> <span className="hidden sm:inline">ล้างแชท</span>
             </button>
@@ -395,23 +332,15 @@ export default function ChatPage() {
         <div 
           ref={chatContainerRef}
           onScroll={handleScroll}
-          style={{ 
-            flex: 1, 
-            overflowY: "auto", 
-            padding: "20px", 
-            backgroundColor: "#F4F8FF",
-            display: "flex",
-            flexDirection: "column",
-            gap: "18px"
-          }}
+          className="flex-1 overflow-y-auto p-5 flex flex-col gap-[18px] bg-blue-50 dark:bg-slate-900 transition-colors scrollbar-hide"
         >
           {messages.length === 0 && (
-            <div style={{ textAlign: 'center', margin: 'auto', color: '#64748B' }}>
-              <div style={{ width: '60px', height: '60px', backgroundColor: '#E0EFFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
-                <Bot size={32} color="#2563EB" />
+            <div className="text-center my-auto text-slate-500 dark:text-slate-400">
+              <div className="w-[60px] h-[60px] bg-blue-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors">
+                <Bot size={32} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <h3 style={{ margin: '0 0 8px 0', color: '#1E3A8A', fontWeight: 'bold' }}>ยินดีต้อนรับสู่ DineManager</h3>
-              <p style={{ fontSize: '0.9rem', margin: 0 }}>พิมพ์สอบถามเมนู หรือข้อมูลร้านได้เลยครับ 👋</p>
+              <h3 className="m-0 mb-2 text-blue-900 dark:text-blue-100 font-bold">ยินดีต้อนรับสู่ DineManager</h3>
+              <p className="text-[0.9rem] m-0">พิมพ์สอบถามเมนู หรือข้อมูลร้านได้เลยครับ 👋</p>
             </div>
           )}
 
@@ -437,62 +366,66 @@ export default function ChatPage() {
             const isCurrentlySending = isUser && isLastMessage && isSending;
 
             return (
-              <div key={i} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
+              <div key={i} className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
                 {!isUser && (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flexShrink: 0, marginBottom: "4px" }}>
-                    <div style={{ 
-                      width: '32px', height: '32px', 
-                      backgroundColor: isShop ? '#EFF6FF' : isGroq ? '#FDF4FF' : (isGemini ? '#FFFBEB' : '#ffffff'), 
-                      borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      border: isShop ? '1px solid #BFDBFE' : isGroq ? '1px solid #F0ABFC' : (isGemini ? '1px solid #FDE68A' : '1px solid #DCE8FF')
-                    }}>
-                      {isShop ? <User size={16} color="#2563EB" /> : isGroq ? <Zap size={16} color="#D946EF" /> : (isGemini ? <Sparkles size={16} color="#F59E0B" /> : <Bot size={16} color="#2563EB" />)}
+                  <div className="flex flex-col items-center gap-1 shrink-0 mb-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors ${
+                      isShop ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' 
+                      : isGroq ? 'bg-fuchsia-50 dark:bg-fuchsia-900/30 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-500' 
+                      : isGemini ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-500' 
+                      : 'bg-white dark:bg-slate-700 border-blue-100 dark:border-slate-600 text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {isShop ? <User size={16} /> : isGroq ? <Zap size={16} /> : (isGemini ? <Sparkles size={16} /> : <Bot size={16} />)}
                     </div>
-                    <span style={{ fontSize: "0.65rem", color: isShop ? "#2563EB" : isGroq ? "#D946EF" : (isGemini ? "#F59E0B" : "#2563EB"), fontWeight: "bold" }}>
+                    <span className={`text-[0.65rem] font-bold ${
+                      isShop ? "text-blue-600 dark:text-blue-400" 
+                      : isGroq ? "text-fuchsia-500" 
+                      : isGemini ? "text-amber-500" 
+                      : "text-blue-600 dark:text-blue-400"
+                    }`}>
                       {isShop ? "ร้านค้าตอบ" : isGroq ? "Groq" : (isGemini ? "Gemini" : "Auto Bot")}
                     </span>
                   </div>
                 )}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', maxWidth: "75%" }}>
+                <div className={`flex flex-col max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
                   <div 
                     onContextMenu={(e) => handleMessageLongPress(msg, isUser, e)}
-                    style={{
-                      background: isUser ? "linear-gradient(135deg, #1D4ED8, #2563EB)" : isShop ? "#DBEAFE" : (isGroq ? "linear-gradient(135deg, #FAF5FF, #F3E8FF)" : (isGemini ? "linear-gradient(135deg, #FEFCE8, #FEF9C3)" : "#ffffff")),
-                      color: isUser ? "#ffffff" : isShop ? "#1E3A8A" : (isGroq ? "#4C1D95" : (isGemini ? "#854D0E" : "#1E3A8A")),
-                      padding: cleanText.startsWith('[IMAGE]') ? "6px" : "12px 16px",
-                      borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                      boxShadow: isUser ? "0 4px 12px rgba(37,99,235,0.2)" : "0 4px 12px rgba(37,99,235,0.05)",
-                      border: isUser ? "none" : isShop ? "1px solid #BFDBFE" : (isGroq ? "1px solid #E9D5FF" : (isGemini ? "1px solid #FEF08A" : "1px solid #DCE8FF")),
-                      wordBreak: "break-word",
-                      fontSize: "0.95rem",
-                      fontWeight: "500",
-                      cursor: msg.id ? "pointer" : "default",
-                      userSelect: "none",
-                      WebkitUserSelect: "none"
-                    }}
+                    className={`text-[0.95rem] font-medium break-words transition-colors shadow-sm ${
+                      isUser 
+                        ? "bg-gradient-to-br from-blue-700 to-blue-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.2)] border-none" 
+                        : isShop 
+                          ? "bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800" 
+                          : isGroq 
+                            ? "bg-gradient-to-br from-fuchsia-50 to-purple-50 dark:from-fuchsia-900/20 dark:to-purple-900/20 text-purple-900 dark:text-purple-100 border border-purple-200 dark:border-purple-800" 
+                            : isGemini 
+                              ? "bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 text-yellow-900 dark:text-yellow-100 border border-yellow-200 dark:border-yellow-800" 
+                              : "bg-white dark:bg-slate-800 text-blue-900 dark:text-blue-50 border border-blue-100 dark:border-slate-700"
+                    } ${cleanText.startsWith('[IMAGE]') ? 'p-1.5' : 'py-3 px-4'} ${
+                      isUser ? 'rounded-[20px_20px_4px_20px]' : 'rounded-[20px_20px_20px_4px]'
+                    } ${msg.id ? 'cursor-pointer' : 'cursor-default'} select-none`}
                   >
                     {formatMessage(cleanText)}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', paddingRight: isUser ? '4px' : '0', paddingLeft: !isUser ? '4px' : '0' }}>
+                  <div className={`flex items-center gap-2 mt-1 ${isUser ? 'pr-1' : 'pl-1'}`}>
                     {msg.created_at && (
-                      <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                      <span className="text-[0.65rem] text-slate-400 dark:text-slate-500">
                         {new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                     {isUser && (
-                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span className="text-[0.65rem] text-slate-400 dark:text-slate-500 flex items-center gap-[3px]">
                       {isCurrentlySending ? (
                         <><Clock size={10} /> กำลังส่ง...</>
                       ) : (
-                        <><Check size={12} color="#10B981" /> ส่งแล้ว</>
+                        <><Check size={12} className="text-emerald-500" /> ส่งแล้ว</>
                       )}
                     </span>
                     )}
                   </div>
                 </div>
                 {isUser && (
-                  <div style={{ width: '28px', height: '28px', backgroundColor: '#DBEAFE', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: '20px' }}>
-                    <User size={16} color="#1D4ED8" />
+                  <div className="w-7 h-7 bg-blue-100 dark:bg-slate-700 rounded-full flex items-center justify-center shrink-0 mb-5 transition-colors">
+                    <User size={16} className="text-blue-700 dark:text-blue-300" />
                   </div>
                 )}
               </div>
@@ -500,14 +433,14 @@ export default function ChatPage() {
           })}
 
           {isSending && (
-            <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "flex-end", gap: "8px" }}>
-              <div style={{ width: '28px', height: '28px', backgroundColor: '#ffffff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #DCE8FF', flexShrink: 0 }}>
-                <Bot size={16} color="#2563EB" />
+            <div className="flex justify-start items-end gap-2">
+              <div className="w-7 h-7 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center border border-blue-100 dark:border-slate-700 shrink-0 transition-colors">
+                <Bot size={16} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "20px 20px 20px 4px", boxShadow: "0 4px 12px rgba(37,99,235,0.05)", border: "1px solid #DCE8FF", display: "flex", gap: "5px" }}>
-                 <span style={{ width: '6px', height: '6px', backgroundColor: '#93C5FD', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '-0.32s' }}></span>
-                 <span style={{ width: '6px', height: '6px', backgroundColor: '#93C5FD', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '-0.16s' }}></span>
-                 <span style={{ width: '6px', height: '6px', backgroundColor: '#93C5FD', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both' }}></span>
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px_20px_20px_4px] shadow-sm border border-blue-100 dark:border-slate-700 flex gap-[5px] transition-colors">
+                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.32s]"></span>
+                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.16s]"></span>
+                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both]"></span>
               </div>
             </div>
           )}
@@ -522,41 +455,14 @@ export default function ChatPage() {
               messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
               setShowScrollButton(false);
             }}
-            style={{
-              position: "absolute",
-              bottom: "160px",
-              right: "20px",
-              width: "44px",
-              height: "44px",
-              backgroundColor: "#2563EB",
-              color: "white",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
-              zIndex: 20,
-              border: "none",
-              cursor: "pointer",
-              transition: "transform 0.2s"
-            }}
-            onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.1)"}
-            onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+            className="absolute bottom-40 right-5 w-11 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 z-20 border-none cursor-pointer transition-transform hover:scale-110 active:scale-95"
           >
             <ChevronDown size={24} />
           </button>
         )}
 
         {/* 🌟 Input Area */}
-        <div style={{ 
-          padding: "16px 20px", 
-          backgroundColor: "#ffffff", 
-          borderTop: "1px solid #DCE8FF",
-          display: "flex",
-          gap: "12px",
-          boxShadow: "0 -4px 20px rgba(37,99,235,0.03)",
-          zIndex: 10
-        }}>
+        <div className="py-4 px-5 bg-white dark:bg-slate-800 border-t border-blue-100 dark:border-slate-700 flex gap-3 shadow-[0_-4px_20px_rgba(37,99,235,0.03)] z-10 transition-colors">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -565,61 +471,38 @@ export default function ChatPage() {
             }}
             disabled={isSending}
             placeholder="พิมพ์ข้อความที่นี่..."
-            style={{ 
-              flex: 1, 
-              padding: "14px 20px", 
-              borderRadius: "24px", 
-              border: "1px solid #BFDBFE",
-              outline: "none",
-              fontSize: "0.95rem",
-              backgroundColor: isSending ? "#F8FAFC" : "#F4F8FF",
-              color: "#1E3A8A",
-              transition: "all 0.2s"
-            }}
-            onFocus={(e) => { e.target.style.borderColor = "#2563EB"; e.target.style.backgroundColor = "#ffffff"; }}
-            onBlur={(e) => { e.target.style.borderColor = "#BFDBFE"; e.target.style.backgroundColor = "#F4F8FF"; }}
+            className="flex-1 py-3.5 px-5 rounded-full border border-blue-200 dark:border-slate-600 outline-none text-[0.95rem] bg-blue-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-800 text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors focus:border-blue-600 dark:focus:border-blue-500"
           />
           <button 
             onClick={sendMessage} 
             disabled={isSending || !input.trim()} 
-            style={{ 
-              width: "50px", height: "50px", display: "flex", alignItems: "center", justifyContent: "center",
-              backgroundColor: !input.trim() || isSending ? "#93C5FD" : "#2563EB",
-              color: "white", border: "none", borderRadius: "50%",
-              cursor: !input.trim() || isSending ? "not-allowed" : "pointer",
-              transition: "all 0.2s",
-              boxShadow: !input.trim() || isSending ? "none" : "0 4px 12px rgba(37,99,235,0.3)",
-              flexShrink: 0
-            }}
+            className={`w-[50px] h-[50px] flex items-center justify-center rounded-full border-none cursor-pointer shrink-0 transition-all ${
+              !input.trim() || isSending 
+                ? "bg-blue-300 dark:bg-slate-600 text-white cursor-not-allowed shadow-none" 
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_12px_rgba(37,99,235,0.3)] active:scale-95"
+            }`}
           >
-            <Send size={20} style={{ marginLeft: '4px' }} />
+            <Send size={20} className="ml-1" />
           </button>
         </div>
-
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-          }
-        `}} />
       </div>
       {/* 🎉 Clear Chat Confirm Modal (Top) */}
       {showClearConfirm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(2px)' }}>
-          <div style={{ background: '#ffffff', borderRadius: 24, padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', animation: 'slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', marginTop: '60px', width: '85%', maxWidth: '340px' }}>
-            <div style={{ width: 56, height: 56, background: '#FEF2F2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', color: '#EF4444' }}>
+        <div className="fixed inset-0 z-[9999] flex justify-center items-start bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center shadow-2xl mt-[60px] w-[85%] max-w-[340px] animate-[slideDown_0.3s_cubic-bezier(0.175,0.885,0.32,1.275)] transition-colors">
+            <div className="w-14 h-14 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 text-red-500 transition-colors">
               <Trash2 size={28} strokeWidth={2.5} />
             </div>
             
-            <h2 style={{ color: '#1E3A8A', margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center' }}>ล้างประวัติการแชท?</h2>
-            <p style={{ color: '#64748B', margin: '0 0 24px 0', textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
+            <h2 className="text-blue-900 dark:text-blue-50 m-0 mb-2 text-[1.2rem] font-bold text-center">ล้างประวัติการแชท?</h2>
+            <p className="text-slate-500 dark:text-slate-400 m-0 mb-6 text-center text-[0.9rem] leading-relaxed">
               ข้อความจะถูกลบและไม่สามารถกู้คืนได้
             </p>
             
-            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+            <div className="flex gap-2.5 w-full">
               <button 
                 onClick={() => setShowClearConfirm(false)}
-                style={{ flex: 1, padding: '12px', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: 12, fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                className="flex-1 p-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-none rounded-xl text-[0.95rem] font-bold cursor-pointer transition-colors hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 ยกเลิก
               </button>
@@ -628,7 +511,7 @@ export default function ChatPage() {
                   setShowClearConfirm(false);
                   clearChat(false);
                 }}
-                style={{ flex: 1, padding: '12px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: 12, fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(239, 68, 68, 0.2)', transition: 'all 0.2s' }}
+                className="flex-1 p-3 bg-red-500 hover:bg-red-600 text-white border-none rounded-xl text-[0.95rem] font-bold cursor-pointer shadow-md transition-colors active:scale-95"
               >
                 ลบประวัติ
               </button>
@@ -648,17 +531,17 @@ export default function ChatPage() {
       {selectedMessage && (
         <div 
           onClick={() => setSelectedMessage(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(2px)' }}
+          className="fixed inset-0 z-[9999] flex justify-center items-center bg-slate-900/40 backdrop-blur-sm"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#ffffff', borderRadius: 16, width: '220px', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', overflow: 'hidden', animation: 'scaleIn 0.2s ease-out' }}
+            className="bg-white dark:bg-slate-800 rounded-2xl w-[220px] flex flex-col shadow-2xl overflow-hidden animate-[scaleIn_0.2s_ease-out] transition-colors"
           >
             <button 
               onClick={() => deleteMessage(selectedMessage.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', color: '#EF4444', textAlign: 'left' }}
+              className="flex items-center gap-3 py-4 px-5 bg-transparent border-none cursor-pointer text-[0.95rem] font-bold text-red-500 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
-              <Trash2 size={18} color="#EF4444" /> ลบข้อความ
+              <Trash2 size={18} className="text-red-500" /> ลบข้อความ
             </button>
             
             <style>{`

@@ -65,13 +65,11 @@ export default function TableStatusPage() {
     return () => clearInterval(interval);
   }, [status]);
 
-  // ➕ 5. แสดงหน้าจอระหว่างกำลังเช็ค Session ของ NextAuth
   if (status === 'loading') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#F4F8FF', gap: 15 }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-        <p style={{ color: '#1E3A8A', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</p>
-        <style dangerouslySetInnerHTML={{__html: `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}} />
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-blue-50 dark:bg-slate-900 gap-4 transition-colors">
+        <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-blue-900 dark:text-blue-100 font-bold">กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
@@ -84,93 +82,75 @@ export default function TableStatusPage() {
   const availableCount = tables.length - occupiedCount;
 
   return (
-    <div style={{ padding: '20px', paddingBottom: '100px', minHeight: '100dvh', background: '#F4F8FF', fontFamily: 'sans-serif' }}>
+    <div className="p-5 pb-8 font-sans transition-colors">
       
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div className="max-w-[800px] mx-auto">
         
         {/* 🌟 Header */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 25, position: 'relative' }}>
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: '900', color: '#1E3A8A', margin: '0 0 6px 0' }}>
+        <div className="flex items-center mb-6 relative">
+          <div className="flex-1 text-center">
+            <h1 className="text-[1.6rem] font-black text-blue-900 dark:text-blue-50 m-0 mb-1.5 transition-colors">
               📊 Status โต๊ะปัจจุบัน
             </h1>
-            <p style={{ color: '#64748B', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.9rem', fontWeight: 'bold' }}>
+            <p className="text-slate-500 dark:text-slate-400 m-0 flex items-center justify-center gap-1.5 text-[0.9rem] font-bold transition-colors">
               <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} color="#60A5FA" /> 
-              อัปเดตล่าสุด: <span style={{ color: '#2563EB' }}>{lastUpdated.toLocaleTimeString('th-TH')}</span>
+              อัปเดตล่าสุด: <span className="text-blue-600 dark:text-blue-400">{lastUpdated.toLocaleTimeString('th-TH')}</span>
             </p>
           </div>
         </div>
 
         {/* 🚥 สรุปสถานะ (Legend) */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 15, marginBottom: 25, flexWrap: 'wrap' }}>
-          <div style={{ background: '#ffffff', padding: '10px 20px', borderRadius: '16px', border: '1px solid #DCE8FF', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(37,99,235,0.03)' }}>
-            <CheckCircle2 size={20} color="#10B981" />
-            <span style={{ fontWeight: 'bold', color: '#1E3A8A' }}>ว่าง ({availableCount})</span>
+        <div className="flex justify-center gap-4 mb-6 flex-wrap">
+          <div className="bg-white dark:bg-slate-800 py-2.5 px-5 rounded-2xl border border-blue-100 dark:border-slate-700 flex items-center gap-2 shadow-sm transition-colors">
+            <CheckCircle2 size={20} className="text-emerald-500" />
+            <span className="font-bold text-blue-900 dark:text-blue-50">ว่าง ({availableCount})</span>
           </div>
-          <div style={{ background: '#ffffff', padding: '10px 20px', borderRadius: '16px', border: '1px solid #DCE8FF', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 10px rgba(37,99,235,0.03)' }}>
-            <XCircle size={20} color="#EF4444" />
-            <span style={{ fontWeight: 'bold', color: '#1E3A8A' }}>ไม่ว่าง ({occupiedCount})</span>
+          <div className="bg-white dark:bg-slate-800 py-2.5 px-5 rounded-2xl border border-blue-100 dark:border-slate-700 flex items-center gap-2 shadow-sm transition-colors">
+            <XCircle size={20} className="text-rose-500" />
+            <span className="font-bold text-blue-900 dark:text-blue-50">ไม่ว่าง ({occupiedCount})</span>
           </div>
         </div>
 
         {/* 🪑 Grid แสดงโต๊ะ */}
-        <div style={{ background: '#ffffff', padding: 25, borderRadius: '24px', boxShadow: '0 4px 20px rgba(37,99,235,0.05)', border: '1px solid #DCE8FF' }}>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-[24px] shadow-sm border border-blue-100 dark:border-slate-700 transition-colors">
           
           {tables.length === 0 && !isRefreshing && (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#93C5FD' }}>
-              <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>ยังไม่มีข้อมูลโต๊ะในระบบ</p>
+            <div className="text-center py-10 text-blue-400 dark:text-blue-500">
+              <p className="font-bold text-[1.1rem]">ยังไม่มีข้อมูลโต๊ะในระบบ</p>
             </div>
           )}
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))',
-            gap: 16
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] gap-4">
             {tables.map(table => {
               const isOccupied = table.is_occupied === 1;
 
               return (
                 <div
                   key={table.id}
-                  style={{
-                    height: 115,
-                    border: isOccupied ? '2px solid #FECACA' : '2px solid #A7F3D0',
-                    background: isOccupied ? '#FEF2F2' : '#ECFDF5',
-                    borderRadius: '16px',
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                    position: 'relative',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.02)',
-                    cursor: 'default'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 15px rgba(0,0,0,0.05)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.02)';
-                  }}
+                  className={`h-[115px] rounded-2xl flex flex-col items-center justify-center relative cursor-default transition-transform hover:-translate-y-[2px] shadow-sm hover:shadow-md border-2 ${
+                    isOccupied 
+                      ? 'border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/30' 
+                      : 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30'
+                  }`}
                 >
-                  <span style={{ fontWeight: '900', fontSize: '1.25rem', color: isOccupied ? '#991B1B' : '#065F46', marginBottom: 6 }}>
+                  <span className={`font-black text-[1.25rem] mb-1.5 ${
+                    isOccupied ? 'text-rose-800 dark:text-rose-300' : 'text-emerald-800 dark:text-emerald-300'
+                  }`}>
                     {table.name}
                   </span>
                   
-                  <span style={{ fontSize: '0.85rem', color: isOccupied ? '#DC2626' : '#059669', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'bold', background: isOccupied ? '#FEE2E2' : '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>
+                  <span className={`text-[0.85rem] flex items-center gap-1 font-bold py-1 px-2.5 rounded-xl ${
+                    isOccupied 
+                      ? 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/50' 
+                      : 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50'
+                  }`}>
                     <Users size={14} strokeWidth={2.5} /> {table.capacity}
                   </span>
 
                   {/* Badge มุมขวาบน */}
-                  <div style={{ 
-                    position: 'absolute', top: -8, right: -8, 
-                    background: isOccupied ? '#EF4444' : '#10B981', 
-                    color: 'white', borderRadius: '50%', padding: '5px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-                  }}>
+                  <div className={`absolute -top-2 -right-2 text-white rounded-full p-[5px] shadow-sm ${
+                    isOccupied ? 'bg-rose-500' : 'bg-emerald-500'
+                  }`}>
                     {isOccupied ? <XCircle size={14} strokeWidth={3} /> : <CheckCircle2 size={14} strokeWidth={3} />}
                   </div>
                 </div>
@@ -179,22 +159,15 @@ export default function TableStatusPage() {
           </div>
           
           {/* ปุ่มกดอัปเดตแบบ Manual */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 30 }}>
+          <div className="flex justify-center mt-7">
             <button 
               onClick={loadData}
               disabled={isRefreshing}
-              style={{ 
-                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', 
-                background: isRefreshing ? '#F8FAFC' : '#EFF6FF', 
-                color: isRefreshing ? '#94A3B8' : '#1D4ED8', 
-                border: `1px solid ${isRefreshing ? '#E2E8F0' : '#BFDBFE'}`, 
-                borderRadius: '24px', fontSize: '0.95rem', fontWeight: 'bold', 
-                cursor: isRefreshing ? 'not-allowed' : 'pointer', 
-                transition: 'all 0.2s',
-                boxShadow: isRefreshing ? 'none' : '0 4px 12px rgba(37,99,235,0.1)'
-              }}
-              onMouseOver={(e) => { if(!isRefreshing) e.currentTarget.style.background = '#DBEAFE'; }}
-              onMouseOut={(e) => { if(!isRefreshing) e.currentTarget.style.background = '#EFF6FF'; }}
+              className={`flex items-center gap-2 py-3 px-6 rounded-[24px] text-[0.95rem] font-bold border transition-colors ${
+                isRefreshing 
+                  ? 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-600 cursor-not-allowed shadow-none' 
+                  : 'bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-slate-600 cursor-pointer shadow-sm'
+              }`}
             >
               <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} strokeWidth={2.5} /> 
               {isRefreshing ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}

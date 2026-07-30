@@ -94,9 +94,9 @@ export default function OrderHistoryPage() {
   // ใช้ status === 'loading' ของ next-auth เพื่อโชว์ Loading ให้เนียนขึ้น
   if (status === 'loading' || loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F8FF] gap-4">
-        <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-[#1E3A8A] font-bold text-sm tracking-wide">กำลังโหลดประวัติ...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 dark:bg-slate-900 gap-4 transition-colors">
+        <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-blue-900 dark:text-blue-100 font-bold text-sm tracking-wide">กำลังโหลดประวัติ...</p>
       </div>
     );
   }
@@ -104,15 +104,15 @@ export default function OrderHistoryPage() {
   // --- Empty State (ไม่มีออเดอร์เลยในระบบ) ---
   if (orders.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F4F8FF] p-6 flex flex-col items-center justify-center text-center">
-        <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-[0_4px_15px_rgba(37,99,235,0.05)] mb-6 border border-[#DCE8FF]">
-          <SearchX size={48} className="text-[#93C5FD]" />
+      <div className="min-h-screen bg-blue-50 dark:bg-slate-900 p-6 flex flex-col items-center justify-center text-center transition-colors">
+        <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center shadow-sm mb-6 border border-blue-100 dark:border-slate-700 transition-colors">
+          <SearchX size={48} className="text-blue-300 dark:text-slate-500" />
         </div>
-        <h2 className="text-xl font-black text-[#1E3A8A] mb-2">ยังไม่มีประวัติการสั่งซื้อ</h2>
-        <p className="text-[#64748B] mb-8 max-w-[240px]">ออเดอร์แสนอร่อยของคุณจะมาปรากฏอยู่ที่นี่ สั่งเลย!</p>
+        <h2 className="text-xl font-black text-blue-900 dark:text-blue-50 mb-2">ยังไม่มีประวัติการสั่งซื้อ</h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-[240px]">ออเดอร์แสนอร่อยของคุณจะมาปรากฏอยู่ที่นี่ สั่งเลย!</p>
         <button 
           onClick={() => router.push('/dashboard/customer/menus')}
-          className="bg-[#2563EB] text-white px-8 py-3 rounded-2xl font-black shadow-[0_8px_20px_rgba(37,99,235,0.3)] hover:bg-[#1D4ED8] transition-all active:scale-95"
+          className="bg-blue-600 dark:bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-[0_8px_20px_rgba(37,99,235,0.3)] hover:bg-blue-700 dark:hover:bg-blue-700 transition-all active:scale-95"
         >
           ไปที่เมนูอาหาร
         </button>
@@ -121,40 +121,40 @@ export default function OrderHistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F8FF] pb-20 font-sans">
+    <div className="min-h-screen bg-blue-50 dark:bg-slate-900 pb-20 font-sans transition-colors">
       
       {/* 🌟 Header */}
-      <div className="bg-white px-5 py-4 sticky top-0 z-40 border-b border-[#DCE8FF] shadow-[0_4px_15px_rgba(37,99,235,0.03)] flex items-center gap-4">
-        <h1 className="text-xl font-black text-[#1E3A8A] flex items-center justify-center gap-2 flex-1 pr-16 m-0">
-          <History size={22} className="text-[#2563EB]" /> ประวัติ
+      <div className="bg-white dark:bg-slate-800 px-5 py-4 sticky top-0 z-40 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center gap-4 transition-colors">
+        <h1 className="text-xl font-black text-blue-900 dark:text-blue-50 flex items-center justify-center gap-2 flex-1 pr-16 m-0">
+          <History size={22} className="text-blue-600 dark:text-blue-400" /> ประวัติ
         </h1>
       </div>
 
       <div className="max-w-2xl mx-auto p-4 sm:p-6">
         
         {/* 🧭 แถบตัวกรองดีไซน์ Horizontal Slide */}
-        <div className="flex gap-2.5 overflow-x-auto pb-3 mb-4 scroll-smooth snap-x" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex gap-2.5 overflow-x-auto pb-3 mb-4 scroll-smooth snap-x scrollbar-hide">
           <button 
             onClick={() => setActiveFilter('all')} 
-            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'all' ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-[0_4px_10px_rgba(37,99,235,0.25)]' : 'bg-white text-[#475569] border-[#DCE8FF]'}`}
+            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'all' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-blue-100 dark:border-slate-700'}`}
           >
             📋 ทั้งหมด
           </button>
           <button 
             onClick={() => setActiveFilter('active')} 
-            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'active' ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-[0_4px_10px_rgba(37,99,235,0.25)]' : 'bg-white text-[#475569] border-[#DCE8FF]'}`}
+            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'active' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-blue-100 dark:border-slate-700'}`}
           >
             ⏳ กำลังดำเนินการ
           </button>
           <button 
             onClick={() => setActiveFilter('done')} 
-            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'done' ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-[0_4px_10px_rgba(37,99,235,0.25)]' : 'bg-white text-[#475569] border-[#DCE8FF]'}`}
+            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'done' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-blue-100 dark:border-slate-700'}`}
           >
             ✅ สำเร็จแล้ว
           </button>
           <button 
             onClick={() => setActiveFilter('cancel')} 
-            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'cancel' ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-[0_4px_10px_rgba(37,99,235,0.25)]' : 'bg-white text-[#475569] border-[#DCE8FF]'}`}
+            className={`snap-start px-5 py-2.5 rounded-full font-bold text-[0.85rem] whitespace-nowrap transition-all border ${activeFilter === 'cancel' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-blue-100 dark:border-slate-700'}`}
           >
             ❌ ยกเลิก
           </button>
@@ -165,7 +165,7 @@ export default function OrderHistoryPage() {
           {filteredOrders.length > 0 ? (
             filteredOrders.map((order) => {
               const status = statusConfig[order.status as keyof typeof statusConfig] || { 
-                icon: ClipboardList, color: 'text-[#64748B]', bg: 'bg-[#F1F5F9]', border: 'border-[#E2E8F0]', text: order.status 
+                icon: ClipboardList, color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-700', border: 'border-slate-200 dark:border-slate-600', text: order.status 
               };
               const StatusIcon = status.icon;
 
@@ -173,16 +173,16 @@ export default function OrderHistoryPage() {
                 <div
                   key={order.id}
                   onClick={() => router.push(`/dashboard/customer/order/${order.id}`)}
-                  className="bg-white rounded-[20px] p-5 border border-[#DCE8FF] shadow-[0_4px_12px_rgba(37,99,235,0.03)] hover:shadow-md hover:border-[#BFDBFE] transition-all cursor-pointer group active:scale-[0.98]"
+                  className="bg-white dark:bg-slate-800 rounded-[20px] p-5 border border-blue-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
                 >
                   {/* Top Row: Order ID & Status */}
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <span className="text-[0.7rem] font-black text-[#94A3B8] uppercase tracking-widest block mb-1">Order Number</span>
-                      <h3 className="text-lg font-black text-[#1E3A8A]">#{order.id}</h3>
+                      <span className="text-[0.7rem] font-black text-slate-400 uppercase tracking-widest block mb-1">Order Number</span>
+                      <h3 className="text-lg font-black text-blue-900 dark:text-blue-50">#{order.id}</h3>
                     </div>
-                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white ${status.color} ${status.border}`}>
-                      <div className={`p-1 rounded-full ${status.bg}`}>
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white dark:bg-slate-800 ${status.color} ${status.border}`}>
+                      <div className={`p-1 rounded-full ${status.bg} dark:bg-opacity-20`}>
                         <StatusIcon size={12} strokeWidth={3} />
                       </div>
                       <span className="text-xs font-bold pr-1">{status.text}</span>
@@ -190,15 +190,15 @@ export default function OrderHistoryPage() {
                   </div>
 
                   {/* Middle Row: Date & Summary */}
-                  <div className="flex flex-col gap-2.5 mb-4 text-[0.85rem] font-bold text-[#64748B] bg-[#F4F8FF] p-3.5 rounded-2xl border border-[#EBF1FF]">
+                  <div className="flex flex-col gap-2.5 mb-4 text-[0.85rem] font-bold text-slate-500 dark:text-slate-400 bg-blue-50 dark:bg-slate-700/50 p-3.5 rounded-2xl border border-blue-50 dark:border-slate-600 transition-colors">
                     <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-[#93C5FD]" />
+                      <Calendar size={16} className="text-blue-300 dark:text-slate-400" />
                       {new Date(order.created_at).toLocaleDateString('th-TH', { 
                         day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' 
                       })} น.
                     </div>
                     <div className="flex items-center gap-2">
-                      <ClipboardList size={16} className="text-[#93C5FD]" />
+                      <ClipboardList size={16} className="text-blue-300 dark:text-slate-400" />
                       <span className="truncate">
                         {order.items.length} รายการ: {order.items[0]?.menu_name}
                         {order.items.length > 1 && ` และอื่นๆ อีก ${order.items.length - 1} อย่าง`}
@@ -209,12 +209,12 @@ export default function OrderHistoryPage() {
                   {/* Bottom Row: Total & Action */}
                   <div className="flex justify-between items-center pt-3 mt-2">
                     <div className="flex items-center gap-1.5">
-                      <CircleDollarSign size={20} className="text-[#2563EB]" />
-                      <span className="text-xl font-black text-[#1E3A8A]">
+                      <CircleDollarSign size={20} className="text-blue-600 dark:text-blue-400" />
+                      <span className="text-xl font-black text-blue-900 dark:text-blue-50">
                         {Number(order.total_price).toLocaleString()} ฿
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 bg-[#EFF6FF] text-[#2563EB] px-3 py-1.5 rounded-full font-bold text-sm group-hover:bg-[#2563EB] group-hover:text-white transition-all">
+                    <div className="flex items-center gap-1 bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-full font-bold text-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
                       รายละเอียด <ChevronRight size={16} strokeWidth={2.5} />
                     </div>
                   </div>
@@ -223,16 +223,16 @@ export default function OrderHistoryPage() {
             })
           ) : (
             // กรณีมีออเดอร์ในระบบ แต่ไม่มีออเดอร์ใน Filter นี้
-            <div className="text-center py-16 bg-white rounded-3xl border border-[#DCE8FF]">
-              <SearchX size={40} className="text-[#93C5FD] mx-auto mb-4" />
-              <p className="text-[#1E3A8A] font-bold">ไม่พบประวัติออเดอร์ในหมวดหมู่นี้</p>
+            <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-blue-100 dark:border-slate-700 transition-colors">
+              <SearchX size={40} className="text-blue-300 dark:text-slate-500 mx-auto mb-4" />
+              <p className="text-blue-900 dark:text-blue-100 font-bold">ไม่พบประวัติออเดอร์ในหมวดหมู่นี้</p>
             </div>
           )}
         </div>
       </div>
 
       {filteredOrders.length > 0 && (
-        <p className="text-center text-[#94A3B8] text-xs font-bold mt-4 mb-8">
+        <p className="text-center text-slate-400 dark:text-slate-500 text-xs font-bold mt-4 mb-8">
           แสดงประวัติการสั่งซื้อย้อนหลังทั้งหมด
         </p>
       )}

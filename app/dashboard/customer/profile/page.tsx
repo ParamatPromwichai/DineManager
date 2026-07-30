@@ -6,8 +6,9 @@ import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Mail, Phone, MapPin, Save, LogOut, 
-  Navigation, Loader2, Map, CheckCircle2, ArrowLeft
+  Navigation, Loader2, Map, CheckCircle2, ArrowLeft, Moon, Sun
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 export default function CustomerProfile() {
   const router = useRouter();
@@ -18,6 +19,32 @@ export default function CustomerProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [showMascot, setShowMascot] = useState(false);
+  const [mascotMode, setMascotMode] = useState('both');
+  const { theme, setTheme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setShowMascot(localStorage.getItem('show_mascot') === 'true');
+    setMascotMode(localStorage.getItem('mascot_mode') || 'both');
+  }, []);
+
+  const toggleMascot = () => {
+    const newState = !showMascot;
+    setShowMascot(newState);
+    if (newState) {
+      localStorage.setItem('show_mascot', 'true');
+    } else {
+      localStorage.removeItem('show_mascot');
+    }
+    window.dispatchEvent(new Event('mascot_setting_changed'));
+  };
+
+  const changeMascotMode = (mode: string) => {
+    setMascotMode(mode);
+    localStorage.setItem('mascot_mode', mode);
+  };
 
   // 📝 Current Data
   const [name, setName] = useState('');
@@ -201,38 +228,30 @@ export default function CustomerProfile() {
   /* =========================
      UI Styles
   ========================= */
-  const labelStyle = { display: 'block', fontSize: '0.9rem', color: '#1E3A8A', fontWeight: 'bold', marginBottom: '8px' };
-  const inputWrapperStyle = { display: 'flex', alignItems: 'flex-start', background: '#F4F8FF', border: '1px solid #BFDBFE', borderRadius: '16px', padding: '14px 16px', transition: 'all 0.2s', marginBottom: '20px' };
-  const inputIconStyle = { color: '#2563EB', marginRight: '12px', marginTop: '2px' };
-  const inputFieldStyle = { width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '0.95rem', color: '#1E3A8A' };
+  const labelStyle = "block text-sm font-bold mb-2 text-blue-900 dark:text-blue-100";
+  const inputWrapperStyle = "flex items-start bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-slate-600 rounded-2xl p-3.5 transition-all mb-5";
+  const inputIconStyle = "text-blue-600 dark:text-blue-400 mr-3 mt-0.5";
+  const inputFieldStyle = "w-full border-none bg-transparent outline-none text-base text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400";
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F4F8FF', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
+    <div className="bg-blue-50 dark:bg-slate-900 font-sans pb-2 transition-colors">
       
       {/* 🌟 Header */}
-      <div style={{ 
-        background: '#ffffff', padding: '16px 20px', borderBottom: '1px solid #DCE8FF', 
-        boxShadow: '0 2px 10px rgba(37,99,235,0.03)', display: 'flex', alignItems: 'center', 
-        justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 
-      }}>
+      <div className="bg-white dark:bg-slate-800 px-5 py-4 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center justify-between sticky top-0 z-10 transition-colors">
         
         {/* ด้านซ้าย (กลับ + หัวข้อ) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="flex items-center gap-3">
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "900", color: "#1E3A8A" }}>ข้อมูลส่วนตัว</h1>
+            <h1 className="m-0 text-lg font-black text-blue-900 dark:text-blue-50">ข้อมูลส่วนตัว</h1>
           </div>
         </div>
 
         {/* ด้านขวา (ปุ่มออกจากระบบ + ปุ่มบันทึก) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="flex items-center gap-2.5">
           
           <button
             onClick={() => setShowLogoutPopup(true)}
-            style={{ 
-              background: '#FEF2F2', color: '#EF4444', border: '1px solid #FEE2E2', 
-              padding: '10px', borderRadius: '12px', cursor: 'pointer', 
-              display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center'
-            }}
+            className="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 border border-red-100 dark:border-red-900/50 p-2.5 rounded-xl cursor-pointer flex items-center justify-center transition-colors"
           >
             <LogOut size={18} />
           </button>
@@ -240,78 +259,71 @@ export default function CustomerProfile() {
           <button
             onClick={handleSave}
             disabled={!isDirty || isSaving}
-            style={{ 
-              background: (!isDirty || isSaving) ? '#E2E8F0' : '#2563EB', 
-              color: (!isDirty || isSaving) ? '#94A3B8' : '#ffffff', 
-              border: 'none', padding: '10px 16px', borderRadius: '12px', 
-              fontWeight: 'bold', fontSize: '0.9rem', cursor: (!isDirty || isSaving) ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: '6px',
-              transition: 'all 0.3s',
-              boxShadow: (!isDirty || isSaving) ? 'none' : '0 4px 10px rgba(37,99,235,0.2)'
-            }}
+            className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-1.5 transition-all ${
+              (!isDirty || isSaving) 
+                ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-lg shadow-blue-600/20'
+            }`}
           >
-            {isSaving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             {isSaving ? 'กำลังบันทึก' : 'บันทึก'}
           </button>
 
         </div>
       </div>
 
-      <div style={{ padding: '24px 20px', maxWidth: '600px', margin: '0 auto' }}>
+      <div className="px-5 py-6 max-w-[600px] mx-auto">
         
         {/* 📋 Form Area (Card) */}
-        <div style={{ background: '#ffffff', padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(37,99,235,0.05)', border: '1px solid #DCE8FF' }}>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-blue-100 dark:border-slate-700 transition-colors">
           
           <div>
-            <label style={labelStyle}>ชื่อ-นามสกุล</label>
-            <div style={inputWrapperStyle}>
-              <User size={18} style={inputIconStyle} />
-              <input type="text" placeholder="ระบุชื่อของคุณ" value={name} onChange={e => setName(e.target.value)} style={inputFieldStyle} />
+            <label className={labelStyle}>ชื่อ-นามสกุล</label>
+            <div className={inputWrapperStyle}>
+              <User size={18} className={inputIconStyle} />
+              <input type="text" placeholder="ระบุชื่อของคุณ" value={name} onChange={e => setName(e.target.value)} className={inputFieldStyle} />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>อีเมล</label>
-            <div style={inputWrapperStyle}>
-              <Mail size={18} style={inputIconStyle} />
-              <input type="email" placeholder="example@email.com" value={email} onChange={e => setEmail(e.target.value)} style={inputFieldStyle} />
+            <label className={labelStyle}>อีเมล</label>
+            <div className={inputWrapperStyle}>
+              <Mail size={18} className={inputIconStyle} />
+              <input type="email" placeholder="example@email.com" value={email} onChange={e => setEmail(e.target.value)} className={inputFieldStyle} />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>เบอร์โทรศัพท์ <span style={{color: '#EF4444'}}>*</span></label>
-            <div style={inputWrapperStyle}>
-              <Phone size={18} style={inputIconStyle} />
-              <input type="tel" placeholder="08X-XXX-XXXX" value={phone} onChange={e => setPhone(e.target.value)} style={inputFieldStyle} />
+            <label className={labelStyle}>เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+            <div className={inputWrapperStyle}>
+              <Phone size={18} className={inputIconStyle} />
+              <input type="tel" placeholder="08X-XXX-XXXX" value={phone} onChange={e => setPhone(e.target.value)} className={inputFieldStyle} />
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>รายละเอียดที่อยู่จัดส่ง <span style={{color: '#EF4444'}}>*</span></label>
-            <div style={inputWrapperStyle}>
-              <Map size={18} style={inputIconStyle} />
-              <textarea placeholder="เช่น บ้านเลขที่, อาคาร, ซอย, จุดสังเกต..." value={address} onChange={e => setAddress(e.target.value)} style={{ ...inputFieldStyle, minHeight: '80px', resize: 'vertical' }} />
+            <label className={labelStyle}>รายละเอียดที่อยู่จัดส่ง <span className="text-red-500">*</span></label>
+            <div className={inputWrapperStyle}>
+              <Map size={18} className={inputIconStyle} />
+              <textarea placeholder="เช่น บ้านเลขที่, อาคาร, ซอย, จุดสังเกต..." value={address} onChange={e => setAddress(e.target.value)} className={`${inputFieldStyle} min-h-[80px] resize-y`} />
             </div>
           </div>
 
           {/* 📍 Location Button */}
-          <div style={{ marginTop: '5px' }}>
-            <label style={labelStyle}>พิกัด GPS สำหรับจัดส่ง <span style={{color: '#EF4444'}}>*</span></label>
+          <div className="mt-1.5">
+            <label className={labelStyle}>พิกัด GPS สำหรับจัดส่ง <span className="text-red-500">*</span></label>
             
             <button 
               onClick={requestLocation}
               disabled={isFetchingLocation}
-              style={{ 
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '16px', 
-                background: location ? '#ECFDF5' : '#EFF6FF', 
-                color: location ? '#059669' : '#1D4ED8', 
-                border: location ? '1px solid #10B981' : '1px dashed #2563EB', 
-                borderRadius: '16px', cursor: isFetchingLocation ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.95rem', 
-                transition: 'all 0.2s' 
-              }}
+              className={`w-full flex items-center justify-center gap-2.5 p-4 rounded-2xl font-bold text-[0.95rem] transition-all ${
+                isFetchingLocation ? 'cursor-not-allowed bg-blue-50 dark:bg-slate-700 text-blue-700 dark:text-blue-400 border border-dashed border-blue-600' :
+                location ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500 cursor-pointer' :
+                'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-dashed border-blue-600 cursor-pointer'
+              }`}
             >
               {isFetchingLocation ? (
-                <><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> กำลังค้นหาพิกัด...</>
+                <><Loader2 size={20} className="animate-spin" /> กำลังค้นหาพิกัด...</>
               ) : location ? (
                 <><CheckCircle2 size={20} /> บันทึกพิกัดปัจจุบันแล้ว (กดเพื่ออัปเดต)</>
               ) : (
@@ -320,35 +332,81 @@ export default function CustomerProfile() {
             </button>
           </div>
 
+          {/* 🤖 Mascot Settings */}
+          <div className="mt-5 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
+            <div className="flex justify-between items-center gap-4">
+              <div className="flex-1">
+                <div className="font-bold text-blue-900 dark:text-blue-50 text-[0.95rem]">มาสคอต AI นำทาง</div>
+                <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 mt-0.5">แสดงหุ่นยนต์ผู้ช่วยแนะนำการใช้งานเว็บ</div>
+              </div>
+              <button 
+                onClick={toggleMascot}
+                className={`w-[50px] h-[28px] shrink-0 rounded-full relative border-none cursor-pointer transition-colors ${showMascot ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+              >
+                <div className={`w-[24px] h-[24px] bg-white rounded-full absolute top-[2px] left-[2px] transition-transform shadow-[0_2px_5px_rgba(0,0,0,0.2)] ${showMascot ? 'translate-x-[22px]' : 'translate-x-0'}`} />
+              </button>
+            </div>
+            
+            {showMascot && (
+              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-2">
+                <div className="text-[0.85rem] font-bold text-slate-700 dark:text-slate-300 mb-2">เมื่อกดที่ตัวมาสคอต:</div>
+                <div className="flex gap-2">
+                  <button onClick={() => changeMascotMode('both')} className={`flex-1 py-2 px-1 text-[0.75rem] rounded-xl border transition-colors cursor-pointer ${mascotMode === 'both' ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-600 text-blue-700 dark:text-blue-300 font-bold' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>เสียง+ข้อความ</button>
+                  <button onClick={() => changeMascotMode('text')} className={`flex-1 py-2 px-1 text-[0.75rem] rounded-xl border transition-colors cursor-pointer ${mascotMode === 'text' ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-600 text-blue-700 dark:text-blue-300 font-bold' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>ข้อความเท่านั้น</button>
+                  <button onClick={() => changeMascotMode('voice')} className={`flex-1 py-2 px-1 text-[0.75rem] rounded-xl border transition-colors cursor-pointer ${mascotMode === 'voice' ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-600 text-blue-700 dark:text-blue-300 font-bold' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400'}`}>เสียงเท่านั้น</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 🌙 Dark Mode Settings */}
+          {mounted && (
+            <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex justify-between items-center gap-4 transition-colors">
+              <div className="flex-1">
+                <div className="font-bold text-blue-900 dark:text-blue-50 text-[0.95rem] flex items-center gap-2">
+                  {theme === 'dark' ? <Moon size={16} className="text-indigo-400 shrink-0" /> : <Sun size={16} className="text-amber-500 shrink-0" />}
+                  โหมดกลางคืน (Dark Mode)
+                </div>
+                <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 mt-0.5">เปลี่ยนธีมสีของแอปพลิเคชัน</div>
+              </div>
+              <button 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className={`w-[50px] h-[28px] shrink-0 rounded-full relative border-none cursor-pointer transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+              >
+                <div className={`w-[24px] h-[24px] bg-white rounded-full absolute top-[2px] left-[2px] transition-transform shadow-[0_2px_5px_rgba(0,0,0,0.2)] ${theme === 'dark' ? 'translate-x-[22px]' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
 
       {/* 🌟 Custom Popup ออกจากระบบ */}
       <AnimatePresence>
         {showLogoutPopup && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[1000] p-5">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 10 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 
               exit={{ opacity: 0, scale: 0.9, y: 10 }} 
-              style={{ background: '#ffffff', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '340px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
+              className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-[340px] text-center shadow-2xl"
             >
-              <div style={{ width: '64px', height: '64px', background: '#FEF2F2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
-                <LogOut size={32} color="#EF4444" />
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogOut size={32} className="text-red-500" />
               </div>
-              <h3 style={{ margin: '0 0 8px 0', color: '#1E3A8A', fontSize: '1.25rem', fontWeight: '900' }}>ออกจากระบบ</h3>
-              <p style={{ margin: '0 0 24px 0', color: '#64748B', fontSize: '0.95rem', lineHeight: '1.5' }}>คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีนี้?</p>
+              <h3 className="m-0 mb-2 text-blue-900 dark:text-blue-50 text-xl font-black">ออกจากระบบ</h3>
+              <p className="m-0 mb-6 text-slate-500 dark:text-slate-400 text-[0.95rem] leading-relaxed">คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบบัญชีนี้?</p>
               
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="flex gap-3">
                 <button 
                   onClick={() => setShowLogoutPopup(false)} 
-                  style={{ flex: 1, padding: '14px', background: '#F1F5F9', color: '#475569', borderRadius: '16px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95rem' }}
+                  className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold border-none cursor-pointer text-[0.95rem] hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
                   ยกเลิก
                 </button>
                 <button 
                   onClick={handleLogout} 
-                  style={{ flex: 1, padding: '14px', background: '#EF4444', color: '#ffffff', borderRadius: '16px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(239,68,68,0.2)' }}
+                  className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold border-none cursor-pointer text-[0.95rem] shadow-lg shadow-red-500/20 transition-all"
                 >
                   ออกจากระบบ
                 </button>

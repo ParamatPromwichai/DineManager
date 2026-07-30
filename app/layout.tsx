@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./Providers"; // ➕ 1. นำเข้า Providers ที่เราสร้างไว้
+import Mascot from "@/components/Mascot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,13 +44,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* ➕ 2. เอา Providers มาครอบ children เอาไว้ */}
         <Providers>
           {children}
+          <Mascot />
         </Providers>
       </body>
     </html>

@@ -158,10 +158,10 @@ export default function CartPage() {
 
   if (cart.length === 0) {
     return (
-      <div style={{ padding: '20px', background: '#F4F8FF', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <ShoppingCart size={48} color="#94A3B8" style={{ marginBottom: 15 }} />
-        <h2 style={{ color: '#1E3A8A' }}>ตะกร้าว่างเปล่า</h2>
-        <button onClick={() => router.push('/dashboard/customer/menus')} style={{ padding: '10px 20px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 8, marginTop: 15, fontWeight: 'bold', cursor: 'pointer' }}>
+      <div className="p-5 bg-blue-50 dark:bg-slate-900 min-h-screen flex flex-col items-center justify-center transition-colors">
+        <ShoppingCart size={48} className="text-slate-400 dark:text-slate-500 mb-4" />
+        <h2 className="text-blue-900 dark:text-blue-200">ตะกร้าว่างเปล่า</h2>
+        <button onClick={() => router.push('/dashboard/customer/menus')} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-xl mt-4 font-bold cursor-pointer shadow-md shadow-blue-600/20 transition-all">
           ไปเลือกอาหารเลย
         </button>
       </div>
@@ -169,40 +169,44 @@ export default function CartPage() {
   }
 
   return (
-    <div style={{ padding: '20px 20px 100px 20px', background: '#F4F8FF', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div className="p-5 pb-6 bg-blue-50 dark:bg-slate-900 font-sans transition-colors">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, gap: 10 }}>
-        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontWeight: 'bold', cursor: 'pointer', padding: '8px 14px', borderRadius: '20px', fontSize: '0.9rem' }}>
+      <div className="flex items-center mb-5 gap-2.5">
+        <button onClick={() => router.back()} className="flex items-center gap-1 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-300 font-bold cursor-pointer px-3.5 py-2 rounded-full text-[0.9rem] transition-colors">
           <ArrowLeft size={16} /> กลับ
         </button>
-        <h1 style={{ margin: 0, flex: 1, textAlign: 'center', color: '#1E3A8A', fontSize: '1.2rem', fontWeight: '900', paddingRight: 70 }}>
+        <h1 className="m-0 flex-1 text-center text-blue-900 dark:text-blue-50 text-[1.2rem] font-black pr-[70px]">
           ชำระเงิน
         </h1>
       </div>
 
-      <div style={{ background: '#ffffff', padding: 25, borderRadius: 24, boxShadow: '0 4px 15px rgba(37, 99, 235, 0.05)', border: '1px solid #EBF1FF' }}>
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-blue-50 dark:border-slate-700 transition-colors">
         {/* รายการในตะกร้า */}
-        <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ShoppingCart size={20} color="#2563EB" /> รายการอาหาร
+        <h3 className="m-0 mb-4 text-[1.1rem] text-blue-900 dark:text-blue-100 flex items-center gap-2 font-bold">
+          <ShoppingCart size={20} className="text-blue-600 dark:text-blue-400" /> รายการอาหาร
         </h3>
-        <div style={{ marginBottom: 20 }}>
+        <div className="mb-5">
           {cart.map(item => (
-            <div key={item.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #F1F5F9' }}>
-              <div style={{ flex: 1, paddingRight: 10 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E40AF' }}>{item.originalName}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.3 }}>{item.name.replace(item.originalName, '').trim()}</div>
-                <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
+            <div key={item.cartItemId} className="flex justify-between items-start mb-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex-1 pr-2.5">
+                <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.originalName}</div>
+                <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 leading-snug">{item.name.replace(item.originalName, '').trim()}</div>
+                <div className="text-blue-600 dark:text-blue-400 font-bold text-[0.85rem]">{item.price.toLocaleString()} ฿</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444' }}><Minus size={14} strokeWidth={3} /></button>
-                <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB' }}><Plus size={14} strokeWidth={3} /></button>
+              <div className="flex items-center bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-slate-600 rounded-full overflow-hidden transition-colors">
+                <button onClick={() => removeFromCart(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-red-500 flex items-center"><Minus size={14} strokeWidth={3} /></button>
+                <span className="text-[0.95rem] font-bold w-5 text-center text-blue-900 dark:text-blue-100">{item.quantity}</span>
+                <button onClick={() => addToCartDirectly(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-blue-600 dark:text-blue-400 flex items-center"><Plus size={14} strokeWidth={3} /></button>
               </div>
             </div>
           ))}
         </div>
 
-        <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 20px', background: (shopData && !shopData.is_open) ? '#94A3B8' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: (shopData && !shopData.is_open) ? 'not-allowed' : 'pointer', fontWeight: '900', fontSize: '1.1rem', boxShadow: (shopData && !shopData.is_open) ? 'none' : '0 4px 15px rgba(37, 99, 235, 0.3)' }}>
+        <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} className={`flex justify-between items-center w-full p-4 border-none rounded-2xl cursor-pointer font-black text-[1.1rem] transition-all ${
+          (shopData && !shopData.is_open) 
+            ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_15px_rgba(37,99,235,0.3)]'
+        }`}>
           <span>{(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'สั่งซื้อและชำระเงิน'}</span>
           <span>{subTotal.toLocaleString()} ฿</span>
         </button>
@@ -210,89 +214,105 @@ export default function CartPage() {
 
       {/* 🔴 Payment Modal */}
       {showPaymentModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', borderRadius: 28, padding: 25, boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[1000] p-5">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-[500px] max-h-[90vh] overflow-y-auto rounded-3xl p-6 shadow-2xl transition-colors">
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1E3A8A', fontWeight: '900' }}>ข้อมูลการจัดส่ง</h3>
-              <button onClick={() => setShowPaymentModal(false)} style={{ background: '#F1F5F9', border: 'none', width: 32, height: 32, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#64748B' }}><X size={18} /></button>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="m-0 text-[1.2rem] text-blue-900 dark:text-blue-50 font-black">ข้อมูลการจัดส่ง</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="bg-slate-100 dark:bg-slate-700 border-none w-8 h-8 rounded-full flex justify-center items-center cursor-pointer text-slate-500 dark:text-slate-400 transition-colors"><X size={18} /></button>
             </div>
 
             {/* ข้อมูลการจัดส่ง */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              <input type="tel" placeholder="เบอร์โทรศัพท์ติดต่อ *" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} style={{ padding: 14, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
-              <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} style={{ padding: 14, minHeight: 80, border: '1px solid #BFDBFE', borderRadius: 12, outline: 'none', fontSize: '1rem', background: '#F4F8FF', color: '#1E3A8A' }} />
+            <div className="flex flex-col gap-3 mb-5">
+              <input type="tel" placeholder="เบอร์โทรศัพท์ติดต่อ *" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="p-3.5 border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors" />
+              <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} className="p-3.5 min-h-[80px] border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors" />
             </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button onClick={requestLocation} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: '#EFF6FF', border: '1px dashed #2563EB', color: '#1D4ED8', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
+            <div className="flex gap-2.5 mb-5">
+              <button onClick={requestLocation} className="flex-1 flex items-center justify-center gap-1.5 p-3 text-[0.85rem] bg-blue-50 dark:bg-blue-900/30 border border-dashed border-blue-600 text-blue-700 dark:text-blue-400 rounded-xl cursor-pointer font-bold transition-colors">
                 <Zap size={16} /> ใช้ตำแหน่งปัจจุบัน
               </button>
-              <button onClick={() => { setTempLocation(location || { lat: 17.1664, lng: 104.1486 }); setShowMapModal(true); }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px', fontSize: '0.85rem', background: location ? '#ECFDF5' : '#F8FAFC', border: `1px solid ${location ? '#10B981' : '#CBD5E1'}`, color: location ? '#059669' : '#475569', borderRadius: 12, cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={() => { setTempLocation(location || { lat: 17.1664, lng: 104.1486 }); setShowMapModal(true); }} className={`flex-1 flex items-center justify-center gap-1.5 p-3 text-[0.85rem] rounded-xl cursor-pointer font-bold transition-all border ${
+                location ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'
+              }`}>
                 <MapPin size={16} /> {location ? 'ปักหมุดแล้ว (คลิกแก้หมุด)' : 'ปักหมุดแผนที่'}
               </button>
             </div>
 
             {/* 🧾 Receipt Summary */}
-            <div style={{ background: '#F4F8FF', padding: 18, borderRadius: 16, marginBottom: 25, border: '1px solid #DCE8FF' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#475569', fontSize: '0.95rem' }}>
-                <span>รวมค่าอาหาร:</span><strong style={{ color: '#1E3A8A' }}>{subTotal.toLocaleString()} ฿</strong>
+            <div className="bg-blue-50 dark:bg-slate-700 p-4 rounded-2xl mb-6 border border-blue-100 dark:border-slate-600 transition-colors">
+              <div className="flex justify-between mb-1.5 text-slate-600 dark:text-slate-300 text-[0.95rem]">
+                <span>รวมค่าอาหาร:</span><strong className="text-blue-900 dark:text-blue-100">{subTotal.toLocaleString()} ฿</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: '#475569', fontSize: '0.95rem' }}>
+              <div className="flex justify-between mb-2.5 text-slate-600 dark:text-slate-300 text-[0.95rem]">
                 <span>ค่าจัดส่ง {distance > 0 ? `(${distance.toFixed(1)} กม.)` : ''}:</span>
-                <strong style={{ color: '#1E3A8A' }}>{location ? `${deliveryFee.toLocaleString()} ฿` : 'รอพิกัด...'}</strong>
+                <strong className="text-blue-900 dark:text-blue-100">{location ? `${deliveryFee.toLocaleString()} ฿` : 'รอพิกัด...'}</strong>
               </div>
-              <div style={{ height: '1px', background: '#BFDBFE', margin: '10px 0', border: 'none' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: '900', color: '#1E3A8A' }}>
-                <span>ยอดรวมสุทธิ:</span><span style={{ color: '#2563EB' }}>{total.toLocaleString()} ฿</span>
+              <div className="h-px bg-blue-200 dark:bg-slate-600 my-2.5 border-none transition-colors" />
+              <div className="flex justify-between text-[1.25rem] font-black text-blue-900 dark:text-blue-50">
+                <span>ยอดรวมสุทธิ:</span><span className="text-blue-600 dark:text-blue-400">{total.toLocaleString()} ฿</span>
               </div>
             </div>
 
             {/* วิธีชำระเงิน */}
-            <div style={{ marginBottom: 25 }}>
-              <p style={{ marginBottom: 12, fontWeight: 'bold', fontSize: '0.95rem', color: '#1E3A8A' }}>เลือกช่องทางชำระเงิน:</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <label style={{ flex: 1, padding: 15, border: paymentMethod === 'qr' ? '2px solid #2563EB' : '1px solid #DCE8FF', borderRadius: 14, textAlign: 'center', cursor: 'pointer', background: paymentMethod === 'qr' ? '#EFF6FF' : '#ffffff', color: paymentMethod === 'qr' ? '#1D4ED8' : '#475569', fontWeight: 'bold' }}>
-                  <input type="radio" checked={paymentMethod === 'qr'} onChange={() => setPaymentMethod('qr')} style={{ display: 'none' }} /> โอนเงิน (QR)
+            <div className="mb-6">
+              <p className="mb-3 font-bold text-[0.95rem] text-blue-900 dark:text-blue-100">เลือกช่องทางชำระเงิน:</p>
+              <div className="flex gap-2.5">
+                <label className={`flex-1 p-3.5 rounded-2xl text-center cursor-pointer font-bold border-2 transition-all ${
+                  paymentMethod === 'qr' 
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                    : 'border-blue-100 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}>
+                  <input type="radio" checked={paymentMethod === 'qr'} onChange={() => setPaymentMethod('qr')} className="hidden" /> โอนเงิน (QR)
                 </label>
-                <label style={{ flex: 1, padding: 15, border: paymentMethod === 'cod' ? '2px solid #2563EB' : '1px solid #DCE8FF', borderRadius: 14, textAlign: 'center', cursor: 'pointer', background: paymentMethod === 'cod' ? '#EFF6FF' : '#ffffff', color: paymentMethod === 'cod' ? '#1D4ED8' : '#475569', fontWeight: 'bold' }}>
-                  <input type="radio" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ display: 'none' }} /> ปลายทาง
+                <label className={`flex-1 p-3.5 rounded-2xl text-center cursor-pointer font-bold border-2 transition-all ${
+                  paymentMethod === 'cod' 
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                    : 'border-blue-100 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}>
+                  <input type="radio" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="hidden" /> ปลายทาง
                 </label>
               </div>
             </div>
 
             {/* QR Payment Content */}
             {paymentMethod === 'qr' && shopData && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#F4F8FF', padding: 20, borderRadius: 20, marginBottom: 25, border: '1px solid #DCE8FF' }}>
-                <p style={{ margin: '0 0 15px 0', fontSize: '1rem', fontWeight: 'bold', color: '#1E3A8A' }}>สแกนเพื่อโอนเงิน <span style={{ color: '#2563EB', fontSize: '1.1rem' }}>{total.toLocaleString()} ฿</span></p>
+              <div className="flex flex-col items-center bg-blue-50 dark:bg-slate-700 p-5 rounded-2xl mb-6 border border-blue-100 dark:border-slate-600 transition-colors">
+                <p className="m-0 mb-4 text-[1rem] font-bold text-blue-900 dark:text-blue-100">สแกนเพื่อโอนเงิน <span className="text-blue-600 dark:text-blue-400 text-[1.1rem]">{total.toLocaleString()} ฿</span></p>
                 
-                <div style={{ background: '#FFF3CD', color: '#856404', padding: '10px 15px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '15px', border: '1px solid #FFEEBA', width: '100%', textAlign: 'center' }}>
+                <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-500 px-4 py-2.5 rounded-xl text-[0.85rem] mb-4 border border-amber-200 dark:border-amber-800/50 w-full text-center">
                   <strong>⚠️ หมายเหตุ:</strong> หากสแกนจ่ายเงินแล้ว ยังไม่ได้ยืนยัน คุณสามารถกลับมากดสั่งใหม่และแนบสลิปได้เลยครับ
                 </div>
 
                 {shopData.account_number ? (
-                  <img src={`https://promptpay.io/${shopData.account_number}/${total}.png`} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} alt="PromptPay QR" />
+                  <img src={`https://promptpay.io/${shopData.account_number}/${total}.png`} className="w-[180px] rounded-xl border-4 border-white dark:border-slate-800 shadow-[0_4px_10px_rgba(37,99,235,0.15)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)]" alt="PromptPay QR" />
                 ) : shopData.qr_image ? (
-                  <img src={shopData.qr_image} style={{ width: '180px', borderRadius: 12, border: '4px solid #fff', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.15)' }} />
+                  <img src={shopData.qr_image} className="w-[180px] rounded-xl border-4 border-white dark:border-slate-800 shadow-[0_4px_10px_rgba(37,99,235,0.15)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)]" />
                 ) : (
-                  <div style={{ padding: 30, background: '#EBF1FF', color: '#93C5FD', borderRadius: 12 }}><ImageOff size={32} /></div>
+                  <div className="p-7 bg-blue-100 dark:bg-slate-600 text-blue-300 dark:text-slate-400 rounded-xl"><ImageOff size={32} /></div>
                 )}
 
-                <div style={{ marginTop: 15, fontSize: '0.9rem', color: '#1E40AF', width: '100%', background: '#fff', padding: 12, borderRadius: 12, border: '1px solid #DCE8FF' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>ธนาคาร:</span> <strong>{shopData.bank_name || '-'}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>เลขบัญชี:</span> <strong style={{ color: '#2563EB', fontSize: '1rem' }}>{shopData.account_number || '-'}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ชื่อบัญชี:</span> <strong>{shopData.account_name || '-'}</strong></div>
+                <div className="mt-4 text-[0.9rem] text-blue-900 dark:text-blue-100 w-full bg-white dark:bg-slate-800 p-3 rounded-xl border border-blue-100 dark:border-slate-600 transition-colors">
+                  <div className="flex justify-between mb-1.5"><span>ธนาคาร:</span> <strong>{shopData.bank_name || '-'}</strong></div>
+                  <div className="flex justify-between mb-1.5"><span>เลขบัญชี:</span> <strong className="text-blue-600 dark:text-blue-400 text-[1rem]">{shopData.account_number || '-'}</strong></div>
+                  <div className="flex justify-between"><span>ชื่อบัญชี:</span> <strong>{shopData.account_name || '-'}</strong></div>
                 </div>
 
-                <label style={{ marginTop: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 15px', background: slipImage ? '#ECFDF5' : '#1E3A8A', color: slipImage ? '#059669' : '#fff', borderRadius: 12, cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', width: '100%', border: slipImage ? '1px solid #10B981' : 'none' }}>
-                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                <label className={`mt-4 flex items-center justify-center gap-2 p-3 rounded-xl cursor-pointer text-[0.9rem] font-bold w-full transition-all border ${
+                  slipImage ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-500' : 'bg-blue-900 dark:bg-blue-600 text-white border-transparent'
+                }`}>
+                  <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                   {slipImage ? <><CheckCircle2 size={18} /> เปลี่ยนรูปสลิป</> : <><UploadCloud size={18} /> อัปโหลดสลิปโอนเงิน *</>}
                 </label>
-                {slipImage && <img src={slipImage} style={{ marginTop: 10, height: '120px', borderRadius: 8, border: '1px solid #DCE8FF' }} />}
+                {slipImage && <img src={slipImage} className="mt-2.5 h-[120px] rounded-lg border border-blue-100 dark:border-slate-600" />}
                 <div ref={paymentBottomRef} />
               </div>
             )}
 
-            <button disabled={isSubmitting || (shopData && !shopData.is_open)} onClick={handleConfirmOrder} style={{ width: '100%', padding: 15, background: (isSubmitting || (shopData && !shopData.is_open)) ? '#94A3B8' : '#2563EB', color: '#fff', border: 'none', borderRadius: 14, cursor: (isSubmitting || (shopData && !shopData.is_open)) ? 'not-allowed' : 'pointer', fontWeight: '900', fontSize: '1.05rem', boxShadow: (isSubmitting || (shopData && !shopData.is_open)) ? 'none' : '0 4px 10px rgba(37, 99, 235, 0.3)' }}>
+            <button disabled={isSubmitting || (shopData && !shopData.is_open)} onClick={handleConfirmOrder} className={`w-full p-4 border-none rounded-2xl cursor-pointer font-black text-[1.05rem] transition-all ${
+              (isSubmitting || (shopData && !shopData.is_open)) 
+                ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_10px_rgba(37,99,235,0.3)]'
+            }`}>
               {isSubmitting ? 'กำลังสั่ง...' : ((shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันสั่งอาหาร')}
             </button>
           </div>
@@ -301,22 +321,22 @@ export default function CartPage() {
 
       {/* 🗺️ Popup หน้าต่างปักหมุดแผนที่ */}
       {showMapModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200, padding: 20 }}>
-          <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: 28, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-            <div style={{ padding: '20px 20px 15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #EBF1FF' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: '#1E3A8A' }}>เลือกตำแหน่งจัดส่ง</h3>
-              <button onClick={() => setShowMapModal(false)} style={{ background: '#F4F8FF', border: 'none', width: 36, height: 36, borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', color: '#2563EB' }}><X size={20} /></button>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-center z-[1200] p-5">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-[500px] rounded-3xl overflow-hidden flex flex-col shadow-[0_10px_40px_rgba(0,0,0,0.2)] transition-colors">
+            <div className="p-5 pb-4 flex justify-between items-center border-b border-blue-50 dark:border-slate-700 transition-colors">
+              <h3 className="m-0 text-[1.2rem] font-bold text-blue-900 dark:text-blue-50">เลือกตำแหน่งจัดส่ง</h3>
+              <button onClick={() => setShowMapModal(false)} className="bg-blue-50 dark:bg-slate-700 border-none w-9 h-9 rounded-full flex justify-center items-center cursor-pointer text-blue-600 dark:text-blue-400 transition-colors"><X size={20} /></button>
             </div>
-            <div style={{ height: '350px', background: '#E2E8F0', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: 15, right: 15, zIndex: 400 }}>
-                <button onClick={() => requestLocation()} style={{ background: 'white', border: 'none', padding: '8px 12px', borderRadius: 8, boxShadow: '0 4px 10px rgba(0,0,0,0.15)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6, color: '#1D4ED8' }}>
-                  <Zap size={16} fill="#2563EB" color="#2563EB" /> ตำแหน่งของฉัน
+            <div className="h-[350px] bg-slate-200 dark:bg-slate-700 relative transition-colors">
+              <div className="absolute top-4 right-4 z-[400]">
+                <button onClick={() => requestLocation()} className="bg-white dark:bg-slate-800 border-none px-3 py-2 rounded-xl shadow-md cursor-pointer font-bold flex items-center gap-1.5 text-blue-700 dark:text-blue-400 transition-colors">
+                  <Zap size={16} className="fill-blue-600 dark:fill-blue-500 text-blue-600 dark:text-blue-500" /> ตำแหน่งของฉัน
                 </button>
               </div>
               <MapPicker tempLocation={tempLocation} setTempLocation={setTempLocation} setAddress={setAddress} />
             </div>
-            <div style={{ padding: 20 }}>
-              <button onClick={() => { if (tempLocation) setLocation(tempLocation); setShowMapModal(false); }} style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', borderRadius: 14, fontWeight: '900', fontSize: '1.05rem', border: 'none', cursor: 'pointer' }}>
+            <div className="p-5">
+              <button onClick={() => { if (tempLocation) setLocation(tempLocation); setShowMapModal(false); }} className="w-full p-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[1.05rem] border-none cursor-pointer transition-colors">
                 ยืนยันตำแหน่งนี้
               </button>
             </div>
@@ -326,16 +346,16 @@ export default function CartPage() {
 
       {/* 🎉 Success Sheet */}
       {showSuccessSheet && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#ffffff', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: '35px 25px 40px 25px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)', animation: 'slideUp 0.3s ease-out' }}>
-            <div style={{ width: 60, height: 6, background: '#E2E8F0', borderRadius: 10, margin: '0 auto 25px' }} />
+        <div className="fixed inset-0 z-[9999] flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-t-[32px] pt-[35px] px-[25px] pb-[40px] flex flex-col items-center shadow-[0_-10px_40px_rgba(0,0,0,0.2)] animate-[slideUp_0.3s_ease-out] transition-colors">
+            <div className="w-[60px] h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-[25px] transition-colors" />
             
-            <div style={{ width: 80, height: 80, background: '#10B981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'white', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)', animation: 'bounceIn 0.5s ease-out' }}>
+            <div className="w-[80px] h-[80px] bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-5 text-white shadow-[0_10px_25px_rgba(16,185,129,0.3)] animate-[bounceIn_0.5s_ease-out]">
               <CheckCircle2 size={44} strokeWidth={2.5} />
             </div>
             
-            <h2 style={{ color: '#1E3A8A', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: '900', textAlign: 'center' }}>สั่งอาหารสำเร็จ!</h2>
-            <p style={{ color: '#64748B', margin: '0 0 30px 0', textAlign: 'center', fontSize: '1rem', lineHeight: '1.5' }}>
+            <h2 className="text-blue-900 dark:text-blue-50 m-0 mb-2.5 text-[1.6rem] font-black text-center">สั่งอาหารสำเร็จ!</h2>
+            <p className="text-slate-500 dark:text-slate-400 m-0 mb-[30px] text-center text-[1rem] leading-relaxed">
               ขอบคุณที่ใช้บริการค่ะ <br/> ทางร้านได้รับออเดอร์แล้ว และกำลังเตรียมอาหารให้คุณ
             </p>
             
@@ -345,7 +365,7 @@ export default function CartPage() {
                 setCart([]);
                 router.push('/dashboard/customer/orders');
               }}
-              style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 6px 15px rgba(37, 99, 235, 0.25)', transition: 'all 0.2s' }}
+              className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-2xl text-[1.1rem] font-bold cursor-pointer shadow-[0_6px_15px_rgba(37,99,235,0.25)] transition-all"
             >
               ดูสถานะออเดอร์
             </button>

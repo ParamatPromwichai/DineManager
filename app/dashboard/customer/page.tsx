@@ -346,15 +346,15 @@ export default function CustomerHome() {
   // 🚨 ถ้าเป็นโหมดซ่อมบำรุง ให้โชว์หน้าซ่อมบำรุงเลย ไม่ต้องรอโหลดอย่างอื่น
   if (isMaintenance) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4F8FF', padding: 20 }}>
-        <div style={{ background: '#fff', padding: 40, borderRadius: 20, textAlign: 'center', boxShadow: '0 10px 40px rgba(37, 99, 235, 0.1)', maxWidth: 400 }}>
-          <div style={{ background: '#fffbeb', color: '#d97706', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+      <div className="flex justify-center items-center h-screen bg-blue-50 dark:bg-slate-900 p-5 transition-colors">
+        <div className="bg-white dark:bg-slate-800 p-10 rounded-3xl text-center shadow-[0_10px_40px_rgba(37,99,235,0.1)] dark:shadow-none border border-blue-100 dark:border-slate-700 max-w-[400px] transition-colors">
+          <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 w-[60px] h-[60px] rounded-full flex items-center justify-center mx-auto mb-5">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
             </svg>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#b45309', margin: '0 0 10px 0' }}>ปิดปรับปรุงระบบชั่วคราว</h1>
-          <p style={{ color: '#d97706', lineHeight: '1.6', margin: 0 }}>ขออภัยในความไม่สะดวก ขณะนี้ระบบกำลังปิดปรับปรุง กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ</p>
+          <h1 className="text-2xl font-bold text-amber-700 dark:text-amber-500 m-0 mb-2.5">ปิดปรับปรุงระบบชั่วคราว</h1>
+          <p className="text-amber-600 dark:text-amber-400/80 leading-relaxed m-0">ขออภัยในความไม่สะดวก ขณะนี้ระบบกำลังปิดปรับปรุง กรุณากลับมาใช้งานใหม่อีกครั้งในภายหลังครับ</p>
         </div>
       </div>
     );
@@ -362,35 +362,35 @@ export default function CustomerHome() {
 
   if (checkingSystem || status === 'loading' || loading) {
     return (
-      <div style={{ padding: '20px 20px 100px 20px', minHeight: '100vh', background: '#F8FAFC' }}>
-        <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+      <div className="px-5 pt-5 pb-8 min-h-[100dvh] bg-slate-50 dark:bg-slate-900 transition-colors">
+        <div className="animate-pulse flex flex-col gap-6">
           {/* Header Skeleton */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div style={{ width: '55px', height: '55px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
-            <div style={{ flex: 1 }}>
-              <div style={{ height: '22px', width: '140px', backgroundColor: '#E2E8F0', borderRadius: '10px', marginBottom: '8px' }}></div>
-              <div style={{ height: '14px', width: '90px', backgroundColor: '#E2E8F0', borderRadius: '10px' }}></div>
+          <div className="flex items-center gap-4">
+            <div className="w-[55px] h-[55px] rounded-full bg-slate-200 dark:bg-slate-800"></div>
+            <div className="flex-1">
+              <div className="h-[22px] w-[140px] bg-slate-200 dark:bg-slate-800 rounded-lg mb-2"></div>
+              <div className="h-[14px] w-[90px] bg-slate-200 dark:bg-slate-800 rounded-lg"></div>
             </div>
-            <div style={{ width: '45px', height: '45px', borderRadius: '50%', backgroundColor: '#E2E8F0' }}></div>
+            <div className="w-[45px] h-[45px] rounded-full bg-slate-200 dark:bg-slate-800"></div>
           </div>
           
           {/* Banner Skeleton */}
-          <div style={{ width: '100%', height: '180px', backgroundColor: '#E2E8F0', borderRadius: '24px' }}></div>
+          <div className="w-full h-[180px] bg-slate-200 dark:bg-slate-800 rounded-3xl"></div>
           
           {/* Categories Skeleton */}
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'hidden' }}>
+          <div className="flex gap-2.5 overflow-hidden">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} style={{ minWidth: '90px', height: '40px', backgroundColor: '#E2E8F0', borderRadius: '20px' }}></div>
+              <div key={i} className="min-w-[90px] h-[40px] bg-slate-200 dark:bg-slate-800 rounded-full"></div>
             ))}
           </div>
 
           {/* Title Skeleton */}
-          <div style={{ height: '24px', width: '160px', backgroundColor: '#E2E8F0', borderRadius: '12px' }}></div>
+          <div className="h-[24px] w-[160px] bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
           
           {/* Horizontal Cards Skeleton */}
-          <div style={{ display: 'flex', gap: '15px', overflowX: 'hidden' }}>
+          <div className="flex gap-4 overflow-hidden">
             {[1, 2, 3].map(i => (
-              <div key={i} style={{ minWidth: '220px', height: '240px', backgroundColor: '#E2E8F0', borderRadius: '24px' }}></div>
+              <div key={i} className="min-w-[220px] h-[240px] bg-slate-200 dark:bg-slate-800 rounded-3xl"></div>
             ))}
           </div>
         </div>
@@ -400,12 +400,12 @@ export default function CustomerHome() {
 
 
   return (
-    <div className={`min-h-screen bg-[#F4F8FF] px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-72' : 'pb-24'}`}>
+    <div className={`bg-blue-50 dark:bg-slate-900 px-5 pt-5 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-[160px]' : 'pb-6'}`}>
 
       {/* 🔴 Header สำหรับ Dashboard */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: '#1E3A8A' }}>หน้าหลัก</h2>
-        <button onClick={() => router.push('/dashboard/customer/cart')} style={{ position: 'relative', background: '#ffffff', border: '1px solid #DCE8FF', color: '#2563EB', cursor: 'pointer', padding: '10px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(37,99,235,0.05)' }}>
+      <div className="flex justify-between items-center mb-5">
+        <h2 className="m-0 text-xl font-black text-blue-900 dark:text-blue-50">หน้าหลัก</h2>
+        <button onClick={() => router.push('/dashboard/customer/cart')} className="relative bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-blue-600 dark:text-blue-400 cursor-pointer p-2.5 rounded-full flex items-center justify-center shadow-sm transition-colors">
           <ShoppingCart size={22} />
           {cart.reduce((a, b) => a + b.quantity, 0) > 0 && (
             <span style={{ position: 'absolute', top: -6, right: -6, background: '#EF4444', color: 'white', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', border: '2px solid #ffffff' }}>
@@ -418,57 +418,61 @@ export default function CustomerHome() {
       {dashboardData && (
         <>
           {/* 🏪 Shop Status Card */}
-          <section style={{ marginBottom: 25 }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
-              <Store size={22} color="#2563eb" /> Status ร้านค้า
+          <section className="mb-6">
+            <h3 className="text-lg font-bold flex items-center gap-2 text-blue-900 dark:text-blue-100">
+              <Store size={22} className="text-blue-600 dark:text-blue-400" /> Status ร้านค้า
             </h3>
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 16, marginTop: 12, border: '1px solid #DCE8FF', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.05)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: dashboardData.shop.is_open ? '#10b981' : '#ef4444', fontWeight: '800', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {dashboardData.shop.is_open ? <Zap size={18} fill="#10b981" /> : <X size={18} />}
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl mt-3 border border-blue-100 dark:border-slate-700 shadow-sm transition-colors">
+              <div className="flex justify-between items-center">
+                <span className={`font-black flex items-center gap-1.5 ${dashboardData.shop.is_open ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {dashboardData.shop.is_open ? <Zap size={18} className="fill-emerald-500" /> : <X size={18} />}
                   {dashboardData.shop.is_open ? 'เปิดให้บริการ' : 'ปิดให้บริการ'}
                 </span>
-                <span style={{ fontSize: '0.85rem', color: '#60A5FA', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'bold' }}>
+                <span className="text-sm text-blue-400 flex items-center gap-1 font-bold">
                   <Clock size={14} /> ปิด {dashboardData.shop.close_time?.substring(0, 5) || '--:--'} น.
                 </span>
               </div>
-              <div style={{ height: '1px', background: '#E0EFFF', margin: '15px 0' }} />
-              <p style={{ margin: 0, color: '#475569', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Timer size={18} color="#2563EB" /> คิวที่รอขณะนี้: <strong style={{ color: '#1E40AF', fontSize: '1.2rem' }}>{dashboardData.remainingQueue}</strong> คิว
+              <div className="h-px bg-blue-50 dark:bg-slate-700 my-4 transition-colors" />
+              <p className="m-0 text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                <Timer size={18} className="text-blue-600 dark:text-blue-400" /> คิวที่รอขณะนี้: <strong className="text-blue-800 dark:text-blue-200 text-lg">{dashboardData.remainingQueue}</strong> คิว
               </p>
             </div>
           </section>
 
           {/* ⭐ Recommended Horizontal List */}
           {dashboardData.recommendedMenus.length > 0 && (
-            <section style={{ marginBottom: 30 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A', margin: 0 }}>
-                  <Star size={22} color="#F59E0B" fill="#F59E0B" /> เมนูแนะนำวันนี้
+            <section className="mb-7">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2 text-blue-900 dark:text-blue-100 m-0">
+                  <Star size={22} className="text-amber-500 fill-amber-500" /> เมนูแนะนำวันนี้
                 </h3>
                 <button
                   onClick={() => router.push('/dashboard/customer/menus')}
-                  style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '6px 12px', borderRadius: 20, color: '#1D4ED8', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  className="bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 px-3 py-1.5 rounded-full text-blue-700 dark:text-blue-400 font-bold text-sm cursor-pointer flex items-center transition-colors"
                 >
                   ดูทั้งหมด <ChevronRight size={14} />
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 15, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
+              <div className="flex gap-4 overflow-x-auto pb-2.5 snap-x snap-mandatory">
                 {dashboardData.recommendedMenus.map((m) => (
-                  <div key={`rec-${m.id}`} onClick={() => router.push(`/dashboard/customer/menus/${m.id}`)} style={{ cursor: 'pointer', width: '160px', flex: '0 0 160px', background: '#ffffff', border: '1px solid #DCE8FF', borderRadius: 16, padding: 12, scrollSnapAlign: 'start', boxShadow: '0 4px 10px rgba(37, 99, 235, 0.04)', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ height: '100px', background: '#F0F5FF', borderRadius: 12, marginBottom: 10, overflow: 'hidden', flexShrink: 0 }}>
-                      {m.image ? <img src={m.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageOff size={20} color="#93C5FD" /></div>}
+                  <div key={`rec-${m.id}`} onClick={() => router.push(`/dashboard/customer/menus/${m.id}`)} className="cursor-pointer w-[160px] flex-none bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-2xl p-3 snap-start shadow-sm flex flex-col transition-colors">
+                    <div className="h-[100px] bg-blue-50 dark:bg-slate-700 rounded-xl mb-2.5 overflow-hidden shrink-0 transition-colors">
+                      {m.image ? <img src={m.image} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center"><ImageOff size={20} className="text-blue-300 dark:text-slate-500" /></div>}
                     </div>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E3A8A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
-                    <div style={{ color: '#2563EB', fontWeight: '900', fontSize: '1.05rem', marginTop: 4 }}>{m.price} ฿</div>
+                    <div className="font-bold text-[0.95rem] text-blue-900 dark:text-blue-50 whitespace-nowrap overflow-hidden text-ellipsis">{m.name}</div>
+                    <div className="text-blue-600 dark:text-blue-400 font-black text-[1.05rem] mt-1">{m.price} ฿</div>
                     {m.addon_option_ids && m.addon_option_ids.length > 0 && (
-                      <div style={{ marginTop: '4px' }}>
-                        <span style={{ fontSize: '0.7rem', background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                      <div className="mt-1">
+                        <span className="text-[0.7rem] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-md font-bold border border-blue-200 dark:border-blue-800/50">
                           + มีตัวเลือกเสริม
                         </span>
                       </div>
                     )}
-                    <button disabled={dashboardData?.shop && !dashboardData.shop.is_open} onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(m); }} style={{ marginTop: 'auto', width: '100%', padding: '10px', background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : '#2563EB', color: 'white', border: 'none', borderRadius: 12, cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'none' : '0 2px 6px rgba(37, 99, 235, 0.3)' }}>
+                    <button disabled={dashboardData?.shop && !dashboardData.shop.is_open} onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(m); }} className={`mt-auto w-full p-2.5 rounded-xl font-bold text-sm transition-all ${
+                      (dashboardData?.shop && !dashboardData.shop.is_open) 
+                        ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+                        : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-md shadow-blue-600/20'
+                    }`}>
                       {(dashboardData?.shop && !dashboardData.shop.is_open) ? 'ร้านปิด' : '+ สั่งเลย'}
                     </button>
                   </div>
@@ -481,25 +485,25 @@ export default function CustomerHome() {
 
       {/* 🍽️ Quick Order List */}
       <section>
-        <h3 style={{ fontSize: '1.15rem', fontWeight: 'bold', marginBottom: 15, display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
-          <Utensils size={22} color="#2563eb" /> สั่งด่วน (เมนูยอดฮิต)
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+          <Utensils size={22} className="text-blue-600 dark:text-blue-400" /> สั่งด่วน (เมนูยอดฮิต)
         </h3>
-        <div style={{ background: '#ffffff', borderRadius: 20, border: '1px solid #DCE8FF', overflow: 'hidden', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.03)' }}>
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-blue-100 dark:border-slate-700 overflow-hidden shadow-sm transition-colors">
           {allMenus.slice(0, 6).map((menu, idx) => {
             const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
             return (
-              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: idx === 5 ? 'none' : '1px solid #EBF1FF' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 15, opacity: isMenuSoldOut ? 0.6 : 1 }}>
-                  <div style={{ width: 50, height: 50, background: '#F4F8FF', borderRadius: 12, overflow: 'hidden', border: '1px solid #DCE8FF' }}>
-                    {menu.image ? <img src={menu.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageOff size={16} color="#93C5FD" /></div>}
+              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} className={`cursor-pointer flex justify-between items-center py-4 px-5 ${idx === 5 ? 'border-none' : 'border-b border-blue-50 dark:border-slate-700'} transition-colors`}>
+                <div className={`flex items-center gap-4 ${isMenuSoldOut ? 'opacity-60' : 'opacity-100'}`}>
+                  <div className="w-[50px] h-[50px] bg-blue-50 dark:bg-slate-700 rounded-xl overflow-hidden border border-blue-100 dark:border-slate-600 shrink-0">
+                    {menu.image ? <img src={menu.image} className="w-full h-full object-cover" /> : <div className="h-full flex items-center justify-center"><ImageOff size={16} className="text-blue-300 dark:text-slate-500" /></div>}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: isMenuSoldOut ? '#94a3b8' : '#1E3A8A', fontSize: '0.95rem' }}>{menu.name}</div>
-                    <div style={{ color: isMenuSoldOut ? '#94a3b8' : '#2563EB', fontWeight: '900', fontSize: '0.9rem' }}>{menu.price} ฿</div>
+                    <div className={`font-bold text-[0.95rem] ${isMenuSoldOut ? 'text-slate-400 dark:text-slate-500' : 'text-blue-900 dark:text-blue-50'}`}>{menu.name}</div>
+                    <div className={`font-black text-[0.9rem] ${isMenuSoldOut ? 'text-slate-400 dark:text-slate-500' : 'text-blue-600 dark:text-blue-400'}`}>{menu.price} ฿</div>
                     {menu.addon_option_ids && menu.addon_option_ids.length > 0 && (
-                      <div style={{ marginTop: '4px' }}>
-                        <span style={{ fontSize: '0.7rem', background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                      <div className="mt-1">
+                        <span className="text-[0.7rem] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-md font-bold border border-blue-200 dark:border-blue-800/50">
                           + มีตัวเลือกเสริม
                         </span>
                       </div>
@@ -508,14 +512,18 @@ export default function CustomerHome() {
                 </div>
 
                 {isMenuSoldOut ? (
-                  <span style={{ background: '#F1F5F9', color: '#94A3B8', border: 'none', borderRadius: '16px', padding: '6px 14px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  <span className="bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-none rounded-2xl px-3.5 py-1.5 text-[0.8rem] font-bold">
                     หมด
                   </span>
                 ) : (
                   <button
                     disabled={dashboardData?.shop && !dashboardData.shop.is_open}
                     onClick={(e) => { e.stopPropagation(); setSelectedMenuForOption(menu); }}
-                    style={{ background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#F1F5F9' : '#EFF6FF', color: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : '#2563EB', border: '1px solid #BFDBFE', borderRadius: '50%', width: 38, height: 38, cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border ${
+                      (dashboardData?.shop && !dashboardData.shop.is_open) 
+                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-transparent cursor-not-allowed' 
+                        : 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-slate-600 cursor-pointer hover:bg-blue-100 dark:hover:bg-slate-600'
+                    }`}
                   >
                     <Plus size={20} strokeWidth={3} />
                   </button>
@@ -537,34 +545,34 @@ export default function CustomerHome() {
 
       {/* --- ตะกร้า (Cart Overlay) --- */}
       {cart.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 85, left: 15, right: 15, background: '#ffffff', borderRadius: 20, padding: '15px 20px', boxShadow: '0 10px 25px rgba(37, 99, 235, 0.15)', zIndex: 90, border: '1px solid #DCE8FF' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCartExpanded ? 15 : 10 }}>
-            <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8, color: '#1E3A8A' }}>
-              <ShoppingCart size={20} color="#2563EB" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
+        <div className="fixed bottom-[85px] left-4 right-4 bg-white dark:bg-slate-800 rounded-3xl p-4 shadow-xl border border-blue-100 dark:border-slate-700 z-50 transition-colors">
+          <div className={`flex justify-between items-center ${isCartExpanded ? 'mb-4' : 'mb-2.5'}`}>
+            <h4 className="m-0 text-[1.1rem] flex items-center gap-2 text-blue-900 dark:text-blue-100">
+              <ShoppingCart size={20} className="text-blue-600 dark:text-blue-400" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)
             </h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-              <span style={{ fontWeight: '900', fontSize: '1.3em', color: '#2563EB' }}>{subTotal.toLocaleString()} ฿</span>
-              <button onClick={() => setIsCartExpanded(!isCartExpanded)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}>
+            <div className="flex items-center gap-4">
+              <span className="font-black text-xl text-blue-600 dark:text-blue-400">{subTotal.toLocaleString()} ฿</span>
+              <button onClick={() => setIsCartExpanded(!isCartExpanded)} className="bg-slate-100 dark:bg-slate-700 border-none rounded-full w-8 h-8 flex items-center justify-center cursor-pointer text-slate-500 dark:text-slate-300">
                 {isCartExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
               </button>
             </div>
           </div>
 
           {isCartExpanded && (
-            <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: 15, borderBottom: '1px solid #EBF1FF', paddingBottom: 10 }}>
+            <div className="max-h-[160px] overflow-y-auto mb-4 border-b border-blue-50 dark:border-slate-700 pb-2.5">
               {cart.map(item => (
-                <div key={item.cartItemId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ flex: 1, paddingRight: 10 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1E40AF' }}>{item.originalName}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.3 }}>{item.name.replace(item.originalName, '').trim()}</div>
-                    <div style={{ color: '#2563EB', fontWeight: 'bold', fontSize: '0.85rem' }}>{item.price.toLocaleString()} ฿</div>
+                <div key={item.cartItemId} className="flex justify-between items-start mb-3">
+                  <div className="flex-1 pr-2.5">
+                    <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.originalName}</div>
+                    <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 leading-snug">{item.name.replace(item.originalName, '').trim()}</div>
+                    <div className="text-blue-600 dark:text-blue-400 font-bold text-[0.85rem]">{item.price.toLocaleString()} ฿</div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#F4F8FF', border: '1px solid #DCE8FF', borderRadius: '20px', overflow: 'hidden' }}>
-                    <button onClick={() => removeFromCart(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
+                  <div className="flex items-center bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 rounded-full overflow-hidden">
+                    <button onClick={() => removeFromCart(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-red-500 flex items-center">
                       <Minus size={14} strokeWidth={3} />
                     </button>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', width: '20px', textAlign: 'center', color: '#1E3A8A' }}>{item.quantity}</span>
-                    <button onClick={() => addToCartDirectly(item.cartItemId)} style={{ background: 'transparent', border: 'none', padding: '6px 12px', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center' }}>
+                    <span className="text-[0.95rem] font-bold w-5 text-center text-blue-900 dark:text-blue-100">{item.quantity}</span>
+                    <button onClick={() => addToCartDirectly(item.cartItemId)} className="bg-transparent border-none px-3 py-1.5 cursor-pointer text-blue-600 dark:text-blue-400 flex items-center">
                       <Plus size={14} strokeWidth={3} />
                     </button>
                   </div>
@@ -573,7 +581,15 @@ export default function CustomerHome() {
             </div>
           )}
 
-          <button disabled={dashboardData?.shop && !dashboardData.shop.is_open} onClick={() => router.push('/dashboard/customer/cart')} style={{ width: '100%', padding: '12px', background: (dashboardData?.shop && !dashboardData.shop.is_open) ? '#94A3B8' : 'linear-gradient(90deg, #1D4ED8, #2563EB)', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '1.05em', fontWeight: 'bold', cursor: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'not-allowed' : 'pointer', boxShadow: (dashboardData?.shop && !dashboardData.shop.is_open) ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)' }}>
+          <button 
+            disabled={dashboardData?.shop && !dashboardData.shop.is_open} 
+            onClick={() => router.push('/dashboard/customer/cart')} 
+            className={`w-full p-3 rounded-2xl border-none text-[1.05rem] font-bold transition-all ${
+              (dashboardData?.shop && !dashboardData.shop.is_open) 
+                ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+                : 'bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 text-white cursor-pointer shadow-lg shadow-blue-600/30'
+            }`}
+          >
             {(dashboardData?.shop && !dashboardData.shop.is_open) ? 'ร้านปิดให้บริการ' : 'ยืนยันและไปหน้าชำระเงิน'}
           </button>
         </div>
@@ -695,17 +711,17 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
   });
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 1100 }}>
-      <div style={{ background: '#ffffff', width: '100%', maxWidth: '500px', borderRadius: '32px 32px 0 0', padding: '25px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 -10px 25px rgba(37, 99, 235, 0.15)' }}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-end z-[1100]">
+      <div className="bg-white dark:bg-slate-800 w-full max-w-[500px] rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto shadow-[0_-10px_25px_rgba(0,0,0,0.1)] transition-colors">
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: '900', color: '#1E3A8A' }}>{menu.name}</h2>
-          <button onClick={onClose} style={{ background: '#F4F8FF', border: 'none', cursor: 'pointer', color: '#2563EB', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="m-0 text-xl font-black text-blue-900 dark:text-blue-50">{menu.name}</h2>
+          <button onClick={onClose} className="bg-blue-50 dark:bg-slate-700 border-none cursor-pointer text-blue-600 dark:text-blue-400 w-9 h-9 rounded-full flex items-center justify-center">
             <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 25 }}>
+        <div className="flex flex-col gap-6">
           
           {/* 🔄 เรนเดอร์ออปชันแบบ Dynamic ดึงจากฐานข้อมูลมาวนลูป */}
           {Object.entries(groupedOptions).map(([groupName, options]) => {
@@ -713,11 +729,11 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
             
             return (
               <div key={groupName}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-                  {isMultiple ? <CheckSquare size={18} color="#2563EB" /> : <CheckCircle2 size={18} color="#2563EB" />} 
-                  {groupName} {!isMultiple && <span style={{ color: '#EF4444' }}>*</span>}
+                <h4 className="m-0 mb-3 text-base text-blue-800 dark:text-blue-200 flex items-center gap-1.5 font-bold">
+                  {isMultiple ? <CheckSquare size={18} className="text-blue-600 dark:text-blue-400" /> : <CheckCircle2 size={18} className="text-blue-600 dark:text-blue-400" />} 
+                  {groupName} {!isMultiple && <span className="text-red-500">*</span>}
                 </h4>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="flex gap-2 flex-wrap">
                   {options.map(opt => {
                     const isSelected = selectedOptions[groupName]?.some(o => o.id === opt.id);
                     const priceText = Number(opt.extra_price) > 0 ? ` (+${opt.extra_price} ฿)` : '';
@@ -726,7 +742,11 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
                       <button
                         key={opt.id}
                         onClick={() => toggleOption(groupName, opt)}
-                        style={pillStyle(isSelected)}
+                        className={`px-4 py-2.5 text-sm rounded-full cursor-pointer border-2 transition-all ${
+                          isSelected 
+                            ? 'border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold' 
+                            : 'border-blue-100 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-normal'
+                        }`}
                       >
                         {opt.option_name}{priceText}
                       </button>
@@ -737,24 +757,24 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
             );
           })}
 
-          {/* หมายเหตุ (ยังคงอยู่เหมือนเดิม) */}
+          {/* หมายเหตุ */}
           <div>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}>
-              <PenLine size={18} color="#2563EB" /> หมายเหตุเพิ่มเติม
+            <h4 className="m-0 mb-3 text-base text-blue-800 dark:text-blue-200 flex items-center gap-1.5 font-bold">
+              <PenLine size={18} className="text-blue-600 dark:text-blue-400" /> หมายเหตุเพิ่มเติม
             </h4>
             <input
               type="text"
               placeholder="เช่น ไม่ใส่ผักชี, ขอช้อนส้อม..."
               value={optionNote}
               onChange={(e) => setOptionNote(e.target.value)}
-              style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '1px solid #BFDBFE', outline: 'none', background: '#F4F8FF', boxSizing: 'border-box', fontSize: '0.95rem', color: '#1E3A8A' }}
+              className="w-full p-3.5 rounded-2xl border border-blue-200 dark:border-slate-600 outline-none bg-blue-50 dark:bg-slate-700 text-[0.95rem] text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors"
             />
           </div>
         </div>
 
         <button
           onClick={handleConfirm}
-          style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', marginTop: 30, boxShadow: '0 8px 20px rgba(37, 99, 235, 0.3)' }}
+          className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-2xl text-lg font-black cursor-pointer mt-7 shadow-[0_8px_20px_rgba(37,99,235,0.3)] transition-colors"
         >
           เพิ่มลงตะกร้า • {calculatedOptionPrice.toLocaleString()} ฿
         </button>
