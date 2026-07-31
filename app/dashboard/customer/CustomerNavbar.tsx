@@ -71,7 +71,7 @@ export default function CustomerNavbar() {
       <div className="h-20" />
 
       <nav 
-        className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.3)] transition-colors"
+        className="fixed bottom-0 left-0 right-0 bg-white/40 dark:bg-black/40 backdrop-blur-3xl backdrop-saturate-200 border-t border-white/50 dark:border-white/10 z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.4)] transition-colors"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} // รองรับขอบจอด้านล่างของ iPhone
       >
         <div className="flex justify-around items-center h-16 max-w-md mx-auto px-2">
@@ -90,11 +90,11 @@ export default function CustomerNavbar() {
                     active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200'
                   }`}
                 >
-                  {/* แอนิเมชันไฮไลท์พื้นหลังเมนูที่กำลังใช้งานอยู่ */}
+                  {/* แอนิเมชันไฮไลท์พื้นหลังเมนูที่กำลังใช้งานอยู่ (สไตล์ Glassmorphism) */}
                   {active && (
                     <motion.div
                       layoutId="navbar-indicator"
-                      className="absolute inset-0 bg-blue-50 dark:bg-slate-800 rounded-2xl -z-10 m-1 transition-colors"
+                      className="absolute inset-0 bg-white/60 dark:bg-white/10 shadow-sm border border-white/60 dark:border-white/5 rounded-2xl -z-10 m-1 transition-colors backdrop-blur-md"
                       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                     />
                   )}

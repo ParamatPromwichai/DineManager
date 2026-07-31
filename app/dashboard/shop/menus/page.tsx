@@ -7,8 +7,9 @@ import {
   Plus, Edit, Trash2, Star, CheckCircle2, XCircle,
   ImageOff, UploadCloud, Save, X, Zap, RefreshCw,
   Utensils, Beef, Flame, Drumstick, Fish, Waves, Heart,
-  Loader2, Search, Anchor, ChevronDown, ChevronUp, AlignLeft, ListPlus
+  Loader2, Search, Anchor, ChevronDown, ChevronUp, AlignLeft, ListPlus, FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // 🟢 เพิ่ม Type สำหรับตัวเลือกเสริมและหมวดหมู่
 type MenuOption = {
@@ -87,6 +88,17 @@ export default function ManageMenusPage() {
   const [isBulkSectionOpen, setIsBulkSectionOpen] = useState(false);
   const [quickIngredients, setQuickIngredients] = useState<any[]>([]);
   const [newBulkCategory, setNewBulkCategory] = useState('');
+
+  // Bulk Upload States
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [bulkMenusPreview, setBulkMenusPreview] = useState<any[]>([]);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Bulk Apply Options to Category State
+  const [selectedOptionsToApply, setSelectedOptionsToApply] = useState<number[]>([]);
+  const [targetCategoryToApply, setTargetCategoryToApply] = useState<number | ''>('');
+  const [isApplyingOptions, setIsApplyingOptions] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -284,6 +296,132 @@ export default function ManageMenusPage() {
     }
   };
 
+  // 📝 จัดการ Bulk Excel Upload
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([{
+      'ชื่อเมนู': 'ข้าวผัดกะเพราหมูสับ',
+      'ราคา': 50,
+      'หมวดหมู่': 'อาหารจานเดียว',
+      'รายละเอียด': 'เผ็ดน้อย'
+    }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Menus");
+    XLSX.writeFile(wb, "Template_Menus.xlsx");
+  };
+
+  const processExcelFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const parsedMenus = data.map((row: any) => ({
+          name: row['ชื่อเมนู'] || row['name'] || '',
+          price: row['ราคา'] || row['price'] || 0,
+          categoryName: row['หมวดหมู่'] || row['category'] || '',
+          description: row['รายละเอียด'] || row['description'] || ''
+        })).filter((m) => m.name && m.price !== undefined);
+
+        setBulkMenusPreview(parsedMenus);
+      } catch (err) {
+        alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel กรุณาลองใหม่อีกครั้ง');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processExcelFile(file);
+    e.target.value = ''; // reset input
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processExcelFile(file);
+  };
+
+  const handlePreviewChange = (index: number, field: string, value: string | number) => {
+    const updated = [...bulkMenusPreview];
+    updated[index] = { ...updated[index], [field]: value };
+    setBulkMenusPreview(updated);
+  };
+
+  const handlePreviewDelete = (index: number) => {
+    const updated = bulkMenusPreview.filter((_, i) => i !== index);
+    setBulkMenusPreview(updated);
+  };
+
+  const handleSaveBulk = async () => {
+    if (bulkMenusPreview.length === 0) return alert('ไม่มีข้อมูลเมนู');
+    setIsUploadingBulk(true);
+    try {
+      const res = await fetch('/api/shop/menus/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bulkMenusPreview)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'บันทึกไม่สำเร็จ');
+      }
+      setIsBulkUploadModalOpen(false);
+      setBulkMenusPreview([]);
+      fetchMenus();
+      alert('เพิ่มเมนูสำเร็จ!');
+    } catch (error: any) {
+      alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsUploadingBulk(false);
+    }
+  };
+
+  const handleApplyOptionsToCategory = async () => {
+    if (!targetCategoryToApply) return alert('กรุณาเลือกหมวดหมู่เป้าหมาย');
+    if (selectedOptionsToApply.length === 0) return alert('กรุณาเลือกตัวเลือกเสริมอย่างน้อย 1 รายการ');
+
+    setIsApplyingOptions(true);
+    try {
+      const res = await fetch('/api/shop/global-options/apply-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category_id: targetCategoryToApply,
+          option_ids: selectedOptionsToApply
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'เกิดข้อผิดพลาด');
+      }
+
+      alert('นำตัวเลือกเสริมไปใช้กับหมวดหมู่สำเร็จ!');
+      setSelectedOptionsToApply([]);
+      setTargetCategoryToApply('');
+      fetchMenus(); // Refresh menu data
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsApplyingOptions(false);
+    }
+  };
+
   const updateMenuStatus = async (id: number, payload: any) => {
     try {
       await fetch('/api/shop/menus', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) });
@@ -342,22 +480,30 @@ export default function ManageMenusPage() {
     <div style={{ padding: '20px', maxWidth: '850px', margin: '0 auto', paddingBottom: '100px', fontFamily: 'sans-serif' }}>
 
       {/* 🌟 Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: 10, color: '#1e293b' }}>
           <Utensils size={28} color="#2563eb" /> จัดการเมนู
         </h1>
-        <button
-          onClick={() => setIsGlobalAddonsModalOpen(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
-        >
-          <ListPlus size={18} color="#2563eb" /> จัดการตัวเลือกเสริม
-        </button>
-        <button
-          onClick={handleOpenAdd}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37,99,235,0.2)' }}
-        >
-          <Plus size={18} /> เพิ่มเมนูใหม่
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setIsGlobalAddonsModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+          >
+            <ListPlus size={18} color="#2563eb" /> จัดการตัวเลือกเสริม
+          </button>
+          <button
+            onClick={() => setIsBulkUploadModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#10b981', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(16,185,129,0.2)' }}
+          >
+            <FileSpreadsheet size={18} /> อัปโหลด Excel
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37,99,235,0.2)' }}
+          >
+            <Plus size={18} /> เพิ่มเมนูใหม่
+          </button>
+        </div>
       </div>
 
       {/* ⚡ แผงจัดการด่วน (Bulk Actions) แบบพับเก็บได้ */}
@@ -701,6 +847,56 @@ export default function ManageMenusPage() {
                 </div>
               </form>
 
+              {/* ⚡ นำตัวเลือกไปใช้กับหมวดหมู่ (Bulk Apply Options) */}
+              {globalOptions.length > 0 && categories.length > 0 && (
+                <div style={{ background: '#eff6ff', padding: 16, borderRadius: 12, border: '1px solid #bfdbfe', marginBottom: 20 }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Zap size={18} fill="#3b82f6" color="#3b82f6" /> นำตัวเลือกไปใช้กับหมวดหมู่อาหารแบบรวดเร็ว
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b', marginBottom: 6, display: 'block' }}>1. เลือกตัวเลือกเสริม:</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: '100px', overflowY: 'auto', padding: '8px', background: '#fff', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                        {globalOptions.map(opt => (
+                          <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', cursor: 'pointer', background: selectedOptionsToApply.includes(opt.id!) ? '#dbeafe' : '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: `1px solid ${selectedOptionsToApply.includes(opt.id!) ? '#93c5fd' : '#e2e8f0'}` }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedOptionsToApply.includes(opt.id!)} 
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedOptionsToApply([...selectedOptionsToApply, opt.id!]);
+                                else setSelectedOptionsToApply(selectedOptionsToApply.filter(id => id !== opt.id));
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                            {opt.option_name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b', marginBottom: 6, display: 'block' }}>2. เลือกหมวดหมู่อาหารเป้าหมาย:</label>
+                        <select 
+                          value={targetCategoryToApply} 
+                          onChange={e => setTargetCategoryToApply(Number(e.target.value))}
+                          style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                        >
+                          <option value="">-- เลือกหมวดหมู่ --</option>
+                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <button 
+                        onClick={handleApplyOptionsToCategory}
+                        disabled={isApplyingOptions || selectedOptionsToApply.length === 0 || !targetCategoryToApply}
+                        style={{ marginTop: '24px', padding: '8px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', cursor: (isApplyingOptions || selectedOptionsToApply.length === 0 || !targetCategoryToApply) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (isApplyingOptions || selectedOptionsToApply.length === 0 || !targetCategoryToApply) ? 0.6 : 1 }}
+                      >
+                        {isApplyingOptions ? 'กำลังอัปเดต...' : 'นำไปใช้'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {globalOptions.length === 0 ? (
@@ -725,10 +921,133 @@ export default function ManageMenusPage() {
                 )}
               </div>
             </div>
-
           </div>
         </div>
       )}
+
+      {/* 🚀 Modal อัปโหลด Excel */}
+      {isBulkUploadModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', width: '90%', maxWidth: '700px', borderRadius: '24px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', margin: 0 }}>
+                <FileSpreadsheet size={24} color="#10b981" /> เพิ่มหลายเมนูผ่าน Excel
+              </h2>
+              <button onClick={() => { setIsBulkUploadModalOpen(false); setBulkMenusPreview([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '50%', color: '#94a3b8' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+              <button onClick={handleDownloadTemplate} style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                ⬇️ โหลดไฟล์ Template ต้นแบบ
+              </button>
+            </div>
+
+            {bulkMenusPreview.length === 0 && (
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                style={{
+                  border: `2px dashed ${isDragging ? '#2563eb' : '#cbd5e1'}`,
+                  background: isDragging ? '#eff6ff' : '#f8fafc',
+                  borderRadius: '16px',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  marginBottom: '20px',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <UploadCloud size={48} color={isDragging ? '#2563eb' : '#94a3b8'} />
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#334155', fontSize: '1.1rem' }}>
+                    ลากไฟล์ Excel (.xlsx, .csv) มาวางที่นี่
+                  </p>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>หรือ</p>
+                </div>
+                <label style={{ padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'inline-block' }}>
+                  📂 เลือกไฟล์จากเครื่อง
+                  <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} onChange={handleFileUpload} />
+                </label>
+              </div>
+            )}
+
+            {bulkMenusPreview.length > 0 && (
+              <div style={{ flex: 1, overflowY: 'auto', marginBottom: 20, border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                  <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <tr>
+                      <th style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', color: '#475569', minWidth: '150px' }}>ชื่อเมนู</th>
+                      <th style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', color: '#475569', width: '100px' }}>ราคา (฿)</th>
+                      <th style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', color: '#475569', minWidth: '120px' }}>หมวดหมู่</th>
+                      <th style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0', color: '#475569', width: '50px', textAlign: 'center' }}>ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkMenusPreview.map((m, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: '#fff' }}>
+                        <td style={{ padding: '8px 10px' }}>
+                          <input 
+                            type="text" 
+                            value={m.name} 
+                            onChange={(e) => handlePreviewChange(i, 'name', e.target.value)} 
+                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                          />
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <input 
+                            type="number" 
+                            value={m.price} 
+                            onChange={(e) => handlePreviewChange(i, 'price', Number(e.target.value))} 
+                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                          />
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <input 
+                            type="text" 
+                            value={m.categoryName} 
+                            onChange={(e) => handlePreviewChange(i, 'categoryName', e.target.value)} 
+                            style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                          />
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <button 
+                            onClick={() => handlePreviewDelete(i)} 
+                            style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}
+                            title="ลบแถวนี้"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 'auto' }}>
+              <button onClick={() => { setIsBulkUploadModalOpen(false); setBulkMenusPreview([]); }} style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', background: '#f1f5f9', color: '#64748b', fontWeight: 'bold', cursor: 'pointer' }}>
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleSaveBulk} 
+                disabled={bulkMenusPreview.length === 0 || isUploadingBulk}
+                style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', background: bulkMenusPreview.length > 0 ? '#10b981' : '#94a3b8', color: 'white', fontWeight: 'bold', cursor: bulkMenusPreview.length > 0 ? 'pointer' : 'not-allowed' }}
+              >
+                {isUploadingBulk ? 'กำลังบันทึก...' : `ยืนยันและบันทึก (${bulkMenusPreview.length} รายการ)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

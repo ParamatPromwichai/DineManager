@@ -41,10 +41,11 @@ export async function POST(req: Request) {
     // 3. แฮชรหัสผ่านใหม่
     const hash = await bcrypt.hash(newPassword, 10);
 
-    // 4. อัปเดตรหัสผ่านในฐานข้อมูล และเคลียร์ Token ทิ้ง
+    // 4. อัปเดตรหัสผ่านในฐานข้อมูล และเคลียร์ Token ทิ้ง (ทำทุกบัญชีที่มี token นี้)
+    const userIds = users.map((u: any) => u.id);
     await db.query(
-      'UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?',
-      [hash, user.id]
+      'UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id IN (?)',
+      [hash, userIds]
     );
 
     return NextResponse.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' }, { status: 200 });

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
 import { Plus, Edit2, Trash2, QrCode, X, Camera, UploadCloud, Users, Utensils, LayoutGrid } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { TopDownTable } from '@/components/RestaurantGraphics';
 
 // --- Type Definitions ---
 type Table = {
@@ -146,11 +147,6 @@ export default function ShopTableManager() {
     if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
     fetchData();
-    const interval = setInterval(() => {
-      fetchData();
-      setCurrentTime(new Date());
-    }, 5000);
-    return () => clearInterval(interval);
   }, [status, session]);
 
   // --- Logic คำนวณสถานะ ---
@@ -163,15 +159,15 @@ export default function ShopTableManager() {
       const diffMinutes = (bookTime - now) / 1000 / 60;
 
       if (diffMinutes <= 0 && diffMinutes > -120) {
-        return { type: 'booking_active', bookingId: booking.id, customerName: booking.customer_name, color: 'bg-red-100', border: 'border-red-500', text: `⛔ ถึงเวลาจอง (${booking.customer_name})`, textColor: 'text-red-700' };
+        return { type: 'booking_active', bookingId: booking.id, customerName: booking.customer_name, color: 'bg-red-100', border: 'border-red-500', text: `ถึงเวลาจอง (${booking.customer_name})`, textColor: 'text-red-700' };
       }
       if (diffMinutes > 0 && diffMinutes <= 30) {
-        return { type: 'warning', color: 'bg-yellow-50', border: 'border-yellow-400', text: `⚠️ จองแล้ว (${Math.ceil(diffMinutes)} นาที)`, textColor: 'text-yellow-700' };
+        return { type: 'warning', color: 'bg-yellow-50', border: 'border-yellow-400', text: `จองแล้ว (${Math.ceil(diffMinutes)} นาที)`, textColor: 'text-yellow-700' };
       }
     }
 
-    if (table.is_occupied) return { type: 'manual', color: 'bg-red-100', border: 'border-red-500', text: '⛔ ไม่ว่าง', textColor: 'text-red-700' };
-    return { type: 'free', color: 'bg-green-100', border: 'border-green-500', text: '✅ ว่าง', textColor: 'text-green-700' };
+    if (table.is_occupied) return { type: 'manual', color: 'bg-red-100', border: 'border-red-500', text: 'ไม่ว่าง', textColor: 'text-red-700' };
+    return { type: 'free', color: 'bg-green-100', border: 'border-green-500', text: 'ว่าง', textColor: 'text-green-700' };
   };
 
   // --- Handle Click ของสถานะโต๊ะ ---
@@ -321,47 +317,57 @@ export default function ShopTableManager() {
         <div className="w-full">
           {/* Grid โต๊ะ */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {tables.map(table => {
-          const { color, border, text, textColor } = getTableStatus(table);
+        {tables.map((table, index) => {
+          const status = getTableStatus(table);
+          const { type: statusType, text } = status;
           
+          let customStatus;
+          if (statusType === 'booking_active') {
+            customStatus = { text, bg: 'bg-red-500', border: 'border-red-600', dot: 'bg-white', containerBg: 'bg-red-100 dark:bg-red-950/40', containerBorder: 'border-red-500' };
+          } else if (statusType === 'warning') {
+            customStatus = { text, bg: 'bg-yellow-500', border: 'border-yellow-600', dot: 'bg-white', containerBg: 'bg-yellow-100 dark:bg-yellow-950/40', containerBorder: 'border-yellow-500' };
+          } else if (statusType === 'manual') {
+            customStatus = { text, bg: 'bg-rose-500', border: 'border-rose-600', dot: 'bg-rose-200', containerBg: 'bg-rose-100 dark:bg-rose-950/40', containerBorder: 'border-rose-500' };
+          } else {
+            customStatus = { text, bg: 'bg-emerald-500', border: 'border-emerald-600', dot: 'bg-emerald-200', containerBg: 'bg-emerald-100 dark:bg-emerald-950/40', containerBorder: 'border-emerald-500' };
+          }
+
           return (
-            <div 
-              key={table.id}
-              className={`relative group cursor-pointer min-h-[144px] rounded-2xl flex flex-col items-center justify-end pb-5 pt-14 transition-all duration-200 shadow-sm hover:shadow-md ${color} border border-slate-200`}
-              onClick={() => handleTableClick(table)}
-            >
-              {/* ปุ่มสแกน QR Code (แสดงตลอดเมื่อโต๊ะไม่ว่าง) */}
-              {Boolean(table.is_occupied) && table.session_token && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setQrModal({ isOpen: true, table }); }}
-                  className="absolute top-2 left-2 p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-md transition-colors z-10 flex items-center gap-1 px-2"
-                  title="ดู QR Code"
-                >
-                  <QrCode size={14} /> <span className="text-xs font-bold">QR</span>
-                </button>
-              )}
+            <div key={table.id} className="cursor-pointer group relative transition-transform hover:-translate-y-1" onClick={() => handleTableClick(table)}>
+              <TopDownTable 
+                index={index}
+                capacity={table.capacity}
+                isOccupied={table.is_occupied}
+                name={table.name}
+                customStatus={customStatus}
+              >
+                {/* ปุ่มสแกน QR Code (แสดงตลอดเมื่อโต๊ะไม่ว่าง) */}
+                {Boolean(table.is_occupied) && table.session_token && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setQrModal({ isOpen: true, table }); }}
+                    className="absolute top-2 left-2 p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-md transition-colors z-50 flex items-center gap-1 px-2 pointer-events-auto"
+                    title="ดู QR Code"
+                  >
+                    <QrCode size={14} /> <span className="text-xs font-bold">QR</span>
+                  </button>
+                )}
 
-              {/* ปุ่มแก้ไข / ลบ */}
-              <div className="absolute top-2 right-2 flex gap-1.5 z-10">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'edit', tableId: table.id, name: table.name, capacity: table.capacity }); }}
-                  className="p-2 bg-white/90 backdrop-blur text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'delete', tableId: table.id, name: table.name, capacity: table.capacity }); }}
-                  className="p-2 bg-white/90 backdrop-blur text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              <span className="text-xl font-black text-slate-800 mb-1">{table.name}</span>
-              <span className="text-sm font-semibold text-slate-500 mb-2">👥 {table.capacity} ที่นั่ง</span>
-              <span className={`text-[10px] font-bold px-2 py-1 rounded border ${border} bg-white/80 ${textColor}`}>
-                {text}
-              </span>
+                {/* ปุ่มแก้ไข / ลบ */}
+                <div className="absolute bottom-2 right-2 flex gap-1.5 z-50 pointer-events-auto opacity-80 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'edit', tableId: table.id, name: table.name, capacity: table.capacity }); }}
+                    className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'delete', tableId: table.id, name: table.name, capacity: table.capacity }); }}
+                    className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </TopDownTable>
             </div>
           );
         })}

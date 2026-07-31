@@ -43,6 +43,34 @@ export async function GET(req: Request) {
         WHERE status = 'done' AND YEARWEEK(DATE_ADD(created_at, INTERVAL 7 HOUR), 3) = ?
       `;
       queryParams = [`${year}${week}`];
+    } else if (type === '3months') {
+      query = `
+        SELECT id, total_price, payment_method, order_type, created_at 
+        FROM orders 
+        WHERE status = 'done' AND DATE(DATE_ADD(created_at, INTERVAL 7 HOUR)) BETWEEN DATE_SUB(?, INTERVAL 3 MONTH) AND ?
+      `;
+      queryParams = [dateParam, dateParam];
+    } else if (type === '6months') {
+      query = `
+        SELECT id, total_price, payment_method, order_type, created_at 
+        FROM orders 
+        WHERE status = 'done' AND DATE(DATE_ADD(created_at, INTERVAL 7 HOUR)) BETWEEN DATE_SUB(?, INTERVAL 6 MONTH) AND ?
+      `;
+      queryParams = [dateParam, dateParam];
+    } else if (type === '1year') {
+      query = `
+        SELECT id, total_price, payment_method, order_type, created_at 
+        FROM orders 
+        WHERE status = 'done' AND DATE(DATE_ADD(created_at, INTERVAL 7 HOUR)) BETWEEN DATE_SUB(?, INTERVAL 1 YEAR) AND ?
+      `;
+      queryParams = [dateParam, dateParam];
+    } else if (type === 'all') {
+      query = `
+        SELECT id, total_price, payment_method, order_type, created_at 
+        FROM orders 
+        WHERE status = 'done'
+      `;
+      queryParams = [];
     }
 
     const [rows]: any = await db.query(query, queryParams);

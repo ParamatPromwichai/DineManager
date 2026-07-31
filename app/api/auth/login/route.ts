@@ -61,6 +61,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'หน้านี้สำหรับลูกค้าเข้าสู่ระบบเท่านั้น' }, { status: 403 });
     }
 
+    if (!user.password) {
+      await db.query(
+        'INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)',
+        [username, user.id, 'failed_no_password', ip, userAgent]
+      );
+      return NextResponse.json({ message: 'บัญชีนี้ถูกสมัครด้วย Google กรุณาเข้าสู่ระบบด้วยปุ่ม Google' }, { status: 403 });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {

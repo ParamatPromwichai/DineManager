@@ -74,7 +74,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
         }
 
-        const user = users[0];
+        let user = users.find((u: any) => u.role === credentials.loginType);
+        if (!user) {
+          user = users[0];
+        }
 
         // 🛑 เช็คว่าโดนระงับบัญชีหรือไม่ หรือรอการอนุมัติ
         if (user.is_locked) {
@@ -97,6 +100,11 @@ export const authOptions: NextAuthOptions = {
         }
 
         // 🔑 ตรวจสอบ Password
+        if (!user.password) {
+          await db.query('INSERT INTO login_logs (username, user_id, status, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)', [user.username, user.id, 'failed_no_password', ip, userAgent]);
+          throw new Error('บัญชีนี้ถูกสมัครด้วย Google กรุณาเข้าสู่ระบบด้วยปุ่ม Google');
+        }
+
         const isMatch = await bcrypt.compare(credentials.password, user.password);
 
         if (!isMatch) {

@@ -25,10 +25,10 @@ export async function POST(req: Request) {
     // 2. สร้าง Reset Token (15 นาที โดยใช้ DATE_ADD ในฝั่ง Database)
     const resetToken = crypto.randomBytes(32).toString('hex');
     
-    // อัปเดตลงฐานข้อมูล
+    // อัปเดตลงฐานข้อมูล (อัปเดตทุก Role ที่ใช้อีเมลนี้)
     await db.query(
-      'UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE id = ?',
-      [resetToken, user.id]
+      'UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE email = ?',
+      [resetToken, email]
     );
 
     // 3. ตั้งค่า Nodemailer ด้วย Gmail App Password
