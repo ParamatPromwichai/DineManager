@@ -35,18 +35,27 @@ export async function GET() {
       WHERE DATE(created_at) = CURDATE() AND status = 'done'
     `);
 
-    // 4. ออเดอร์ล่าสุด 5 รายการ (โชว์ทุกสถานะเพื่อให้ร้านเห็นความเคลื่อนไหว)
+    // 4. ออเดอร์ล่าสุด 20 รายการ (โชว์ทุกสถานะเพื่อให้ร้านเห็นความเคลื่อนไหว)
     const [recentOrders]: any = await db.query(`
-      SELECT id, total_price, status, payment_method, created_at 
+      SELECT id, total_price, status, payment_method, created_at, order_type 
       FROM orders 
-      ORDER BY created_at DESC LIMIT 5
+      ORDER BY created_at DESC LIMIT 20
+    `);
+
+    // 5. สถิติรีวิว (เพิ่มใหม่)
+    const [reviewStats]: any = await db.query(`
+      SELECT 
+        COUNT(order_id) as total_reviews, 
+        COALESCE(AVG(rating), 0) as avg_rating 
+      FROM reviews
     `);
 
     return NextResponse.json({
       shop,
       todayStats: todayStats[0],
       tableStats: { total, available },
-      recentOrders
+      recentOrders,
+      reviewStats: reviewStats[0]
     });
 
   } catch (error) {

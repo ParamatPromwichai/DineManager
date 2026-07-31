@@ -814,36 +814,45 @@ export default function ManageMenusPage() {
                 }
               }} style={{ background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 20 }}>
                 <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#334155' }}>{globalOptionForm.id ? 'แก้ไขตัวเลือก' : 'เพิ่มตัวเลือกใหม่'}</h4>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
                   <input
                     type="text"
                     list="global-groups"
                     placeholder="กลุ่ม (พิมพ์ใหม่ หรือเลือกจากรายการ)"
                     value={globalOptionForm.option_group}
                     onChange={e => setGlobalOptionForm({ ...globalOptionForm, option_group: e.target.value })}
-                    style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+                    className="flex-1 p-2.5 rounded-lg border border-slate-300 w-full"
                     required
                   />
                   <datalist id="global-groups">
                     {uniqueGlobalGroups.map(g => <option key={g} value={g} />)}
                   </datalist>
-                  <input type="text" placeholder="ชื่อ (เช่น ไข่ดาว)" value={globalOptionForm.option_name} onChange={e => setGlobalOptionForm({ ...globalOptionForm, option_name: e.target.value })} style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }} required />
+                  <input 
+                    type="text" 
+                    placeholder="ชื่อ (เช่น ไข่ดาว)" 
+                    value={globalOptionForm.option_name} 
+                    onChange={e => setGlobalOptionForm({ ...globalOptionForm, option_name: e.target.value })} 
+                    className="flex-1 p-2.5 rounded-lg border border-slate-300 w-full" 
+                    required 
+                  />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: '0.9rem', color: '#64748b' }}>ราคา +</span>
-                    <input type="number" value={globalOptionForm.extra_price} onChange={e => setGlobalOptionForm({ ...globalOptionForm, extra_price: Number(e.target.value) })} style={{ width: 80, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', textAlign: 'center' }} />
-                    <span style={{ fontSize: '0.9rem', color: '#64748b' }}>฿</span>
+                <div className="flex flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-500 whitespace-nowrap">ราคา +</span>
+                    <input type="number" value={globalOptionForm.extra_price} onChange={e => setGlobalOptionForm({ ...globalOptionForm, extra_price: Number(e.target.value) })} className="w-20 p-2 rounded-lg border border-slate-300 text-center" />
+                    <span className="text-sm text-slate-500">฿</span>
                   </div>
 
-                  <button type="submit" disabled={isSubmitting} style={{ marginLeft: 'auto', background: '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    {globalOptionForm.id ? 'บันทึกแก้ไข' : '+ เพิ่ม'}
-                  </button>
-                  {globalOptionForm.id && (
-                    <button type="button" onClick={() => setGlobalOptionForm({ option_group: '', option_name: '', extra_price: 0, is_multiple: true })} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      ยกเลิก
+                  <div className="flex items-center gap-2">
+                    {globalOptionForm.id && (
+                      <button type="button" onClick={() => setGlobalOptionForm({ option_group: '', option_name: '', extra_price: 0, is_multiple: true })} className="bg-slate-100 text-slate-500 px-3 py-2 rounded-lg font-bold">
+                        ยกเลิก
+                      </button>
+                    )}
+                    <button type="submit" disabled={isSubmitting} className="bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold whitespace-nowrap disabled:opacity-50">
+                      {globalOptionForm.id ? 'บันทึกแก้ไข' : '+ เพิ่ม'}
                     </button>
-                  )}
+                  </div>
                 </div>
               </form>
 

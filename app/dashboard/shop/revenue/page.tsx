@@ -284,11 +284,11 @@ export default function ShopRevenuePage() {
 
       {/* ควบคุมการดูข้อมูล (Filter) */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 mb-4 print-hide">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-4 w-full xl:w-auto">
             {/* ปุ่มสลับประเภทรายวัน */}
-            <div className="grid grid-cols-4 sm:flex sm:flex-wrap bg-slate-100 p-1 rounded-xl w-full lg:w-auto shrink-0 gap-1">
+            <div className="grid grid-cols-4 sm:flex sm:flex-wrap bg-slate-100 p-1 rounded-xl w-full xl:w-auto shrink-0 gap-1">
               <button onClick={() => setType('daily')} className={`px-1 sm:px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${type === 'daily' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>รายวัน</button>
               <button onClick={() => setType('weekly')} className={`px-1 sm:px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${type === 'weekly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>รายสัปดาห์</button>
               <button onClick={() => setType('monthly')} className={`px-1 sm:px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all ${type === 'monthly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>รายเดือน</button>
@@ -314,7 +314,7 @@ export default function ShopRevenuePage() {
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-4 w-full xl:w-auto">
             {/* Filters (ช่องทาง และ การชำระเงิน) */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <Filter size={16} className="text-slate-400 shrink-0 hidden sm:block" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า NextAuth hooks
@@ -11,7 +11,8 @@ import {
   LayoutGrid,
   LogOut,
   ArrowRight,
-  MessageCircle
+  MessageCircle,
+  Star
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -19,7 +20,8 @@ type DashboardData = {
   shop: { name: string; is_open: boolean; open_time: string; close_time: string };
   todayStats: { total_orders: number; total_revenue: number };
   tableStats: { total: number; available: number };
-  recentOrders: { id: number; total_price: number; status: string; payment_method: string; created_at: string }[];
+  recentOrders: { id: number; total_price: number; status: string; payment_method: string; created_at: string; order_type?: string }[];
+  reviewStats: { total_reviews: number; avg_rating: number };
 };
 
 export default function ShopDashboardPage() {
@@ -32,6 +34,7 @@ export default function ShopDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
+  const [activeTab, setActiveTab] = useState<'online' | 'dine_in'>('online');
 
   // 🚨 3. ตรวจสอบสิทธิ์ด้วย status จาก NextAuth
   useEffect(() => {
@@ -121,6 +124,16 @@ export default function ShopDashboardPage() {
   };
 
 
+  // Filter and limit recent orders
+  const displayedRecentOrders = React.useMemo(() => {
+    if (!data?.recentOrders) return [];
+    if (activeTab === 'online') {
+      return data.recentOrders.filter(o => o.order_type === 'online' || !o.order_type).slice(0, 5);
+    } else {
+      return data.recentOrders.filter(o => o.order_type === 'dine_in').slice(0, 5);
+    }
+  }, [data, activeTab]);
+
   // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล
   if (status === 'loading' || loading) {
     return (
@@ -205,58 +218,91 @@ export default function ShopDashboardPage() {
         </div>
 
         {/* --- 📊 สถิติรวม (Unified Premium Card) --- */}
-        <div className="bg-white border border-slate-200/60 rounded-[2rem] shadow-sm hover:shadow-lg transition-shadow duration-300 mb-8 flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-100 overflow-hidden">
+        <div className="bg-white border border-slate-200/60 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm hover:shadow-lg transition-shadow duration-300 mb-8 flex flex-col sm:flex-row overflow-hidden">
           
           {/* 1. รายได้ (Revenue) */}
-          <Link href="/dashboard/shop/revenue" className="relative flex-1 p-5 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden">
+          <Link href="/dashboard/shop/revenue" className="relative w-full sm:flex-1 p-4 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden border-b sm:border-b-0 sm:border-r border-slate-100">
             {/* Glow Hover Effect */}
             <div className="absolute -top-10 -left-10 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
             
-            <div className="flex justify-between items-start mb-4 relative z-10">
-              <span className="text-xs sm:text-sm font-bold text-slate-500">รายได้วันนี้</span>
-              <ArrowRight size={16} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-blue-500 transition-colors" />
+            <div className="flex justify-between items-start mb-3 sm:mb-4 relative z-10">
+              <span className="text-[11px] sm:text-sm font-bold text-slate-500">รายได้วันนี้</span>
+              <ArrowRight size={14} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-blue-500 transition-colors sm:w-4 sm:h-4" />
             </div>
             
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Banknote size={26} strokeWidth={2.5} className="text-blue-500 shrink-0" />
-                <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none truncate">
+              <div className="flex items-center gap-2 mb-1">
+                <Banknote size={20} strokeWidth={2.5} className="text-blue-500 shrink-0 sm:w-6 sm:h-6" />
+                <h3 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none truncate">
                   ฿{Number(data.todayStats.total_revenue).toLocaleString()}
                 </h3>
               </div>
-              <p className="text-[11px] sm:text-xs font-bold text-slate-400 ml-8">
+              <p className="text-[10px] sm:text-xs font-bold text-slate-400 ml-7 sm:ml-8">
                 {data.todayStats.total_orders} ออเดอร์ที่สำเร็จแล้ว
               </p>
             </div>
           </Link>
 
-          {/* 2. โต๊ะว่าง (Tables) */}
-          <Link href="/dashboard/shop/tables" className="relative flex-1 p-5 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden">
-            {/* Glow Hover Effect */}
-            <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${isTableFull ? 'bg-rose-400/20' : 'bg-purple-400/10'}`}></div>
-            
-            <div className="flex justify-between items-start mb-4 relative z-10">
-              <span className={`text-xs sm:text-sm font-bold ${isTableFull ? 'text-rose-500' : 'text-slate-500'}`}>
-                {isTableFull ? '⚠️ โต๊ะเต็มแล้ว' : 'โต๊ะว่างหน้าร้าน'}
-              </span>
-              <ArrowRight size={16} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-purple-500 transition-colors" />
-            </div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-1.5">
-                <LayoutGrid size={26} strokeWidth={2.5} className={`shrink-0 ${isTableFull ? 'text-rose-500' : 'text-purple-500'}`} />
-                <div className="flex items-baseline gap-1">
-                  <h3 className={`text-3xl sm:text-4xl font-black tracking-tighter leading-none ${isTableFull ? 'text-rose-600' : 'text-slate-900'}`}>
-                    {data.tableStats.available}
-                  </h3>
-                  <span className="text-lg sm:text-2xl font-bold text-slate-300 leading-none">
-                    /{data.tableStats.total}
-                  </span>
+          {/* Row for Mobile (Tables & Reviews side-by-side) */}
+          <div className="flex w-full sm:flex-[2] divide-x divide-slate-100">
+            {/* 2. โต๊ะว่าง (Tables) */}
+            <Link href="/dashboard/shop/tables" className="relative flex-1 p-4 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden sm:border-r border-slate-100">
+              {/* Glow Hover Effect */}
+              <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${isTableFull ? 'bg-rose-400/20' : 'bg-purple-400/10'}`}></div>
+              
+              <div className="flex justify-between items-start mb-3 sm:mb-4 relative z-10">
+                <span className={`text-[11px] sm:text-sm font-bold ${isTableFull ? 'text-rose-500' : 'text-slate-500'}`}>
+                  {isTableFull ? '⚠️ โต๊ะเต็ม' : 'โต๊ะว่าง'}
+                </span>
+                <ArrowRight size={14} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-purple-500 transition-colors sm:w-4 sm:h-4" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <LayoutGrid size={20} strokeWidth={2.5} className={`shrink-0 sm:w-6 sm:h-6 ${isTableFull ? 'text-rose-500' : 'text-purple-500'}`} />
+                  <div className="flex items-baseline gap-1">
+                    <h3 className={`text-2xl sm:text-4xl font-black tracking-tighter leading-none ${isTableFull ? 'text-rose-600' : 'text-slate-900'}`}>
+                      {data.tableStats.available}
+                    </h3>
+                    <span className="text-sm sm:text-2xl font-bold text-slate-300 leading-none">
+                      /{data.tableStats.total}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
+            </Link>
 
+            {/* 3. รีวิวร้านค้า (Reviews) */}
+            <Link href="/dashboard/shop/reviews" className="relative flex-1 p-4 sm:p-7 hover:bg-slate-50/50 transition-colors group flex flex-col justify-between overflow-hidden">
+              {/* Glow Hover Effect */}
+              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-400/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+              
+              <div className="flex justify-between items-start mb-3 sm:mb-4 relative z-10">
+                <span className="text-[11px] sm:text-sm font-bold text-slate-500">คะแนนรีวิว</span>
+                <ArrowRight size={14} strokeWidth={2.5} className="-rotate-45 text-slate-300 group-hover:text-amber-500 transition-colors sm:w-4 sm:h-4" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <Star size={20} strokeWidth={2.5} className="text-amber-500 shrink-0 fill-amber-500 sm:w-6 sm:h-6" />
+                  <div className="flex items-baseline gap-1">
+                    <h3 className="text-2xl sm:text-4xl font-black tracking-tighter leading-none text-slate-900">
+                      {Number(data.reviewStats?.avg_rating || 0).toFixed(1)}
+                    </h3>
+                    <span className="text-sm sm:text-2xl font-bold text-slate-300 leading-none">
+                      /5
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 ml-7 sm:ml-8 hidden sm:block">
+                  จาก {data.reviewStats?.total_reviews || 0} รีวิวทั้งหมด
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 ml-7 block sm:hidden">
+                  {data.reviewStats?.total_reviews || 0} รีวิว
+                </p>
+              </div>
+            </Link>
+          </div>
         </div>
 
         {/* --- ตารางออเดอร์ล่าสุด --- */}
@@ -266,9 +312,27 @@ export default function ShopDashboardPage() {
               <TrendingUp size={20} className="text-slate-400" /> 
               ออเดอร์ล่าสุด
             </h2>
-            <Link href="/dashboard/shop/orders" className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-full transition-colors flex items-center gap-1">
+            <Link href="/dashboard/shop/orders/history" className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3.5 py-1.5 rounded-full transition-colors flex items-center gap-1">
               ดูทั้งหมด
             </Link>
+          </div>
+
+          {/* 🌟 Tabs */}
+          <div className="px-6 pb-2">
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
+              <button 
+                onClick={() => setActiveTab('online')}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'online' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                ออนไลน์
+              </button>
+              <button 
+                onClick={() => setActiveTab('dine_in')}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'dine_in' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                หน้าร้าน
+              </button>
+            </div>
           </div>
           
           <div className="overflow-x-auto pb-2">
@@ -283,17 +347,17 @@ export default function ShopDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.recentOrders.length === 0 ? (
+                {displayedRecentOrders.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-16 text-center">
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-50 mb-3">
                         <span className="text-2xl opacity-50">🍽️</span>
                       </div>
-                      <p className="text-slate-400 font-bold">ยังไม่มีออเดอร์ในวันนี้</p>
+                      <p className="text-slate-400 font-bold">ยังไม่มีออเดอร์{activeTab === 'online' ? 'ออนไลน์' : 'หน้าร้าน'}ในวันนี้</p>
                     </td>
                   </tr>
                 ) : (
-                  data.recentOrders.map((order) => (
+                  displayedRecentOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors group">
                       <td className="px-6 py-4 font-black text-slate-800">
                         #{order.id.toString().padStart(4, '0')}

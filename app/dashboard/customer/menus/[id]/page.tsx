@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, memo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Star, ImageOff, MessageSquare, Plus, Minus, ShoppingCart, CheckSquare, CheckCircle2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Star, ImageOff, MessageSquare, Plus, Minus, ShoppingCart, CheckSquare, CheckCircle2, X, ChevronUp, ChevronDown, CornerDownRight, Loader2 } from 'lucide-react';
 
 // --- Types ---
 type MenuOption = {
@@ -34,6 +34,9 @@ type Review = {
   created_at: string;
   username: string;
   name: string;
+  shop_reply?: string;
+  is_edited?: boolean | number;
+  is_shop_reply_edited?: boolean | number;
 };
 
 type CartItem = Menu & { 
@@ -63,6 +66,10 @@ export default function MenuDetailPage() {
   const [loading, setLoading] = useState(true);
   const [shopData, setShopData] = useState<any>(null);
   
+  const [page, setPage] = useState(1);
+  const [hasMoreReviews, setHasMoreReviews] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -79,11 +86,12 @@ export default function MenuDetailPage() {
     // Load data
     Promise.all([
       fetch(`/api/customer/menus/${id}`).then(res => res.json()),
-      fetch(`/api/customer/menus/${id}/reviews`).then(res => res.json()),
+      fetch(`/api/customer/menus/${id}/reviews?page=1`).then(res => res.json()),
       fetch('/api/customer/home').then(res => res.json())
     ]).then(([menuData, reviewsData, homeData]) => {
       setMenu(menuData);
-      setReviews(reviewsData || []);
+      setReviews(reviewsData.reviews || []);
+      setHasMoreReviews(reviewsData.hasMore || false);
       if (homeData?.shop) setShopData(homeData.shop);
     }).catch(err => {
       console.error(err);
@@ -98,6 +106,22 @@ export default function MenuDetailPage() {
       localStorage.setItem('dinemanager_cart', JSON.stringify(cart));
     }
   }, [cart, isLoaded]);
+
+  const loadMoreReviews = async () => {
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await fetch(`/api/customer/menus/${id}/reviews?page=${nextPage}`);
+      const data = await res.json();
+      setReviews(prev => [...prev, ...(data.reviews || [])]);
+      setHasMoreReviews(data.hasMore);
+      setPage(nextPage);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   function handleAddToCart() {
     if (menu) {
@@ -268,7 +292,10 @@ export default function MenuDetailPage() {
                           </div>
                           <div>
                             <div className="font-bold text-blue-900 dark:text-blue-100 text-[0.95rem]">{r.username}</div>
-                            <div className="text-[0.75rem] text-slate-400 dark:text-slate-500">{new Date(r.created_at).toLocaleDateString('th-TH')}</div>
+                            <div className="text-[0.75rem] text-slate-400 dark:text-slate-500">
+                              {new Date(r.created_at).toLocaleDateString('th-TH')}
+                              {Boolean(r.is_edited) && <span className="ml-1 text-slate-400 italic">(แก้ไขแล้ว)</span>}
+                            </div>
                           </div>
                         </div>
                         <div>
@@ -280,8 +307,31 @@ export default function MenuDetailPage() {
                           "{r.comment}"
                         </p>
                       )}
+                      
+                      {r.shop_reply && (
+                        <div className="mt-3 bg-blue-50/50 dark:bg-slate-700/50 border border-blue-100 dark:border-slate-600 p-3 rounded-2xl flex gap-2">
+                          <CornerDownRight size={16} className="text-blue-400 dark:text-blue-500 mt-0.5 shrink-0" />
+                          <div>
+                            <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-0.5">
+                              ตอบกลับจากร้านค้า:
+                              {Boolean(r.is_shop_reply_edited) && <span className="ml-1 text-[9px] text-blue-400 font-normal italic">(แก้ไขแล้ว)</span>}
+                            </div>
+                            <p className="m-0 text-slate-700 dark:text-slate-300 text-[0.85rem] font-semibold">{r.shop_reply}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
+                  
+                  {hasMoreReviews && (
+                    <button 
+                      onClick={loadMoreReviews} 
+                      disabled={loadingMore}
+                      className="w-full mt-2 py-3 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-bold hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? <Loader2 className="animate-spin" size={20} /> : 'ดูรีวิวเพิ่มเติม'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl text-center text-slate-400 dark:text-slate-500 border border-dashed border-slate-300 dark:border-slate-600 transition-colors">

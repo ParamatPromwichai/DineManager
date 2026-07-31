@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // ฟังก์ชัน GET สำหรับดึงข้อมูลรีวิวเก่ามาแสดงบนหน้าจอ
 export async function GET(req: Request) {
@@ -32,12 +34,20 @@ export async function GET(req: Request) {
 // ฟังก์ชัน POST สำหรับสร้างใหม่ หรือ อัปเดตการแก้ไข
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id || null;
+
     const body = await req.json();
     const { order_id, rating, comment, items } = body;
 
     if (!order_id || !rating) {
       return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
     }
+
+    // Check if review already exists
+    const [existingReviews]: any = await db.query(`SELECT id, created_at FROM reviews WHERE order_id = ? LIMIT 1`, [order_id]);
+    const isEdited = existingReviews.length > 0;
+    const originalCreatedAt = isEdited ? existingReviews[0].created_at : null;
 
     // 1. 🧹 ลบรีวิวเก่าของ Order นี้ทิ้งทั้งหมดเพื่อป้องกันข้อมูลซ้ำซ้อนเวลาแก้ไข
     await db.query(`DELETE FROM reviews WHERE order_id = ?`, [order_id]);
@@ -47,18 +57,22 @@ export async function POST(req: Request) {
       for (const item of items) {
         if (item.menu_id) {
           await db.query(
-            `INSERT INTO reviews (order_id, menu_id, rating, comment, created_at) 
-             VALUES (?, ?, ?, ?, NOW())`,
-            [order_id, item.menu_id, rating, comment || '']
+            `INSERT INTO reviews (order_id, user_id, menu_id, rating, comment, created_at, is_edited) 
+             VALUES (?, ?, ?, ?, ?, ${isEdited ? '?' : 'NOW()'}, ?)`,
+            isEdited 
+              ? [order_id, userId, item.menu_id, rating, comment || '', originalCreatedAt, 1]
+              : [order_id, userId, item.menu_id, rating, comment || '', 0]
           );
         }
       }
     } else {
       // กรณีฉุกเฉินถ้าไม่มี items ส่งมา อย่างน้อยก็บันทึกเข้าตารางโดยผูกกับ order_id
       await db.query(
-        `INSERT INTO reviews (order_id, rating, comment, created_at) 
-         VALUES (?, ?, ?, NOW())`,
-        [order_id, rating, comment || '']
+        `INSERT INTO reviews (order_id, user_id, rating, comment, created_at, is_edited) 
+         VALUES (?, ?, ?, ?, ${isEdited ? '?' : 'NOW()'}, ?)`,
+        isEdited 
+          ? [order_id, userId, rating, comment || '', originalCreatedAt, 1]
+          : [order_id, userId, rating, comment || '', 0]
       );
     }
 

@@ -33,7 +33,7 @@ export default function OrderHistoryPage() {
   const { data: session, status } = useSession();
   
   const todayDate = new Date().toLocaleDateString('en-CA'); 
-  const [selectedDate, setSelectedDate] = useState<string>(todayDate);
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const [expandedCustomers, setExpandedCustomers] = useState<Record<number, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>('all');
   const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'online' | 'dine_in'>('all');
