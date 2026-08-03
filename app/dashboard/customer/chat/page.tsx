@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
-import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown, MoreVertical } from "lucide-react";
+import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown, MoreVertical, X } from "lucide-react";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -34,6 +34,7 @@ export default function ChatPage() {
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   // ➕ 3. ดึง userId จาก session
   const userId = (session?.user as any)?.id;
@@ -223,7 +224,7 @@ export default function ChatPage() {
     return (
       <div className="flex flex-col gap-2">
         {mainText && <div>{renderedText}</div>}
-        {imgSrc && <img src={imgSrc} alt="รูปภาพ" style={{ width: '100%', maxWidth: '240px', borderRadius: '12px', display: 'block' }} />}
+        {imgSrc && <img src={imgSrc} alt="รูปภาพ" onClick={() => setFullScreenImage(imgSrc)} style={{ width: '100%', maxWidth: '240px', borderRadius: '12px', display: 'block', cursor: 'pointer' }} />}
       </div>
     );
   };
@@ -466,6 +467,33 @@ export default function ChatPage() {
           >
             <ChevronDown size={24} />
           </button>
+        )}
+
+        {/* Modal ล้างแชท */}
+        {showClearConfirm && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex justify-center items-center p-5">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl w-full max-w-[320px] shadow-2xl transition-colors">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="m-0 text-center text-[1.2rem] text-slate-800 dark:text-slate-100 font-bold mb-2">ล้างประวัติการแชท?</h3>
+              <p className="m-0 text-center text-slate-500 dark:text-slate-400 text-[0.9rem] mb-6">ข้อความทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้</p>
+              <div className="flex gap-2.5">
+                <button onClick={() => setShowClearConfirm(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-colors">ยกเลิก</button>
+                <button onClick={() => { setShowClearConfirm(false); clearChat(false); }} className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-md shadow-red-500/20 transition-all active:scale-95">ยืนยันลบ</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full Screen Image Modal */}
+        {fullScreenImage && (
+          <div className="fixed inset-0 z-[2000] bg-black/90 flex justify-center items-center p-4 backdrop-blur-sm" onClick={() => setFullScreenImage(null)}>
+            <img src={fullScreenImage} className="max-w-full max-h-full object-contain rounded-lg" alt="Full screen" />
+            <button className="absolute top-4 right-4 bg-white/20 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/40 border-none cursor-pointer">
+              <X size={24} />
+            </button>
+          </div>
         )}
 
         {/* 🌟 Input Area */}

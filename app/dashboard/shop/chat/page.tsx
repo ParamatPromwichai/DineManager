@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
-import { Send, User, MessageCircle, Bot, ChevronLeft, Zap, Sparkles, Check, Clock, ChevronDown } from 'lucide-react';
+import { Send, User, MessageCircle, Bot, ChevronLeft, Zap, Sparkles, Check, Clock, ChevronDown, X } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -24,6 +24,7 @@ function ShopChatContent() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const isSendingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -260,7 +261,6 @@ function ShopChatContent() {
                   messages.map((msg, i) => {
                     const isShop = msg.sender === 'shop';
                     const isBot = msg.sender === 'bot';
-                    const isUser = msg.sender === 'user';
                     const isOurSide = isShop || isBot;
                     const isLastMessage = i === messages.length - 1;
                     const isCurrentlySending = isShop && isLastMessage && isSending;
@@ -320,7 +320,7 @@ function ShopChatContent() {
                         }`}>
                           <div className="flex flex-col gap-2">
                             {mainText && <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{mainText}</span>}
-                            {imgSrc && <img src={imgSrc} alt="รูปภาพ" className="w-full max-w-[240px] rounded-[14px] shadow-sm bg-white" />}
+                            {imgSrc && <img src={imgSrc} alt="รูปภาพ" onClick={() => setFullScreenImage(imgSrc)} className="w-full max-w-[240px] rounded-[14px] shadow-sm bg-white cursor-pointer" />}
                           </div>
                         </div>
                         {isShop && (
@@ -385,6 +385,16 @@ function ShopChatContent() {
           )}
         </div>
       </div>
+      
+      {/* Full Screen Image Modal */}
+      {fullScreenImage && (
+        <div className="fixed inset-0 z-[2000] bg-black/90 flex justify-center items-center p-4 backdrop-blur-sm" onClick={() => setFullScreenImage(null)}>
+          <img src={fullScreenImage} className="max-w-full max-h-full object-contain rounded-lg" alt="Full screen" />
+          <button className="absolute top-4 right-4 bg-white/20 text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/40 border-none cursor-pointer">
+            <X size={24} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
