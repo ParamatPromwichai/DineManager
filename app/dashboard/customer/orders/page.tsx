@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
 import { 
   History, 
   ChevronRight, 
@@ -18,6 +19,18 @@ import {
   Banknote
 } from 'lucide-react';
 
+type OrderItem = {
+  menu_name: string;
+};
+
+type Order = {
+  id: number;
+  status: string;
+  created_at: string;
+  total_price: number;
+  items: OrderItem[];
+};
+
 // Mapping สถานะให้ดูดี (ปรับโทนสีให้เข้ากับดีไซน์ใหม่)
 const statusConfig = {
   pending: { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200', text: 'รอรับออเดอร์' },
@@ -28,15 +41,20 @@ const statusConfig = {
   cancel: { icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200', text: 'ยกเลิกแล้ว' }
 };
 
-export default function OrderHistoryPage() {
-  // ➕ 2. ใช้ useSession แทน localStorage
-  const { data: session, status } = useSession();
+const fetcher = (url: string) => fetch(url).then(res => {
+  if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+  return res.json();
+});
 
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function OrderHistoryPage() {
+  const { data: session, status } = useSession();
   
   // 🏷️ Filter State
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'done' | 'cancel'>('all');
+  
+  // 📜 Infinite Scroll States
+  const [displayLimit, setDisplayLimit] = useState(10);
+  const observerTarget = useRef<HTMLDivElement>(null);
   
   const router = useRouter();
 
@@ -52,28 +70,12 @@ export default function OrderHistoryPage() {
     }
   }, [status]);
 
-  // ➕ 4. ดึงข้อมูลออเดอร์เมื่อล็อกอินสำเร็จ
-  useEffect(() => {
-    // ต้องรอให้ session โหลดเสร็จก่อน
-    if (status !== 'authenticated') return;
-
-    const fetchOrders = async () => {
-      try {
-        // ❌ เอา headers 'user-id' ออก เพราะเดี๋ยว API จะเช็คจาก Cookie เอง
-        const res = await fetch('/api/customer/orders');
-        
-        if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
-        const data = await res.json();
-        setOrders(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, [status]);
+  // ➕ 4. ดึงข้อมูลออเดอร์เมื่อล็อกอินสำเร็จ โดยใช้ useSWR เพื่อ Cache ข้อมูล
+  const { data: orders = [], isLoading: isOrdersLoading } = useSWR<Order[]>(
+    status === 'authenticated' ? '/api/customer/orders' : null,
+    fetcher,
+    { revalidateOnFocus: true, refreshInterval: 10000 } // Auto refresh ทุก 10 วิ
+  );
 
   // 🔍 กรองข้อมูลออเดอร์
   const filteredOrders = useMemo(() => {
@@ -90,13 +92,82 @@ export default function OrderHistoryPage() {
     return orders;
   }, [orders, activeFilter]);
 
-  // --- Loading State ---
-  // ใช้ status === 'loading' ของ next-auth เพื่อโชว์ Loading ให้เนียนขึ้น
-  if (status === 'loading' || loading) {
+  // ตัดแบ่งออเดอร์ที่จะแสดง
+  const displayedOrders = useMemo(() => {
+    return filteredOrders.slice(0, displayLimit);
+  }, [filteredOrders, displayLimit]);
+
+  // รีเซ็ต Limit เมื่อเปลี่ยน Filter
+  useEffect(() => {
+    setDisplayLimit(10);
+  }, [activeFilter]);
+
+  // Intersection Observer สำหรับโหลดเพิ่ม
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setDisplayLimit(prev => prev + 10);
+        }
+      },
+      { rootMargin: '400px' }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    const currentTarget = observerTarget.current;
+    return () => {
+      if (currentTarget) observer.unobserve(currentTarget);
+    };
+  }, [displayedOrders.length]);
+
+  // --- Loading State (Skeleton) ---
+  // เช็คว่าไม่มีข้อมูลใน Cache (เพิ่งโหลดครั้งแรก) ถึงจะแสดง Skeleton
+  const showSkeleton = status === 'loading' || (isOrdersLoading && orders.length === 0);
+
+  if (showSkeleton) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 dark:bg-slate-900 gap-4 transition-colors">
-        <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-blue-900 dark:text-blue-100 font-bold text-sm tracking-wide">กำลังโหลดประวัติ...</p>
+      <div className="min-h-screen bg-blue-50 dark:bg-slate-900 pb-20 font-sans transition-colors animate-pulse">
+        {/* Header Skeleton */}
+        <div className="bg-white dark:bg-slate-800 px-5 py-4 sticky top-0 z-40 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+          <div className="h-7 w-32 bg-slate-200 dark:bg-slate-700 rounded-lg mx-auto"></div>
+        </div>
+
+        <div className="max-w-2xl mx-auto p-4 sm:p-6">
+          {/* Filters Skeleton */}
+          <div className="flex gap-2.5 overflow-hidden pb-3 mb-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-[42px] w-[100px] bg-slate-200 dark:bg-slate-700 rounded-full shrink-0"></div>
+            ))}
+          </div>
+
+          {/* Order Cards Skeleton */}
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-[20px] p-5 border border-blue-100 dark:border-slate-700 shadow-sm">
+                {/* Top Row */}
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-2">
+                    <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                    <div className="h-6 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                  </div>
+                  <div className="h-7 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                </div>
+                
+                {/* Middle Row */}
+                <div className="h-20 bg-slate-100 dark:bg-slate-700/50 rounded-2xl mb-4"></div>
+                
+                {/* Bottom Row */}
+                <div className="flex justify-between items-center pt-3 mt-2">
+                  <div className="h-7 w-28 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                  <div className="h-8 w-28 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -163,7 +234,8 @@ export default function OrderHistoryPage() {
         {/* --- List ออเดอร์ --- */}
         <div className="space-y-4">
           {filteredOrders.length > 0 ? (
-            filteredOrders.map((order) => {
+            <>
+              {displayedOrders.map((order) => {
               const status = statusConfig[order.status as keyof typeof statusConfig] || { 
                 icon: ClipboardList, color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-700', border: 'border-slate-200 dark:border-slate-600', text: order.status 
               };
@@ -220,7 +292,16 @@ export default function OrderHistoryPage() {
                   </div>
                 </div>
               );
-            })
+              })}
+              
+              {/* Sentinel สำหรับโหลดออเดอร์เพิ่ม */}
+              {displayLimit < filteredOrders.length && (
+                <div ref={observerTarget} className="w-full h-20 flex flex-col items-center justify-center mt-2">
+                  <div className="w-6 h-6 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+                  <span className="text-xs text-blue-500 dark:text-blue-400 font-bold">กำลังโหลดเพิ่ม...</span>
+                </div>
+              )}
+            </>
           ) : (
             // กรณีมีออเดอร์ในระบบ แต่ไม่มีออเดอร์ใน Filter นี้
             <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-blue-100 dark:border-slate-700 transition-colors">

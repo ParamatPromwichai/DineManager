@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 import {
   Star,
   MessageCircle,
@@ -30,9 +32,13 @@ type Review = {
 export default function ShopReviewsPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
 
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: fetchedData, mutate: mutateReviews, isLoading: isReviewsLoading } = useSWR<{reviews: Review[]}>(
+    isShop ? '/api/shop/reviews' : null,
+    fetcher
+  );
+  const reviews = fetchedData?.reviews || [];
   
   const [replyText, setReplyText] = useState<{ [key: number]: string }>({});
   const [submittingReply, setSubmittingReply] = useState<number | null>(null);
@@ -43,24 +49,6 @@ export default function ShopReviewsPage() {
       router.replace('/login/shop');
     }
   }, [status, session, router]);
-
-  const fetchReviews = async () => {
-    try {
-      const res = await fetch('/api/shop/reviews');
-      const data = await res.json();
-      setReviews(data.reviews || []);
-    } catch (error) {
-      console.error('Failed to fetch reviews', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (status === 'authenticated' && (session?.user as any)?.role === 'shop') {
-      fetchReviews();
-    }
-  }, [status]);
 
   const handleReplySubmit = async (reviewId: number) => {
     const text = replyText[reviewId];
@@ -75,7 +63,7 @@ export default function ShopReviewsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setReviews(reviews.map(r => r.id === reviewId ? { ...r, shop_reply: text, is_shop_reply_edited: data.is_shop_reply_edited } : r));
+        mutateReviews({ reviews: reviews.map(r => r.id === reviewId ? { ...r, shop_reply: text, is_shop_reply_edited: data.is_shop_reply_edited } : r) }, false);
         setReplyText({ ...replyText, [reviewId]: '' });
         setEditingReply(null);
       } else {
@@ -88,10 +76,45 @@ export default function ShopReviewsPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  // --- Loading State (Skeleton) ---
+  if (status === 'loading' || (isReviewsLoading && !fetchedData)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <Loader2 size={40} className="animate-spin text-blue-600" />
+      <div className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans pb-24 animate-pulse">
+        <div className="max-w-[800px] mx-auto">
+          {/* Header Skeleton */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-200 rounded-full"></div>
+                <div className="w-48 h-8 bg-slate-200 rounded-lg"></div>
+              </div>
+              <div className="w-64 h-4 bg-slate-200 rounded-md"></div>
+            </div>
+            <div className="w-28 h-10 bg-slate-200 rounded-xl"></div>
+          </div>
+
+          {/* Reviews List Skeleton */}
+          <div className="space-y-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white border border-slate-100 rounded-[1.5rem] p-6 shadow-sm">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-2">
+                    <div className="w-32 h-5 bg-slate-200 rounded-md"></div>
+                    <div className="w-48 h-3 bg-slate-200 rounded-md"></div>
+                  </div>
+                  <div className="w-16 h-7 bg-slate-200 rounded-full"></div>
+                </div>
+                
+                <div className="w-full h-16 bg-slate-50 border border-slate-100 rounded-2xl mb-4 mt-2"></div>
+                
+                <div className="mt-4 flex gap-3">
+                  <div className="w-6 h-6 mt-2 shrink-0"></div>
+                  <div className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

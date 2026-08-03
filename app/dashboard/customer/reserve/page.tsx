@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 import { motion } from 'framer-motion';
 import { RefreshCw, Users, CheckCircle2, XCircle, Utensils, LayoutDashboard } from 'lucide-react';
 import { TopDownTable } from '@/components/RestaurantGraphics';
@@ -21,10 +23,14 @@ export default function TableStatusPage() {
   // ➕ 2. ใช้ useSession ตรวจสอบสถานะแทน localStorage
   const { data: session, status } = useSession();
 
-  // Data State
-  const [tables, setTables] = useState<Table[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data: fetchedTables, mutate, isLoading: isTablesLoading, isValidating } = useSWR<Table[]>(
+    status === 'authenticated' ? '/api/tables' : null,
+    fetcher,
+    { refreshInterval: 3000 }
+  );
+
+  const tables = fetchedTables || [];
+  const lastUpdated = new Date();
 
   // 🛡️ 3. เช็คการเข้าสู่ระบบ ถ้าไม่ได้ล็อกอินให้เด้งไปหน้า login
   useEffect(() => {
@@ -38,39 +44,33 @@ export default function TableStatusPage() {
     }
   }, [status]);
 
-  // 🔄 ฟังก์ชันโหลดข้อมูลสถานะโต๊ะ
-  const loadData = async () => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch('/api/tables');
-      if (res.ok) {
-        setTables(await res.json());
-      }
-      setLastUpdated(new Date());
-    } catch (err) {
-      console.error("Failed to load tables", err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
-  // 🔄 4. โหลข้อมูลครั้งแรก และตั้งเวลา Auto-refresh เมื่อตรวจสอบสิทธิ์ผ่านแล้ว
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    
-    loadData();
-    const interval = setInterval(() => {
-      loadData();
-    }, 3000); // 3 วินาทีอัปเดตทีนึง (Real-time)
 
-    return () => clearInterval(interval);
-  }, [status]);
-
-  if (status === 'loading') {
+  if (status === 'loading' || (isTablesLoading && !fetchedTables)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-blue-50 dark:bg-slate-900 gap-4 transition-colors">
-        <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-blue-900 dark:text-blue-100 font-bold">กำลังโหลดข้อมูล...</p>
+      <div className="min-h-[100dvh] bg-blue-50 dark:bg-slate-900 p-5 pb-8 font-sans transition-colors animate-pulse">
+        <div className="max-w-[800px] mx-auto">
+          {/* Header Skeleton */}
+          <div className="flex flex-col items-center mb-6 pt-4 gap-4">
+            <div className="w-64 h-10 bg-blue-200 dark:bg-slate-700 rounded-xl"></div>
+            <div className="w-40 h-5 bg-blue-200 dark:bg-slate-700 rounded-md"></div>
+          </div>
+          
+          {/* Legend Skeleton */}
+          <div className="flex justify-center gap-4 mb-6">
+            <div className="w-24 h-10 bg-blue-200 dark:bg-slate-700 rounded-2xl"></div>
+            <div className="w-24 h-10 bg-blue-200 dark:bg-slate-700 rounded-2xl"></div>
+          </div>
+
+          {/* Grid Skeleton */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 pb-20">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="aspect-square bg-blue-100/50 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
+                <div className="w-16 h-16 bg-blue-200 dark:bg-slate-700 rounded-full"></div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -103,16 +103,16 @@ export default function TableStatusPage() {
           
           {/* ปุ่มรีเฟรชขวาบน */}
           <button 
-            onClick={loadData}
-            disabled={isRefreshing}
+            onClick={() => mutate()}
+            disabled={isValidating}
             className={`absolute top-0 right-0 p-3 rounded-full transition-colors shadow-sm border ${
-              isRefreshing 
+              isValidating 
                 ? 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed' 
                 : 'bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-slate-700 cursor-pointer hover:scale-105 active:scale-95'
             }`}
             title="รีเฟรชข้อมูล"
           >
-            <RefreshCw size={22} className={isRefreshing ? "animate-spin text-slate-400" : ""} strokeWidth={2.5} /> 
+            <RefreshCw size={22} className={isValidating ? "animate-spin text-slate-400" : ""} strokeWidth={2.5} /> 
           </button>
         </div>
 
@@ -136,7 +136,7 @@ export default function TableStatusPage() {
         {/* 🪑 Grid แสดงโต๊ะ */}
         <div className="w-full">
           
-          {tables.length === 0 && !isRefreshing && (
+          {tables.length === 0 && !isValidating && (
             <div className="text-center py-10 text-blue-400 dark:text-blue-500 bg-white/50 rounded-2xl">
               <p className="font-bold text-[1.1rem]">ยังไม่มีข้อมูลโต๊ะในระบบ</p>
             </div>

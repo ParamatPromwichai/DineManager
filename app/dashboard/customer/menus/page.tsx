@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, memo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
 import { 
   ArrowLeft, Utensils, Star, Plus, Minus, ShoppingCart, 
   CreditCard, MapPin, ImageOff, X, Flame, Maximize2, 
@@ -79,7 +80,6 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; 
 }
 
-// ⭐ ฟังก์ชันแสดงดาว
 const renderStars = (rating: number) => {
   const stars = Math.round(rating);
   return (
@@ -91,17 +91,15 @@ const renderStars = (rating: number) => {
   );
 };
 
+const fetcher = (url: string) => fetch(url).then(res => res.json());
+
 // 🟢 เปลี่ยนชื่อฟังก์ชันเดิมเป็น AllMenusContent
 function AllMenusContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [menus, setMenus] = useState<Menu[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [shopData, setShopData] = useState<ShopStatus | null>(null);
   const [isCartExpanded, setIsCartExpanded] = useState(false);
   
   // Search & Filter States
@@ -134,43 +132,37 @@ function AllMenusContent() {
   // States สำหรับ Popup ตัวเลือกอาหาร
   const [selectedMenuForOption, setSelectedMenuForOption] = useState<Menu | null>(null);
 
-  // 1. Fetch Data
-  useEffect(() => {
-    // ดึงเรทตั้งค่าระบบจัดส่งชั่วคราว
-    fetch('/api/sysconfig')
-      .then(res => res.json())
-      .then(data => {
-        setBaseDeliveryFee(data.delivery_fee || 0);
-        setDeliveryFeePerKm(data.delivery_fee_per_km || 0);
-      }).catch(err => console.error(err));
+  // 📜 Infinite Scroll States
+  const [displayLimit, setDisplayLimit] = useState(12);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-    fetch('/api/customer/menus')
-      .then(res => res.json())
-      .then((data: Menu[]) => {
-        setMenus(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-      
-    fetch('/api/categories')
-      .then(res => res.json())
-      .then(data => setCategories(data))
-      .catch(err => console.error(err));
-      
-    fetch('/api/customer/home').then(res => res.json()).then(data => { if (data?.shop) setShopData(data.shop); }).catch(err => console.error(err));
-    fetch('/api/customer/profile').then(res => res.json()).then(data => {
-      if (data?.phone) setPhone(data.phone);
-      if (data?.address) setAddress(data.address);
-      if (data?.latitude && data?.longitude) {
-        const userLoc = { lat: Number(data.latitude), lng: Number(data.longitude) };
+  // 1. Fetch Data ด้วย SWR
+  const { data: sysConfig } = useSWR('/api/sysconfig', fetcher);
+  useEffect(() => {
+    if (sysConfig) {
+      setBaseDeliveryFee(sysConfig.delivery_fee || 0);
+      setDeliveryFeePerKm(sysConfig.delivery_fee_per_km || 0);
+    }
+  }, [sysConfig]);
+
+  const { data: menus = [], isLoading: isMenusLoading } = useSWR<Menu[]>('/api/customer/menus', fetcher, { revalidateOnFocus: true });
+  const { data: categories = [], isLoading: isCategoriesLoading } = useSWR<Category[]>('/api/categories', fetcher, { revalidateOnFocus: false });
+  const { data: homeData } = useSWR('/api/customer/home', fetcher, { revalidateOnFocus: true });
+  const shopData: ShopStatus | null = homeData?.shop || null;
+
+  const { data: profileData } = useSWR('/api/customer/profile', fetcher, { revalidateOnFocus: false });
+
+  useEffect(() => {
+    if (profileData) {
+      if (profileData.phone) setPhone(profileData.phone);
+      if (profileData.address) setAddress(profileData.address);
+      if (profileData.latitude && profileData.longitude) {
+        const userLoc = { lat: Number(profileData.latitude), lng: Number(profileData.longitude) };
         setLocation(userLoc);
         setTempLocation(userLoc);
       }
-    }).catch(err => console.error(err));
-  }, []);
+    }
+  }, [profileData]);
 
   // โหลดข้อมูลจาก LocalStorage ตอนเปิดหน้าเว็บ
   useEffect(() => {
@@ -348,6 +340,37 @@ function AllMenusContent() {
     });
   }, [menus, searchQuery, activeFilter, activeCategory]);
 
+  // รีเซ็ต Limit เมื่อตัวกรองเปลี่ยน
+  useEffect(() => {
+    setDisplayLimit(12);
+  }, [searchQuery, activeFilter, activeCategory]);
+
+  // ตัดแบ่งเมนูที่จะแสดง
+  const displayedMenus = useMemo(() => {
+    return filteredAndSortedMenus.slice(0, displayLimit);
+  }, [filteredAndSortedMenus, displayLimit]);
+
+  // Intersection Observer สำหรับโหลดเพิ่ม
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setDisplayLimit(prev => prev + 12);
+        }
+      },
+      { rootMargin: '400px' } // โหลดล่วงหน้า 400px ก่อนถึงขอบล่าง
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    const currentTarget = observerTarget.current;
+    return () => {
+      if (currentTarget) observer.unobserve(currentTarget);
+    };
+  }, [displayedMenus.length]);
+
   return (
     <div className={`p-5 bg-blue-50 dark:bg-slate-900 font-sans transition-all duration-300 ${cart.length > 0 ? 'pb-[160px]' : 'pb-6'}`}>
       {/* Header & ปุ่มย้อนกลับ */}
@@ -446,17 +469,34 @@ function AllMenusContent() {
         }`}>💰 ราคาประหยัด</button>
       </div>
 
-      {/* Grid เมนูอาหาร */}
-      {filteredAndSortedMenus.length > 0 ? (
+      {/* Grid เมนูอาหาร หรือ Skeleton ถ้ายังโหลดข้อมูลไม่เสร็จ */}
+      {isMenusLoading && menus.length === 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 items-stretch">
-          {filteredAndSortedMenus.map(menu => {
-            const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col border border-blue-100 dark:border-slate-700 h-full animate-pulse">
+              <div className="h-[130px] bg-slate-200 dark:bg-slate-700 w-full shrink-0"></div>
+              <div className="p-3 flex-1 flex flex-col gap-2">
+                <div className="h-4 w-[80%] bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                <div className="h-3 w-[50%] bg-slate-200 dark:bg-slate-700 rounded-md mb-2"></div>
+                <div className="mt-auto flex justify-between items-center">
+                  <div className="h-5 w-[40%] bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                  <div className="w-[34px] h-[34px] rounded-full bg-slate-200 dark:bg-slate-700"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredAndSortedMenus.length > 0 ? (
+        <>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 items-stretch">
+            {displayedMenus.map(menu => {
+              const isMenuSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
-            return (
-              <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} className={`cursor-pointer bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col border border-blue-100 dark:border-slate-700 h-full transition-colors ${isMenuSoldOut ? 'opacity-60' : 'opacity-100'}`}>
-                <div className="h-[130px] bg-blue-50 dark:bg-slate-700 relative shrink-0 transition-colors">
-                  {menu.image ? (
-                    <img src={menu.image} alt={menu.name} className="w-full h-full object-cover" /> 
+              return (
+                <div key={menu.id} onClick={() => router.push(`/dashboard/customer/menus/${menu.id}`)} className={`cursor-pointer bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col border border-blue-100 dark:border-slate-700 h-full transition-colors ${isMenuSoldOut ? 'opacity-60' : 'opacity-100'}`}>
+                  <div className="h-[130px] bg-blue-50 dark:bg-slate-700 relative shrink-0 transition-colors">
+                    {menu.image ? (
+                      <img src={menu.image} alt={menu.name} loading="lazy" className="w-full h-full object-cover" /> 
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-blue-300 dark:text-slate-500">
                       <ImageOff size={24} className="mb-1" />
@@ -503,7 +543,16 @@ function AllMenusContent() {
               </div>
             );
           })}
-        </div>
+          </div>
+          
+          {/* Sentinel สำหรับโหลดเมนูเพิ่ม */}
+          {displayLimit < filteredAndSortedMenus.length && (
+            <div ref={observerTarget} className="w-full h-24 flex flex-col items-center justify-center mt-4">
+              <div className="w-6 h-6 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+              <span className="text-xs text-blue-500 dark:text-blue-400 font-bold">กำลังโหลดเพิ่ม...</span>
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center p-12 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 transition-colors">
           <ImageOff size={40} className="mb-2.5 mx-auto text-blue-300 dark:text-slate-500" />

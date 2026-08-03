@@ -46,7 +46,7 @@ export default function ManageOrdersPage() {
   const { data: session, status } = useSession();
 
   const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
-  const { data: fetchedOrders, error, mutate } = useSWR<Order[]>(
+  const { data: fetchedOrders, error, mutate, isLoading: isOrdersLoading } = useSWR<Order[]>(
     isShop ? '/api/shop/orders' : null,
     fetcher,
     { refreshInterval: 3000 }
@@ -140,25 +140,78 @@ export default function ManageOrdersPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // 📥 2.5 โหลดสถานะเตาและของที่ทำเสร็จแล้วจาก localStorage เพื่อกันรีเฟรชแล้วหาย
+  // 📥 2.5 โหลดสถานะเตาและของที่ทำเสร็จแล้วจาก API เพื่อซิงค์ข้ามเครื่อง
+  const isKitchenLoaded = useRef(false);
+  const prevCookedRef = useRef<string>('');
+  const prevBatchesRef = useRef<string>('');
+  const kitchenSaveCount = useRef(0);
+
   useEffect(() => {
-    try {
-      const savedCooked = localStorage.getItem('smart_kitchen_cooked');
-      const savedBatches = localStorage.getItem('smart_kitchen_batches');
-      if (savedCooked) setCookedItems(JSON.parse(savedCooked));
-      if (savedBatches) setActiveBatches(JSON.parse(savedBatches));
-    } catch (error) {
-      console.error("Failed to parse kitchen state from localStorage");
-    }
+    const fetchKitchenState = async () => {
+      if (kitchenSaveCount.current > 0) return; // อย่าเพิ่งโหลดมาทับ ถ้าเรากำลังเซฟอยู่
+      try {
+        const res = await fetch('/api/shop/kitchen');
+        const data = await res.json();
+        
+        if (kitchenSaveCount.current > 0) return; // เช็คอีกรอบหลังจาก fetch เสร็จ
+        
+        if (data.smart_kitchen_cooked) {
+          const serverCookedStr = JSON.stringify(data.smart_kitchen_cooked);
+          if (serverCookedStr !== prevCookedRef.current) {
+            setCookedItems(data.smart_kitchen_cooked);
+            prevCookedRef.current = serverCookedStr;
+          }
+        }
+        if (data.smart_kitchen_batches) {
+          const serverBatchesStr = JSON.stringify(data.smart_kitchen_batches);
+          if (serverBatchesStr !== prevBatchesRef.current) {
+            setActiveBatches(data.smart_kitchen_batches);
+            prevBatchesRef.current = serverBatchesStr;
+          }
+        }
+        isKitchenLoaded.current = true;
+      } catch (err) {
+        console.error("Failed to fetch kitchen state", err);
+        isKitchenLoaded.current = true; // allow save fallback
+      }
+    };
+
+    fetchKitchenState();
+    const interval = setInterval(fetchKitchenState, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  // 💾 2.6 บันทึกสถานะลง localStorage เมื่อมีการเปลี่ยนแปลง
+  // 💾 2.6 บันทึกสถานะลง API เมื่อมีการเปลี่ยนแปลง
   useEffect(() => {
-    localStorage.setItem('smart_kitchen_cooked', JSON.stringify(cookedItems));
+    if (!isKitchenLoaded.current) return;
+    const cookedStr = JSON.stringify(cookedItems);
+    if (cookedStr !== prevCookedRef.current) {
+      prevCookedRef.current = cookedStr;
+      kitchenSaveCount.current++;
+      fetch('/api/shop/kitchen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smart_kitchen_cooked: cookedItems })
+      }).finally(() => {
+        kitchenSaveCount.current--;
+      }).catch(err => console.error(err));
+    }
   }, [cookedItems]);
 
   useEffect(() => {
-    localStorage.setItem('smart_kitchen_batches', JSON.stringify(activeBatches));
+    if (!isKitchenLoaded.current) return;
+    const batchesStr = JSON.stringify(activeBatches);
+    if (batchesStr !== prevBatchesRef.current) {
+      prevBatchesRef.current = batchesStr;
+      kitchenSaveCount.current++;
+      fetch('/api/shop/kitchen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smart_kitchen_batches: activeBatches })
+      }).finally(() => {
+        kitchenSaveCount.current--;
+      }).catch(err => console.error(err));
+    }
   }, [activeBatches]);
 
   // 🛡️ 3. ตรวจสอบสิทธิ์ผ่าน NextAuth
@@ -191,6 +244,35 @@ export default function ManageOrdersPage() {
     mutate();
   };
 
+  // 🚨 Sync Popups: ปิดหน้าต่างอัตโนมัติหากออเดอร์ถูกจัดการไปแล้วโดยเครื่องอื่น
+  useEffect(() => {
+    if (readyPopupOrder) {
+      const actual = orders.find(o => o.id === readyPopupOrder.id);
+      if (!actual || actual.status !== 'cooking') setReadyPopupOrder(null);
+    }
+    if (cancelPopupOrder) {
+      const actual = orders.find(o => o.id === cancelPopupOrder.id);
+      if (!actual || actual.status !== cancelPopupOrder.status) {
+        setCancelPopupOrder(null);
+        setCancelReason('');
+      }
+    }
+    if (slipPopupOrder) {
+      const actual = orders.find(o => o.id === slipPopupOrder.id);
+      if (!actual || (slipPopupOrder.status === 'checking_slip' && actual.status !== 'checking_slip')) {
+        setSlipPopupOrder(null);
+      }
+    }
+    if (codPaymentOrder) {
+      const actual = orders.find(o => o.id === codPaymentOrder.id);
+      if (!actual || actual.status === 'done' || actual.status === 'cancel') {
+        setCodPaymentOrder(null);
+        setCodPaymentMethod('');
+        setCodSlipImage(null);
+      }
+    }
+  }, [orders, readyPopupOrder, cancelPopupOrder, slipPopupOrder, codPaymentOrder]);
+
   // 🕰️ กรองออเดอร์ และจัดเรียงลำดับใหม่
   const allActiveOrders = useMemo(() => {
     return orders.filter(order => {
@@ -215,18 +297,20 @@ export default function ManageOrdersPage() {
 
   const displayedOnlineOrders = useMemo(() => {
     let list = allActiveOrders.filter(o => o.order_type === 'online' || !o.order_type);
+    list = list.filter(o => o.status !== 'pending'); // 🚨 ซ่อนออเดอร์ที่ยังไม่กดรับ
     if (activeTab !== 'all') list = list.filter(o => o.status === activeTab);
     return list;
   }, [allActiveOrders, activeTab]);
 
   const displayedDineInOrders = useMemo(() => {
     let list = allActiveOrders.filter(o => o.order_type === 'dine_in');
+    list = list.filter(o => o.status !== 'pending'); // 🚨 ซ่อนออเดอร์ที่ยังไม่กดรับ
     if (activeTab !== 'all') list = list.filter(o => o.status === activeTab);
     return list;
   }, [allActiveOrders, activeTab]);
 
   const getTabCount = (status: string) => {
-    if (status === 'all') return allActiveOrders.length;
+    if (status === 'all') return allActiveOrders.filter(o => o.status !== 'pending').length;
     return allActiveOrders.filter(o => o.status === status).length;
   };
 
@@ -617,12 +701,54 @@ export default function ManageOrdersPage() {
   };
 
   // ⏳ 5. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ (อยู่หลัง Hooks ทั้งหมด)
-  if (status === 'loading') {
+  if (status === 'loading' || (isOrdersLoading && !fetchedOrders)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-slate-400 tracking-wider">กำลังตรวจสอบสิทธิ์...</span>
+      <div className="bg-slate-50 min-h-screen flex flex-col lg:overflow-hidden animate-pulse">
+        <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-6 flex flex-col flex-1">
+          {/* Header Skeleton */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <div className="space-y-2">
+              <div className="w-48 h-8 bg-slate-200 rounded-lg"></div>
+              <div className="w-64 h-4 bg-slate-200 rounded-md hidden sm:block"></div>
+            </div>
+            <div className="flex gap-3 w-full sm:w-auto">
+              <div className="w-full sm:w-40 h-10 bg-slate-200 rounded-xl"></div>
+              <div className="w-full sm:w-40 h-10 bg-slate-200 rounded-xl"></div>
+              <div className="w-10 h-10 bg-slate-200 rounded-xl hidden sm:block"></div>
+            </div>
+          </div>
+          
+          {/* Tabs Skeleton */}
+          <div className="flex gap-2 mb-4 overflow-hidden">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="w-24 h-9 bg-slate-200 rounded-full shrink-0"></div>
+            ))}
+          </div>
+
+          {/* 3 Columns Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 pb-6">
+            {/* Col 1 */}
+            <div className="bg-slate-100 p-4 rounded-3xl h-[600px] lg:h-full">
+              <div className="w-40 h-6 bg-slate-200 rounded-md mb-4"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>)}
+              </div>
+            </div>
+            {/* Col 2 */}
+            <div className="bg-white rounded-3xl border-2 border-slate-200 h-[600px] lg:h-full hidden lg:block">
+              <div className="bg-slate-50 h-14 rounded-t-[1.3rem] border-b border-slate-100 mb-4"></div>
+              <div className="p-4 space-y-4">
+                {[1, 2].map(i => <div key={i} className="h-28 bg-slate-100 rounded-2xl"></div>)}
+              </div>
+            </div>
+            {/* Col 3 */}
+            <div className="bg-slate-100 p-4 rounded-3xl h-[600px] lg:h-full hidden lg:block">
+              <div className="w-40 h-6 bg-slate-200 rounded-md mb-4"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>)}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -669,7 +795,6 @@ export default function ManageOrdersPage() {
         <div className="flex overflow-x-auto gap-2 pb-3 mb-4 -mx-4 px-4 sm:mx-0 sm:px-1 sm:pb-4 shrink-0 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
           {[
             { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
-            { id: 'pending', label: 'รอรับออเดอร์', icon: <Clock size={16} className="sm:hidden" /> },
             { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
             { id: 'cooking', label: 'กำลังปรุง', icon: <CookingPot size={16} className="sm:hidden" /> },
             { id: 'delivery', label: 'กำลังจัดส่ง', icon: <Truck size={16} className="sm:hidden" /> },

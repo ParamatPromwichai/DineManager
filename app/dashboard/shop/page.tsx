@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า NextAuth hooks
+import useSWR from 'swr';
+
 import { 
   Store, 
   TrendingUp, 
@@ -24,14 +26,21 @@ type DashboardData = {
   reviewStats: { total_reviews: number; avg_rating: number };
 };
 
+const fetcher = (url: string) => fetch(url).then(res => res.json());
+
 export default function ShopDashboardPage() {
   const router = useRouter();
   
   // 🚨 2. ใช้ useSession แทน localStorage
   const { data: session, status } = useSession();
+  const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
   
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, mutate, isLoading: isDashboardLoading } = useSWR<DashboardData>(
+    isShop ? '/api/shop/dashboard' : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+
   const [isToggling, setIsToggling] = useState(false);
   const [totalUnread, setTotalUnread] = useState(0);
   const [activeTab, setActiveTab] = useState<'online' | 'dine_in'>('online');
@@ -48,18 +57,6 @@ export default function ShopDashboardPage() {
       }
     }
   }, [status, session, router]);
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await fetch('/api/shop/dashboard');
-      const json = await res.json();
-      setData(json);
-    } catch (error) {
-      console.error("Failed to fetch dashboard", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchChats = async () => {
     try {
@@ -96,10 +93,8 @@ export default function ShopDashboardPage() {
   useEffect(() => {
     if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
 
-    fetchDashboard();
     fetchChats();
     const interval = setInterval(() => {
-      fetchDashboard();
       fetchChats();
     }, 30000); 
     return () => clearInterval(interval);
@@ -115,7 +110,7 @@ export default function ShopDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_open: newStatus })
       });
-      setData({ ...data, shop: { ...data.shop, is_open: newStatus } });
+      mutate({ ...data, shop: { ...data.shop, is_open: newStatus } }, false);
     } catch (error) {
       alert("ไม่สามารถเปลี่ยนสถานะร้านได้");
     } finally {
@@ -134,15 +129,73 @@ export default function ShopDashboardPage() {
     }
   }, [data, activeTab]);
 
-  // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล
-  if (status === 'loading' || loading) {
+  // ⏳ หน้าจอโหลดขณะตรวจสอบสิทธิ์ หรือ กำลังดึงข้อมูล (Skeleton)
+  if (status === 'loading' || (isDashboardLoading && !data)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F8FAFC]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-slate-400 tracking-wider">
-            {status === 'loading' ? 'กำลังตรวจสอบสิทธิ์...' : 'กำลังโหลดข้อมูล...'}
-          </span>
+      <div className="min-h-screen bg-[#F8FAFC] pb-24 font-sans animate-pulse">
+        <div className="max-w-[840px] mx-auto px-4 sm:px-6 pt-8 sm:pt-10">
+          
+          {/* Header Skeleton */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-200 shrink-0"></div>
+              <div className="space-y-2">
+                <div className="w-32 h-6 sm:h-8 bg-slate-200 rounded-md"></div>
+                <div className="w-24 h-3 sm:h-4 bg-slate-200 rounded-md"></div>
+              </div>
+            </div>
+            <div className="w-full sm:w-48 h-10 bg-slate-200 rounded-full"></div>
+          </div>
+
+          {/* Stats Cards Skeleton */}
+          <div className="bg-white border border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] mb-8 flex flex-col sm:flex-row overflow-hidden shadow-sm">
+            <div className="w-full sm:flex-1 p-4 sm:p-7 border-b sm:border-b-0 sm:border-r border-slate-100">
+              <div className="w-16 h-3 bg-slate-200 rounded-md mb-4"></div>
+              <div className="w-32 h-8 sm:h-10 bg-slate-200 rounded-md mb-2"></div>
+              <div className="w-24 h-3 bg-slate-200 rounded-md"></div>
+            </div>
+            <div className="flex w-full sm:flex-[2] divide-x divide-slate-100">
+              <div className="flex-1 p-4 sm:p-7">
+                <div className="w-16 h-3 bg-slate-200 rounded-md mb-4"></div>
+                <div className="w-24 h-8 sm:h-10 bg-slate-200 rounded-md mb-2"></div>
+                <div className="w-20 h-3 bg-slate-200 rounded-md"></div>
+              </div>
+              <div className="flex-1 p-4 sm:p-7">
+                <div className="w-16 h-3 bg-slate-200 rounded-md mb-4"></div>
+                <div className="w-24 h-8 sm:h-10 bg-slate-200 rounded-md mb-2"></div>
+                <div className="w-20 h-3 bg-slate-200 rounded-md"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs Skeleton */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="w-32 h-6 bg-slate-200 rounded-md"></div>
+            <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+              <div className="w-20 h-8 bg-slate-200 rounded-lg"></div>
+              <div className="w-20 h-8 bg-slate-200 rounded-lg"></div>
+            </div>
+          </div>
+
+          {/* Recent Orders List Skeleton */}
+          <div className="space-y-3 sm:space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="bg-white rounded-[1.25rem] sm:rounded-[1.5rem] p-4 sm:p-5 flex justify-between items-center border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-4 w-full">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-200 rounded-full shrink-0"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="w-24 h-4 bg-slate-200 rounded-md"></div>
+                    <div className="w-32 h-3 bg-slate-200 rounded-md"></div>
+                  </div>
+                  <div className="flex flex-col items-end space-y-2">
+                    <div className="w-16 h-5 bg-slate-200 rounded-md"></div>
+                    <div className="w-20 h-6 bg-slate-200 rounded-full"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
       </div>
     );

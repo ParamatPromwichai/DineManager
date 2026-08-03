@@ -150,21 +150,22 @@ export default function ChatPage() {
   // }, [messages]);
 
   const formatMessage = (text: string) => {
-    if (text.startsWith('[IMAGE]')) {
-      const src = text.replace('[IMAGE]', '');
-      return <img src={src} alt="รูปภาพ" style={{ width: '100%', maxWidth: '240px', borderRadius: '12px', display: 'block' }} />;
+    let imgSrc = null;
+    let mainText = text;
+
+    const imgMatch = text.match(/\[IMAGE\](.*)$/);
+    if (imgMatch) {
+      imgSrc = imgMatch[1];
+      mainText = text.replace(imgMatch[0], '').trim();
     }
 
-    // แยกข้อความด้วย URL หรือ [ORDER_BUTTON:xxx]
     const regex = /(https?:\/\/[^\s]+|\[ORDER_BUTTON(?::[^\]]+)?\])/g;
-    const parts = text.split(regex);
+    const parts = mainText.split(regex);
 
-    return parts.map((part, index) => {
+    const renderedText = parts.map((part, index) => {
       if (!part) return null;
       
-      // ถ้าเป็น URL
       if (part.match(/^https?:\/\//)) {
-        // ตรวจสอบว่าเป็นลิงก์ Google Maps แบบพิกัดหรือไม่
         const mapMatch = part.match(/^https?:\/\/maps\.google\.com\/\?q=([\d\.\-]+),([\d\.\-]+)/);
         if (mapMatch) {
           const lat = mapMatch[1];
@@ -197,7 +198,6 @@ export default function ChatPage() {
         );
       }
       
-      // ถ้าเป็นปุ่มสั่งอาหาร
       if (part.startsWith("[ORDER_BUTTON")) {
         const match = part.match(/\[ORDER_BUTTON(?::([^\]]+))?\]/);
         const itemName = match && match[1] ? match[1].trim() : "";
@@ -219,6 +219,13 @@ export default function ChatPage() {
       
       return <span key={index} className="whitespace-pre-wrap leading-relaxed">{part}</span>;
     });
+
+    return (
+      <div className="flex flex-col gap-2">
+        {mainText && <div>{renderedText}</div>}
+        {imgSrc && <img src={imgSrc} alt="รูปภาพ" style={{ width: '100%', maxWidth: '240px', borderRadius: '12px', display: 'block' }} />}
+      </div>
+    );
   };
 
   const deleteMessage = async (id: string) => {

@@ -2,7 +2,8 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, MapPin, ChefHat, Bike, CheckCircle2,
@@ -43,6 +44,11 @@ const statusIcons = {
 
 const foodEmojis = ['🍔', '🍕', '🌮', '🍣', '🥗', '🍜', '🍛', '🍝'];
 
+const fetcher = (url: string) => fetch(url).then(async (res) => {
+  if (!res.ok) throw new Error(await res.text() || 'โหลดข้อมูลไม่สำเร็จ');
+  return res.json();
+});
+
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -51,10 +57,25 @@ export default function OrderDetailPage() {
   // ➕ 2. ดึงสถานะ Session
   const { data: session, status } = useSession();
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [queueCount, setQueueCount] = useState<number>(0); 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 🔄 ดึงข้อมูลออเดอร์ด้วย SWR (มี Caching ในตัว)
+  const { data: order, error, isLoading: isOrderLoading, mutate: mutateOrder } = useSWR<Order>(
+    id && status === 'authenticated' ? `/api/customer/order/${id}` : null,
+    fetcher,
+    { refreshInterval: 5000, revalidateOnFocus: true }
+  );
+
+  const { data: homeData } = useSWR(
+    status === 'authenticated' ? '/api/customer/home' : null,
+    fetcher,
+    { refreshInterval: 10000, revalidateOnFocus: true }
+  );
+  const queueCount = homeData?.remainingQueue || 0;
+
+  const { data: reviewData } = useSWR(
+    id && status === 'authenticated' ? `/api/customer/review?order_id=${id}` : null,
+    fetcher
+  );
+
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [isLate, setIsLate] = useState(false);
   const [emojiIndex, setEmojiIndex] = useState(0);
@@ -81,6 +102,15 @@ export default function OrderDetailPage() {
       });
     }
   }, [status]);
+
+  // ซิงค์ข้อมูลรีวิวเมื่อ SWR โหลดเสร็จ
+  useEffect(() => {
+    if (reviewData && reviewData.rating) {
+      setRating(reviewData.rating); 
+      setComment(reviewData.comment || ''); 
+      setHasReviewed(true);
+    }
+  }, [reviewData]);
 
   // Submit Review 
   const submitReview = useCallback(async () => {
@@ -114,7 +144,7 @@ export default function OrderDetailPage() {
         })
       });
       if (res.ok) {
-        setOrder({ ...order, status: 'cancel' });
+        mutateOrder({ ...order, status: 'cancel' }, false);
         setShowCancelPopup(false);
         setCancelReason('');
       } else {
@@ -124,37 +154,6 @@ export default function OrderDetailPage() {
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     }
   };
-
-  // Fetch Data
-  useEffect(() => {
-    // ➕ 4. ต้องรอให้ล็อกอินผ่านก่อนถึงจะดึงข้อมูล
-    if (!id || status !== 'authenticated') return;
-    
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/customer/order/${id}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(await res.text() || 'ไม่สามารถโหลดข้อมูลได้');
-        return res.json();
-      })
-      .then((data) => { setOrder(data); setLoading(false); })
-      .catch((err) => { setError(err.message); setLoading(false); });
-
-    fetch('/api/customer/home')
-      .then(res => res.json())
-      .then(data => {
-        if (data.remainingQueue) setQueueCount(data.remainingQueue);
-      }).catch(() => { });
-
-    fetch(`/api/customer/review?order_id=${id}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.rating) {
-          setRating(data.rating); setComment(data.comment || ''); setHasReviewed(true);
-        }
-      }).catch(() => { });
-  }, [id, status]);
 
   // Emoji Animation
   useEffect(() => {
@@ -197,14 +196,64 @@ export default function OrderDetailPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [order, estimatedTotalTimeMin]);
 
-  // --- Loading & Error States ---
-  // ➕ 5. โชว์ Loading ให้คลุมจังหวะที่ Session กำลังโหลดด้วย
-  if (status === 'loading' || loading) {
+  // --- Loading & Error States (Skeleton) ---
+  const showSkeleton = status === 'loading' || (isOrderLoading && !order);
+
+  if (showSkeleton) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-blue-50 dark:bg-slate-900 transition-colors">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-wide">กำลังโหลดออเดอร์...</span>
+      <div className="min-h-screen bg-blue-50 dark:bg-slate-900 font-sans pb-24 transition-colors animate-pulse">
+        {/* Header Skeleton */}
+        <div className="bg-white dark:bg-slate-800 px-4 py-4 sm:px-6 sticky top-0 z-40 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+          <div className="w-10 h-9 bg-slate-200 dark:bg-slate-700 rounded-xl border border-transparent"></div>
+          <div className="w-32 h-6 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+          <div className="w-10 h-9"></div>
+        </div>
+
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+          {/* Status Card Skeleton */}
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-blue-100 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
+                <div className="space-y-2.5">
+                  <div className="w-28 h-5 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                  <div className="w-36 h-4 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                </div>
+              </div>
+              <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+            </div>
+            
+            <div className="w-full h-4 bg-slate-200 dark:bg-slate-700 rounded-full mb-3"></div>
+            <div className="flex justify-between">
+              <div className="w-16 h-3 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+              <div className="w-16 h-3 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+            </div>
+          </div>
+
+          {/* Details Skeleton */}
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-blue-100 dark:border-slate-700 shadow-sm space-y-4">
+            <div className="w-32 h-6 bg-slate-200 dark:bg-slate-700 rounded-md mb-4"></div>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-700/50 last:border-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                  <div className="w-40 h-5 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                </div>
+                <div className="w-16 h-5 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+              </div>
+            ))}
+            
+            <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-2 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                <div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="w-24 h-6 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                <div className="w-24 h-6 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

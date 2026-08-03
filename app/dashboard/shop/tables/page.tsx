@@ -2,10 +2,32 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation'; 
-import { useSession } from 'next-auth/react'; // ➕ 1. นำเข้า useSession
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 import { Plus, Edit2, Trash2, QrCode, X, Camera, UploadCloud, Users, Utensils, LayoutGrid } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TopDownTable } from '@/components/RestaurantGraphics';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // --- Type Definitions ---
 type Table = {
@@ -41,20 +63,62 @@ type ManageModalState = {
   capacity: number;
 } | null;
 
+// --- Sortable Component ---
+function SortableTableCard({ table, children }: { table: Table, children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: table.id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.3 : 1, // ทำให้ตัวต้นฉบับจางลงตอนลาก
+    touchAction: 'none' // ป้องกันหน้าจอเลื่อนเวลาลากบนมือถือ
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing relative transition-transform hover:-translate-y-1">
+      {/* ใช้ div หุ้ม children อีกชั้นเพื่อดัก onClick เพื่อให้ปุ่มข้างในยังกดได้ */}
+      {children}
+    </div>
+  );
+}
+
 export default function ShopTableManager() {
   const router = useRouter(); 
   
-  // 🚨 2. เรียกใช้งาน Session
   const { data: session, status } = useSession();
+  const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
 
-  const [tables, setTables] = useState<Table[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const { data: fetchedTables, mutate: mutateTables, isLoading: isLoadingTables } = useSWR<Table[]>(
+    isShop ? '/api/tables' : null,
+    fetcher
+  );
+  
+  const { data: fetchedReservations, mutate: mutateReservations, isLoading: isLoadingReservations } = useSWR<Reservation[]>(
+    isShop ? '/api/reservations' : null,
+    fetcher
+  );
+
+  const { data: fetchedShopData, mutate: mutateShopData, isLoading: isLoadingShopData } = useSWR<any>(
+    isShop ? '/api/shop/dashboard' : null,
+    fetcher
+  );
+
+  const tables = fetchedTables || [];
+  const reservations = fetchedReservations || [];
+  const shopData = fetchedShopData?.shop || null;
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const [modal, setModal] = useState<ModalState>(null);
   const [manageModal, setManageModal] = useState<ManageModalState>(null);
   const [qrModal, setQrModal] = useState<{ isOpen: boolean; table: Table | null }>({ isOpen: false, table: null });
-  const [shopData, setShopData] = useState<any>(null);
   const [billData, setBillData] = useState<{ total: number, items: any[], loading: boolean } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash'|'qr'>('cash');
   
@@ -63,6 +127,25 @@ export default function ShopTableManager() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const paymentBottomRef = useRef<HTMLDivElement>(null);
+  
+  const [activeTable, setActiveTable] = useState<Table | null>(null);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5, // ลาก 5px เพื่อเริ่มการลาก (ไม่หน่วงเวลาบนคอม)
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // ต้องกดค้าง 250ms บนมือถือ
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (paymentMethod === 'qr' && paymentBottomRef.current) {
@@ -126,28 +209,11 @@ export default function ShopTableManager() {
     }
   }, [status, session, router]);
 
-  const fetchData = async () => {
-    try {
-      const [tableRes, resRes, shopRes] = await Promise.all([
-        fetch('/api/tables'),
-        fetch('/api/reservations'),
-        fetch('/api/shop/dashboard')
-      ]);
-      if (tableRes.ok) setTables(await tableRes.json());
-      if (resRes.ok) setReservations(await resRes.json());
-      if (shopRes.ok) {
-        const data = await shopRes.json();
-        setShopData(data.shop);
-      }
-    } catch (err) { console.error(err); }
+  const fetchData = () => {
+    mutateTables();
+    mutateReservations();
+    mutateShopData();
   };
-
-  // 🚨 4. โหลดข้อมูลเมื่อผ่านการตรวจสอบสิทธิ์แล้วว่าเป็นร้านค้า
-  useEffect(() => {
-    if (status !== 'authenticated' || (session?.user as any)?.role !== 'shop') return; 
-
-    fetchData();
-  }, [status, session]);
 
   // --- Logic คำนวณสถานะ ---
   const getTableStatus = (table: Table) => {
@@ -233,7 +299,35 @@ export default function ShopTableManager() {
       const data = await res.json();
       throw new Error(data.message || 'เกิดข้อผิดพลาดในการอัปเดตสถานะโต๊ะ');
     }
-    setTables(prev => prev.map(t => t.id === id ? { ...t, is_occupied: status } : t));
+    mutateTables(prev => prev ? prev.map(t => t.id === id ? { ...t, is_occupied: status } : t) : [], false);
+  };
+
+  // --- จัดการการลากจบ (Drag End) ---
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      mutateTables((items) => {
+        if (!items) return [];
+        const oldIndex = items.findIndex(t => t.id === active.id);
+        const newIndex = items.findIndex(t => t.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        // อัปเดตฐานข้อมูลเบื้องหลัง
+        const updates = newItems.map((table, index) => ({
+          id: table.id,
+          sort_order: index
+        }));
+        
+        fetch('/api/tables', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates })
+        }).catch(err => console.error('Failed to update table order:', err));
+
+        return newItems;
+      }, false);
+    }
   };
 
   const getConfirmButtonColor = () => modal?.type === 'occupy' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50';
@@ -274,13 +368,33 @@ export default function ShopTableManager() {
     }
   };
 
-  // ⏳ 5. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ (อยู่หลัง Hooks ทั้งหมด)
-  if (status === 'loading') {
+  // ⏳ 5. โชว์หน้าโหลดดิ้งระหว่างรอเช็คสิทธิ์ หรือ ดึงข้อมูล (Skeleton)
+  if (status === 'loading' || (isLoadingTables && !fetchedTables)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-slate-400 tracking-wider">กำลังตรวจสอบสิทธิ์...</span>
+      <div className="bg-slate-50 min-h-screen flex flex-col overflow-hidden animate-pulse">
+        <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-6 flex flex-col flex-1">
+          {/* Header Skeleton */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+              <div className="space-y-2">
+                <div className="w-48 h-8 bg-slate-200 rounded-lg"></div>
+                <div className="w-64 h-4 bg-slate-200 rounded-md"></div>
+              </div>
+            </div>
+            <div className="w-32 h-10 bg-slate-200 rounded-xl"></div>
+          </div>
+          
+          {/* Main Content Area Skeleton */}
+          <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                <div key={i} className="aspect-square bg-slate-100 rounded-2xl flex items-center justify-center relative">
+                  <div className="w-20 h-20 bg-slate-200 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -316,62 +430,119 @@ export default function ShopTableManager() {
       <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-6 flex flex-col overflow-y-auto">
         <div className="w-full">
           {/* Grid โต๊ะ */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {tables.map((table, index) => {
-          const status = getTableStatus(table);
-          const { type: statusType, text } = status;
-          
-          let customStatus;
-          if (statusType === 'booking_active') {
-            customStatus = { text, bg: 'bg-red-500', border: 'border-red-600', dot: 'bg-white', containerBg: 'bg-red-100 dark:bg-red-950/40', containerBorder: 'border-red-500' };
-          } else if (statusType === 'warning') {
-            customStatus = { text, bg: 'bg-yellow-500', border: 'border-yellow-600', dot: 'bg-white', containerBg: 'bg-yellow-100 dark:bg-yellow-950/40', containerBorder: 'border-yellow-500' };
-          } else if (statusType === 'manual') {
-            customStatus = { text, bg: 'bg-rose-500', border: 'border-rose-600', dot: 'bg-rose-200', containerBg: 'bg-rose-100 dark:bg-rose-950/40', containerBorder: 'border-rose-500' };
-          } else {
-            customStatus = { text, bg: 'bg-emerald-500', border: 'border-emerald-600', dot: 'bg-emerald-200', containerBg: 'bg-emerald-100 dark:bg-emerald-950/40', containerBorder: 'border-emerald-500' };
-          }
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={(e) => {
+              const table = tables.find(t => t.id === e.active.id);
+              if (table) setActiveTable(table);
+            }}
+            onDragEnd={(e) => {
+              setActiveTable(null);
+              handleDragEnd(e);
+            }}
+            onDragCancel={() => setActiveTable(null)}
+          >
+            <SortableContext 
+              items={tables.map(t => t.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {tables.map((table, index) => {
+              const status = getTableStatus(table);
+              const { type: statusType, text } = status;
+              
+              let customStatus;
+              if (statusType === 'booking_active') {
+                customStatus = { text, bg: 'bg-red-500', border: 'border-red-600', dot: 'bg-white', containerBg: 'bg-red-100 dark:bg-red-950/40', containerBorder: 'border-red-500' };
+              } else if (statusType === 'warning') {
+                customStatus = { text, bg: 'bg-yellow-500', border: 'border-yellow-600', dot: 'bg-white', containerBg: 'bg-yellow-100 dark:bg-yellow-950/40', containerBorder: 'border-yellow-500' };
+              } else if (statusType === 'manual') {
+                customStatus = { text, bg: 'bg-rose-500', border: 'border-rose-600', dot: 'bg-rose-200', containerBg: 'bg-rose-100 dark:bg-rose-950/40', containerBorder: 'border-rose-500' };
+              } else {
+                customStatus = { text, bg: 'bg-emerald-500', border: 'border-emerald-600', dot: 'bg-emerald-200', containerBg: 'bg-emerald-100 dark:bg-emerald-950/40', containerBorder: 'border-emerald-500' };
+              }
 
-          return (
-            <div key={table.id} className="cursor-pointer group relative transition-transform hover:-translate-y-1" onClick={() => handleTableClick(table)}>
-              <TopDownTable 
-                index={index}
-                capacity={table.capacity}
-                isOccupied={table.is_occupied}
-                name={table.name}
-                customStatus={customStatus}
-              >
-                {/* ปุ่มสแกน QR Code (แสดงตลอดเมื่อโต๊ะไม่ว่าง) */}
-                {Boolean(table.is_occupied) && table.session_token && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setQrModal({ isOpen: true, table }); }}
-                    className="absolute top-2 left-2 p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-md transition-colors z-50 flex items-center gap-1 px-2 pointer-events-auto"
-                    title="ดู QR Code"
-                  >
-                    <QrCode size={14} /> <span className="text-xs font-bold">QR</span>
-                  </button>
-                )}
+              return (
+                <SortableTableCard key={table.id} table={table}>
+                  <div className="w-full h-full pointer-events-auto" onClick={(e) => { e.stopPropagation(); handleTableClick(table); }}>
+                    <TopDownTable 
+                      index={index}
+                      capacity={table.capacity}
+                      isOccupied={table.is_occupied}
+                      name={table.name}
+                      customStatus={customStatus}
+                    >
+                      {/* ปุ่มสแกน QR Code (แสดงตลอดเมื่อโต๊ะไม่ว่าง) */}
+                      {Boolean(table.is_occupied) && table.session_token && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setQrModal({ isOpen: true, table }); }}
+                          onPointerDown={(e) => e.stopPropagation()} // ป้องกันดึง Event การ Drag
+                          className="absolute top-2 left-2 p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-md transition-colors z-50 flex items-center gap-1 px-2 pointer-events-auto"
+                          title="ดู QR Code"
+                        >
+                          <QrCode size={14} /> <span className="text-xs font-bold">QR</span>
+                        </button>
+                      )}
 
-                {/* ปุ่มแก้ไข / ลบ */}
-                <div className="absolute bottom-2 right-2 flex gap-1.5 z-50 pointer-events-auto opacity-80 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'edit', tableId: table.id, name: table.name, capacity: table.capacity }); }}
-                    className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'delete', tableId: table.id, name: table.name, capacity: table.capacity }); }}
-                    className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </TopDownTable>
-            </div>
-          );
-        })}
-          </div>
+                      {/* ปุ่มแก้ไข / ลบ */}
+                      <div className="absolute bottom-2 right-2 flex gap-1.5 z-50 pointer-events-auto opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'edit', tableId: table.id, name: table.name, capacity: table.capacity }); }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setManageModal({ isOpen: true, type: 'delete', tableId: table.id, name: table.name, capacity: table.capacity }); }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="p-1.5 bg-white/90 backdrop-blur text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg shadow border border-slate-200/60 transition-all hover:scale-105 active:scale-95"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </TopDownTable>
+                  </div>
+                </SortableTableCard>
+              );
+            })}
+              </div>
+            </SortableContext>
+            
+            <DragOverlay dropAnimation={{
+              duration: 250,
+              easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)'
+            }}>
+              {activeTable ? (() => {
+                const status = getTableStatus(activeTable);
+                const { type: statusType, text } = status;
+                
+                let customStatus;
+                if (statusType === 'booking_active') {
+                  customStatus = { text, bg: 'bg-red-500', border: 'border-red-600', dot: 'bg-white', containerBg: 'bg-red-100 dark:bg-red-950/40', containerBorder: 'border-red-500' };
+                } else if (statusType === 'warning') {
+                  customStatus = { text, bg: 'bg-yellow-500', border: 'border-yellow-600', dot: 'bg-white', containerBg: 'bg-yellow-100 dark:bg-yellow-950/40', containerBorder: 'border-yellow-500' };
+                } else if (statusType === 'manual') {
+                  customStatus = { text, bg: 'bg-rose-500', border: 'border-rose-600', dot: 'bg-rose-200', containerBg: 'bg-rose-100 dark:bg-rose-950/40', containerBorder: 'border-rose-500' };
+                } else {
+                  customStatus = { text, bg: 'bg-emerald-500', border: 'border-emerald-600', dot: 'bg-emerald-200', containerBg: 'bg-emerald-100 dark:bg-emerald-950/40', containerBorder: 'border-emerald-500' };
+                }
+
+                return (
+                  <div className="scale-105 shadow-2xl opacity-90 cursor-grabbing pointer-events-none transition-transform rounded-2xl overflow-hidden">
+                    <TopDownTable 
+                      index={tables.findIndex(t => t.id === activeTable.id)}
+                      capacity={activeTable.capacity}
+                      isOccupied={activeTable.is_occupied}
+                      name={activeTable.name}
+                      customStatus={customStatus}
+                    />
+                  </div>
+                );
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       </div>
 

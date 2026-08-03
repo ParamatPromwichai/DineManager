@@ -39,7 +39,7 @@ export default function OrderHistoryPage() {
   const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | 'online' | 'dine_in'>('all');
 
   const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
-  const { data: fetchedOrders, error, mutate } = useSWR<Order[]>(
+  const { data: fetchedOrders, error, mutate, isLoading: isOrdersLoading } = useSWR<Order[]>(
     isShop ? '/api/shop/orders/history' : null,
     fetcher,
     { refreshInterval: 10000 }
@@ -89,12 +89,59 @@ export default function OrderHistoryPage() {
     return <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold border ${styles[status]}`}>{labels[status] || status}</span>;
   };
 
-  if (status === 'loading') {
+  if (status === 'loading' || (isOrdersLoading && !fetchedOrders)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-slate-400 tracking-wider">กำลังตรวจสอบสิทธิ์...</span>
+      <div className="min-h-screen bg-slate-50 pb-24 text-slate-900 font-sans animate-pulse">
+        <div className="max-w-3xl mx-auto space-y-4 pt-8 px-4 sm:px-0">
+          
+          {/* Header Skeleton */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="space-y-2">
+              <div className="w-40 h-8 bg-slate-200 rounded-lg"></div>
+              <div className="w-48 h-4 bg-slate-200 rounded-md"></div>
+            </div>
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto items-center gap-3">
+              <div className="w-full sm:w-32 h-10 bg-slate-200 rounded-xl"></div>
+              <div className="w-full sm:w-48 h-10 bg-slate-200 rounded-xl"></div>
+            </div>
+          </div>
+
+          {/* Type Filter Skeleton */}
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-4">
+            <div className="w-20 h-9 bg-slate-200 rounded-full"></div>
+            <div className="w-28 h-9 bg-slate-200 rounded-full"></div>
+            <div className="w-28 h-9 bg-slate-200 rounded-full"></div>
+          </div>
+
+          {/* Status Tabs Skeleton */}
+          <div className="flex overflow-x-auto gap-2 pb-3 mb-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="w-28 h-9 bg-slate-200 rounded-full shrink-0"></div>
+            ))}
+          </div>
+
+          {/* Order Cards Skeleton */}
+          <div className="grid gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 sm:p-5 flex justify-between items-start gap-4">
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="w-16 h-6 bg-slate-200 rounded-md"></div>
+                      <div className="w-20 h-6 bg-slate-200 rounded-md"></div>
+                    </div>
+                    <div className="w-32 h-4 bg-slate-200 rounded-md"></div>
+                  </div>
+                  <div className="w-24 h-7 bg-slate-200 rounded-md"></div>
+                </div>
+                <div className="px-4 sm:px-5 pb-4 space-y-3">
+                  <div className="w-3/4 h-4 bg-slate-200 rounded-md"></div>
+                  <div className="w-1/2 h-4 bg-slate-200 rounded-md"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
         </div>
       </div>
     );

@@ -9,6 +9,9 @@ import {
   UploadCloud, CheckCircle2, ImageOff, X, ChevronRight, Timer, Navigation, CheckSquare, ChevronUp, ChevronDown
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import useSWR from 'swr';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 // โหลด MapPicker ฝั่ง Client เท่านั้น
 const MapPicker = dynamic(() => import('@/components/MapPicker'), {
@@ -93,7 +96,6 @@ export default function CustomerHome() {
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [loading, setLoading] = useState<boolean>(true);
   const [isCartExpanded, setIsCartExpanded] = useState(false);
 
   // Form & Payment States
@@ -124,23 +126,21 @@ export default function CustomerHome() {
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [checkingSystem, setCheckingSystem] = useState(true);
 
-  // 🛡️ ดึงข้อมูลตั้งค่าระบบก่อนว่าเว็บปิดปรับปรุงอยู่ไหม และดึงเรทค่าจัดส่ง
+  const { data: sysConfig } = useSWR('/api/sysconfig', fetcher);
   useEffect(() => {
-    fetch('/api/sysconfig')
-      .then(res => res.json())
-      .then(data => {
-        setIsMaintenance(data.maintenance_mode);
-        setBaseDeliveryFee(data.delivery_fee || 0);
-        setDeliveryFeePerKm(data.delivery_fee_per_km || 0);
-        setCheckingSystem(false);
+    if (sysConfig) {
+      setIsMaintenance(sysConfig.maintenance_mode);
+      setBaseDeliveryFee(sysConfig.delivery_fee || 0);
+      setDeliveryFeePerKm(sysConfig.delivery_fee_per_km || 0);
+      setCheckingSystem(false);
 
-        // 🔴 ถ้าเปิดโหมดซ่อมบำรุง ให้บังคับ Log out ทันที
-        if (data.maintenance_mode && status === 'authenticated') {
-          fetch('/api/auth/force-logout', { method: 'POST' });
-        }
-      })
-      .catch(() => setCheckingSystem(false)); 
-  }, [status]);
+      if (sysConfig.maintenance_mode && status === 'authenticated') {
+        fetch('/api/auth/force-logout', { method: 'POST' });
+      }
+    } else if (sysConfig === undefined) {
+      // still loading
+    }
+  }, [sysConfig, status]);
 
   useEffect(() => {
     if (status === 'unauthenticated' && !isMaintenance) {
@@ -199,52 +199,46 @@ export default function CustomerHome() {
 
 
 
+  const { data: homeData, isLoading: isHomeLoading } = useSWR(
+    status === 'authenticated' && !isMaintenance ? '/api/customer/home' : null, 
+    fetcher
+  );
+
+  const { data: menusData, isLoading: isMenusLoading } = useSWR<Menu[]>(
+    status === 'authenticated' && !isMaintenance ? '/api/customer/menus' : null,
+    fetcher
+  );
+
+  const { data: profileData, isLoading: isProfileLoading } = useSWR(
+    status === 'authenticated' && !isMaintenance ? '/api/customer/profile' : null,
+    fetcher
+  );
+
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (homeData && menusData) {
+      const hd = { ...homeData };
+      hd.recommendedMenus = menusData.filter((m: Menu) => {
+        const isRec = Number(m.is_recommended) === 1 || String(m.is_recommended).toLowerCase() === 'true';
+        const isSoldOut = Number(m.is_sold_out) === 1 || String(m.is_sold_out).toLowerCase() === 'true';
+        return isRec && !isSoldOut;
+      });
+      setDashboardData(hd);
+      setAllMenus(menusData);
+    }
+  }, [homeData, menusData]);
 
-    const fetchData = async () => {
-      try {
-        const [homeRes, menusRes, profileRes] = await Promise.all([
-          fetch('/api/customer/home'), 
-          fetch('/api/customer/menus'),
-          fetch('/api/customer/profile')
-        ]);
-
-        if (homeRes.ok && menusRes.ok) {
-          const homeData = await homeRes.json();
-          const menusData = await menusRes.json();
-
-          // 🟢 แก้ไขตรงนี้: แมปข้อมูลให้สมบูรณ์ โดยดึงเมนูแนะนำทั้งหมดมาจาก menusData โดยตรงเลย 
-          // จะได้แน่ใจว่า options และฟิลด์อื่นๆ ถูกติดมาครบถ้วน 100%
-          homeData.recommendedMenus = menusData.filter((m: Menu) => {
-            // เช็คว่าเป็นเมนูแนะนำ และไม่ได้หมดสต๊อก
-            const isRec = Number(m.is_recommended) === 1 || String(m.is_recommended).toLowerCase() === 'true';
-            const isSoldOut = Number(m.is_sold_out) === 1 || String(m.is_sold_out).toLowerCase() === 'true';
-            return isRec && !isSoldOut;
-          });
-
-          setDashboardData(homeData);
-          setAllMenus(menusData);
-        }
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData?.phone) setPhone(profileData.phone);
-          if (profileData?.address) setAddress(profileData.address);
-          if (profileData?.latitude && profileData?.longitude) {
-            setLocation({
-              lat: Number(profileData.latitude),
-              lng: Number(profileData.longitude)
-            });
-          }
-        }
-      } catch (error) { 
-        console.error(error); 
-      } finally { 
-        setLoading(false); 
+  useEffect(() => {
+    if (profileData) {
+      if (profileData.phone) setPhone(profileData.phone);
+      if (profileData.address) setAddress(profileData.address);
+      if (profileData.latitude && profileData.longitude) {
+        setLocation({
+          lat: Number(profileData.latitude),
+          lng: Number(profileData.longitude)
+        });
       }
-    };
-    fetchData();
-  }, [status]);
+    }
+  }, [profileData]);
 
   // 🧮 คำนวณระยะทางและค่าจัดส่งใหม่
   useEffect(() => {
@@ -360,7 +354,7 @@ export default function CustomerHome() {
     );
   }
 
-  if (checkingSystem || status === 'loading' || loading) {
+  if (checkingSystem || status === 'loading' || (!dashboardData && (isHomeLoading || isMenusLoading || isProfileLoading))) {
     return (
       <div className="px-5 pt-5 pb-8 min-h-[100dvh] bg-slate-50 dark:bg-slate-900 transition-colors">
         <div className="animate-pulse flex flex-col gap-6">

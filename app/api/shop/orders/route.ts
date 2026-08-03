@@ -59,7 +59,8 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id, status, slip_image, cancel_reason, cancelled_by } = await req.json();
+    const body = await req.json();
+    const { id, status, slip_image, cancel_reason, cancelled_by } = body;
 
     // ดึงสถานะปัจจุบันมาตรวจสอบก่อน เพื่อป้องกันการส่งข้อความซ้ำ
     const [existingOrderRows]: any = await db.query('SELECT status, user_id FROM orders WHERE id = ?', [id]);
@@ -69,6 +70,11 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
     
+    // ป้องกันการยกเลิกอัตโนมัติ (ไม่มี cancel_reason) เมื่อออเดอร์ถูกรับไปแล้ว
+    if (status === 'cancel' && !cancel_reason && existingOrder.status !== 'pending') {
+      return NextResponse.json({ message: 'Order already processed' });
+    }
+    
     if (status === 'cancel' && cancel_reason) {
       await db.query('UPDATE orders SET status = ?, cancel_reason = ?, cancelled_by = ? WHERE id = ?', [status, cancel_reason, cancelled_by || 'shop', id]);
     } else if (slip_image) {
@@ -76,9 +82,10 @@ export async function PUT(req: Request) {
     } else {
       await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
     }
+    const skipNotification = body?.skip_notification;
 
     // แจ้งเตือนลูกค้าผ่านแชทเมื่อออเดอร์เสร็จสิ้น (เช็คว่าเปลี่ยนเป็น done ครั้งแรก)
-    if (status === 'done' && existingOrder.status !== 'done') {
+    if (status === 'done' && existingOrder.status !== 'done' && !skipNotification) {
       const userId = existingOrder.user_id;
       if (userId) {
         await db.query(

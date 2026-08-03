@@ -20,7 +20,7 @@ async function checkAuth(req: Request) {
 // 1. ดึงข้อมูลโต๊ะทั้งหมด (เรียงตาม ID)
 export async function GET() {
   try {
-    const [tables]: any = await db.query('SELECT * FROM tables ORDER BY id');
+    const [tables]: any = await db.query('SELECT * FROM tables ORDER BY sort_order ASC, id ASC');
     
     // Auto-generate session token for occupied tables that don't have one (legacy data)
     for (const table of tables) {
@@ -148,5 +148,27 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ message: 'Table Deleted' });
   } catch (error) {
     return NextResponse.json({ message: 'Delete Error' }, { status: 500 });
+  }
+}
+
+// 5. อัปเดตลำดับตาราง (PATCH)
+export async function PATCH(req: Request) {
+  try {
+    const auth = await checkAuth(req);
+    if (auth.error) return NextResponse.json({ message: auth.error }, { status: auth.status });
+
+    const { updates } = await req.json();
+    if (!updates || !Array.isArray(updates)) {
+      return NextResponse.json({ message: 'ข้อมูลไม่ถูกต้อง' }, { status: 400 });
+    }
+
+    // อัปเดตข้อมูลทีละตัว
+    for (const update of updates) {
+      await db.query('UPDATE tables SET sort_order = ? WHERE id = ?', [update.sort_order, update.id]);
+    }
+
+    return NextResponse.json({ message: 'Table Order Updated' });
+  } catch (error) {
+    return NextResponse.json({ message: 'Update Order Error' }, { status: 500 });
   }
 }

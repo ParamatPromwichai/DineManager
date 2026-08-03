@@ -139,14 +139,42 @@ export default function RiderOrdersPage() {
     }
   };
 
+  const skipPhotoAndSendText = async () => {
+    if (!notifyDeliveryOrder) return;
+    if (notifyDeliveryOrder.user_id) {
+      setIsSendingPhoto(true);
+      try {
+        await fetch(`/api/shop/chat/${notifyDeliveryOrder.user_id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `🎉 ออเดอร์ #${notifyDeliveryOrder.id} ของคุณจัดส่งสำเร็จแล้ว!\nขอบคุณที่ใช้บริการค่ะ/ครับ` }),
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSendingPhoto(false);
+      }
+    }
+    setNotifyDeliveryOrder(null);
+    setDeliveryPhoto(null);
+  };
+
   const sendDeliveryPhoto = async () => {
-    if (!notifyDeliveryOrder || !deliveryPhoto || !notifyDeliveryOrder.user_id) return;
+    if (!notifyDeliveryOrder || !deliveryPhoto) return;
+
+    if (!notifyDeliveryOrder.user_id) {
+      alert('ลูกค้าท่านนี้ไม่ได้เข้าสู่ระบบ (ไม่มีแชท) ระบบจะจบงานให้ทันทีโดยไม่ส่งรูป');
+      setNotifyDeliveryOrder(null);
+      setDeliveryPhoto(null);
+      return;
+    }
+
     setIsSendingPhoto(true);
     try {
       await fetch(`/api/shop/chat/${notifyDeliveryOrder.user_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `[IMAGE]${deliveryPhoto}` }),
+        body: JSON.stringify({ message: `🎉 ออเดอร์ #${notifyDeliveryOrder.id} ของคุณจัดส่งสำเร็จแล้ว!\nขอบคุณที่ใช้บริการค่ะ/ครับ\n\n[IMAGE]${deliveryPhoto}` }),
       });
       setNotifyDeliveryOrder(null);
       setDeliveryPhoto(null);
@@ -173,7 +201,7 @@ export default function RiderOrdersPage() {
     mutate(optimisticData, false);
     await fetch('/api/shop/orders', {
       method: 'PUT',
-      body: JSON.stringify({ id: orderId, status: newStatus, slip_image: slipImage }),
+      body: JSON.stringify({ id: orderId, status: newStatus, slip_image: slipImage, skip_notification: newStatus === 'done' }),
       headers: { 'Content-Type': 'application/json' }
     });
     mutate();
@@ -566,7 +594,8 @@ export default function RiderOrdersPage() {
 
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2">
               <button 
-                onClick={() => { setNotifyDeliveryOrder(null); setDeliveryPhoto(null); }} 
+                disabled={isSendingPhoto}
+                onClick={skipPhotoAndSendText} 
                 className="flex-1 py-3.5 text-slate-500 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl font-bold transition-colors shadow-sm"
               >
                 ไม่ส่ง ข้ามไป

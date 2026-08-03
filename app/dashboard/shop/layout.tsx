@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, BookOpen, ReceiptText, LayoutGrid, Store } from 'lucide-react';
 import GlobalOrderNotification from '@/components/GlobalOrderNotification';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { useRef } from 'react';
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +19,37 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
     { name: 'ร้าน', href: '/dashboard/shop/profile', icon: Store },
   ];
 
+  // คำนวณทิศทางการเลื่อน (ใช้ useRef เพื่อให้คำนวณทันทีตอน Render)
+  const prevIndexRef = useRef(0);
+  const directionRef = useRef(0);
+  
+  const currentIndex = navItems.findIndex((item) => pathname === item.href);
+  const current = currentIndex !== -1 ? currentIndex : 0;
+
+  if (current !== prevIndexRef.current) {
+    directionRef.current = current > prevIndexRef.current ? 1 : -1;
+    prevIndexRef.current = current;
+  }
+  const direction = directionRef.current;
+
+  // ตั้งค่า Animation ให้ดูสมูทขึ้น (ใช้ Ease แบบ iOS-style เพื่อลดความเด้งของ Spring)
+  const variants: Variants = {
+    initial: (dir: number) => ({
+      x: dir > 0 ? '30%' : '-30%',
+      opacity: 0,
+    }),
+    animate: (dir: number) => ({
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }, // Apple's custom easeOut curve
+    }),
+    exit: (dir: number) => ({
+      x: dir > 0 ? '-30%' : '30%',
+      opacity: 0,
+      transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+    }),
+  };
+
   return (
     // 🚨 เติม suppressHydrationWarning ตรง div นอกสุด เพื่อกัน Error จาก Browser Extension
     <div suppressHydrationWarning className="min-h-screen bg-slate-50 pb-[80px] font-sans text-slate-900">
@@ -25,7 +58,21 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <GlobalOrderNotification />
 
       {/* ส่วนเนื้อหาหลัก (จะเปลี่ยนไปตามหน้า) */}
-      <main>{children}</main>
+      <div className="relative overflow-hidden w-full h-[calc(100vh-80px)]">
+        <AnimatePresence custom={direction} initial={false}>
+          <motion.main
+            key={pathname}
+            custom={direction}
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="w-full h-full absolute inset-0 overflow-y-auto bg-slate-50"
+          >
+            {children}
+          </motion.main>
+        </AnimatePresence>
+      </div>
 
       {/* Bottom Navigation Bar (SaaS Style) */}
       <nav 

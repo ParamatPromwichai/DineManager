@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 import {
   Plus, Edit, Trash2, Star, CheckCircle2, XCircle,
   ImageOff, UploadCloud, Save, X, Zap, RefreshCw,
@@ -50,8 +52,14 @@ type Menu = {
 export default function ManageMenusPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const isShop = status === 'authenticated' && (session?.user as any)?.role === 'shop';
 
-  const [menus, setMenus] = useState<Menu[]>([]);
+  const { data: fetchedMenus, mutate: mutateMenus, isLoading: isMenusLoading } = useSWR<Menu[]>(
+    isShop ? '/api/shop/menus' : null,
+    fetcher
+  );
+  const menus = fetchedMenus || [];
+
   const [categories, setCategories] = useState<Category[]>([]);
 
   // Modal & Form States
@@ -110,14 +118,8 @@ export default function ManageMenusPage() {
     }
   }, [status, session, router]);
 
-  const fetchMenus = async () => {
-    try {
-      const res = await fetch(`/api/shop/menus?t=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
-      setMenus(data);
-    } catch (error) {
-      console.error("Error fetching menus", error);
-    }
+  const fetchMenus = () => {
+    mutateMenus();
   };
 
   const fetchGlobalOptions = async () => {
@@ -198,7 +200,7 @@ export default function ManageMenusPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && (session.user as any)?.role === 'shop') {
-      fetchMenus();
+      fetchCategories();
       fetchCategories();
       fetchGlobalOptions();
       fetchQuickIngredients();
@@ -459,12 +461,38 @@ export default function ManageMenusPage() {
     }
   };
 
-  if (status === 'loading') {
+  // --- Loading State (Skeleton) ---
+  if (status === 'loading' || (isMenusLoading && !fetchedMenus)) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#64748b' }}>
-          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>กำลังตรวจสอบสิทธิ์...</span>
+      <div className="animate-pulse" style={{ padding: '20px', maxWidth: '850px', margin: '0 auto', paddingBottom: '100px', fontFamily: 'sans-serif' }}>
+        {/* Header Skeleton */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ width: '200px', height: '32px', background: '#e2e8f0', borderRadius: '8px' }}></div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ width: '160px', height: '42px', background: '#e2e8f0', borderRadius: '10px' }}></div>
+            <div style={{ width: '150px', height: '42px', background: '#e2e8f0', borderRadius: '10px' }}></div>
+            <div style={{ width: '130px', height: '42px', background: '#e2e8f0', borderRadius: '10px' }}></div>
+          </div>
+        </div>
+
+        {/* Bulk Action Skeleton */}
+        <div style={{ width: '100%', height: '56px', background: '#e2e8f0', borderRadius: '16px', marginBottom: '24px' }}></div>
+
+        {/* Menu Items Skeleton */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', display: 'flex', padding: '16px', gap: '16px' }}>
+              <div style={{ width: '80px', height: '80px', background: '#f1f5f9', borderRadius: '12px', flexShrink: 0 }}></div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+                <div style={{ width: '60%', height: '20px', background: '#f1f5f9', borderRadius: '6px' }}></div>
+                <div style={{ width: '40%', height: '16px', background: '#f1f5f9', borderRadius: '6px' }}></div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ width: '36px', height: '36px', background: '#f1f5f9', borderRadius: '8px' }}></div>
+                <div style={{ width: '36px', height: '36px', background: '#f1f5f9', borderRadius: '8px' }}></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

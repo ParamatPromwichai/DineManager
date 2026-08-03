@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react'; // ➕ 1. นำเข้า useSession และ signOut
+import { useSession, signOut } from 'next-auth/react';
+import useSWR from 'swr';
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Mail, Phone, MapPin, Save, LogOut, 
@@ -76,43 +78,30 @@ export default function CustomerProfile() {
   /* =========================
      🔥 LOAD PROFILE
   ========================= */
+  const { data: profileData, mutate, isLoading: isProfileLoading } = useSWR(
+    status === 'authenticated' ? '/api/customer/profile' : null,
+    fetcher
+  );
+
   useEffect(() => {
-    if (status !== 'authenticated') return;
-
-    // ➕ 4. ลบการส่ง Headers: {'user-id'} ออก เพราะ Backend ใช้ Session แล้ว
-    fetch('/api/customer/profile')
-      .then(res => {
-        if (res.status === 401) {
-          signOut({ callbackUrl: '/login' });
-          return null;
-        }
-        return res.json();
-      })
-      .then(data => {
-        if (!data) return;
-        const fetchedData = {
-          name: data.name || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          location: (data.latitude && data.longitude) ? { lat: Number(data.latitude), lng: Number(data.longitude) } : null
-        };
-        
-        // อัปเดตข้อมูลที่แสดงบนฟอร์ม
-        setName(fetchedData.name);
-        setEmail(fetchedData.email);
-        setPhone(fetchedData.phone);
-        setAddress(fetchedData.address);
-        setLocation(fetchedData.location);
-        
-        // เก็บไว้เทียบว่ามีการแก้หรือยัง
-        setInitialData(fetchedData);
-      })
-      .catch(() => {
-        console.error('โหลดข้อมูลโปรไฟล์ไม่สำเร็จ');
-      });
-
-  }, [status]);
+    if (profileData) {
+      const fetchedData = {
+        name: profileData.name || '',
+        email: profileData.email || '',
+        phone: profileData.phone || '',
+        address: profileData.address || '',
+        location: (profileData.latitude && profileData.longitude) ? { lat: Number(profileData.latitude), lng: Number(profileData.longitude) } : null
+      };
+      
+      setName(fetchedData.name);
+      setEmail(fetchedData.email);
+      setPhone(fetchedData.phone);
+      setAddress(fetchedData.address);
+      setLocation(fetchedData.location);
+      
+      setInitialData(fetchedData);
+    }
+  }, [profileData]);
 
   /* =========================
      📍 LOCATION
@@ -183,6 +172,7 @@ export default function CustomerProfile() {
         alert('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้วครับ!');
         // อัปเดต initial data เป็นค่าปัจจุบันเพื่อรีเซ็ตปุ่มบันทึกให้กดไม่ได้ชั่วคราว
         setInitialData({ name, email, phone, address, location });
+        mutate();
       } else {
         alert(data.message || 'เกิดข้อผิดพลาดในการบันทึก');
       }
@@ -215,12 +205,31 @@ export default function CustomerProfile() {
      ⏳ LOADING SCREEN
   ========================= */
   // ➕ 7. ใช้ status === 'loading' แทน checkingAuth
-  if (status === 'loading') {
+  if (status === 'loading' || (isProfileLoading && !profileData)) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#F4F8FF', gap: 15 }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-        <p style={{ color: '#1E3A8A', fontWeight: 'bold' }}>กำลังโหลดข้อมูล...</p>
-        <style dangerouslySetInnerHTML={{__html: `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}} />
+      <div className="bg-blue-50 dark:bg-slate-900 font-sans min-h-[100dvh] pb-2 transition-colors animate-pulse">
+        <div className="bg-white dark:bg-slate-800 px-5 py-4 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center justify-between sticky top-0 z-10 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-24 h-6 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+          </div>
+          <div className="flex items-center gap-2.5">
+             <div className="w-24 h-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+             <div className="w-24 h-10 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+          </div>
+        </div>
+        <div className="max-w-[600px] mx-auto p-5 mt-2">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-blue-100 dark:border-slate-700 transition-colors">
+             <div className="w-32 h-6 bg-slate-200 dark:bg-slate-700 rounded-md mb-6"></div>
+             <div className="space-y-5">
+               {[1, 2, 3, 4, 5].map(i => (
+                 <div key={i} className="space-y-2">
+                   <div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded-md"></div>
+                   <div className="w-full h-12 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -50,6 +50,13 @@ export default function GlobalOrderNotification() {
         audioRef.current = audio;
       }
     }
+
+    // 🚨 Sync activeAlerts: ลบออเดอร์ที่ถูกจัดการไปแล้ว (สถานะไม่ใช่ pending) จากหน้าต่างอื่นออก
+    setActiveAlerts(prev => {
+      const pendingIds = new Set(pendingOrders.map(o => o.id));
+      const filtered = prev.filter(a => pendingIds.has(a.id));
+      return filtered.length !== prev.length ? filtered : prev;
+    });
   }, [orders]);
 
   // ฟังก์ชันสำหรับสั่ง "หยุดเสียง"
