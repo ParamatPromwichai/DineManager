@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, CreditCard, X, MapPin, Zap, CheckCircle2, UploadCloud, ImageOff, Plus, Minus } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import useSWR from 'swr';
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), {
   ssr: false,
@@ -62,29 +65,32 @@ export default function CartPage() {
     }
   }, [paymentMethod]);
 
+  const { data: homeData } = useSWR('/api/customer/home', fetcher);
+  const { data: sysConfig } = useSWR('/api/sysconfig', fetcher);
+  const { data: profileData } = useSWR('/api/customer/profile', fetcher);
+
+  useEffect(() => {
+    if (homeData?.shop) setShopData(homeData.shop);
+    if (sysConfig) {
+      setBaseDeliveryFee(sysConfig.delivery_fee || 0);
+      setDeliveryFeePerKm(sysConfig.delivery_fee_per_km || 0);
+    }
+  }, [homeData, sysConfig]);
+
+  useEffect(() => {
+    if (profileData && !isLoaded) {
+      if (profileData.phone) setPhone(profileData.phone);
+      if (profileData.address) setAddress(profileData.address);
+      if (profileData.latitude && profileData.longitude) {
+        setLocation({ lat: Number(profileData.latitude), lng: Number(profileData.longitude) });
+      }
+      setIsLoaded(true);
+    }
+  }, [profileData, isLoaded]);
+
   useEffect(() => {
     const savedCart = localStorage.getItem('dinemanager_cart');
     if (savedCart) { try { setCart(JSON.parse(savedCart)); } catch {} }
-    
-    setPhone(localStorage.getItem('dinemanager_phone') || '');
-    setAddress(localStorage.getItem('dinemanager_address') || '');
-    
-    // Fetch Shop Data & Delivery settings
-    Promise.all([
-      fetch('/api/customer/home').then(r => r.json()),
-      fetch('/api/sysconfig').then(r => r.json()),
-      fetch('/api/customer/profile').then(r => r.json())
-    ]).then(([homeRes, configRes, profileRes]) => {
-      setShopData(homeRes.shop);
-      setBaseDeliveryFee(configRes.delivery_fee || 0);
-      setDeliveryFeePerKm(configRes.delivery_fee_per_km || 0);
-      if (profileRes?.phone && !localStorage.getItem('dinemanager_phone')) setPhone(profileRes.phone);
-      if (profileRes?.address && !localStorage.getItem('dinemanager_address')) setAddress(profileRes.address);
-      if (profileRes?.latitude && profileRes?.longitude) {
-        setLocation({ lat: Number(profileRes.latitude), lng: Number(profileRes.longitude) });
-      }
-      setIsLoaded(true);
-    });
   }, []);
 
   useEffect(() => {
@@ -92,8 +98,6 @@ export default function CartPage() {
       localStorage.setItem('dinemanager_cart', JSON.stringify(cart));
     }
   }, [cart, isLoaded]);
-  useEffect(() => { localStorage.setItem('dinemanager_phone', phone); }, [phone]);
-  useEffect(() => { localStorage.setItem('dinemanager_address', address); }, [address]);
 
   useEffect(() => {
     if (location && shopData?.latitude && shopData?.longitude) {
@@ -169,7 +173,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="p-5 pb-6 bg-blue-50 dark:bg-slate-900 font-sans transition-colors">
+    <div className="p-5 pb-[120px] bg-blue-50 dark:bg-slate-900 font-sans transition-colors min-h-screen">
       {/* Header */}
       <div className="flex items-center mb-5 gap-2.5">
         <button onClick={() => router.back()} className="flex items-center gap-1 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-300 font-bold cursor-pointer px-3.5 py-2 rounded-full text-[0.9rem] transition-colors">
@@ -201,15 +205,20 @@ export default function CartPage() {
             </div>
           ))}
         </div>
+      </div>
 
-        <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} className={`flex justify-between items-center w-full p-4 border-none rounded-2xl cursor-pointer font-black text-[1.1rem] transition-all ${
-          (shopData && !shopData.is_open) 
-            ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
-            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_15px_rgba(37,99,235,0.3)]'
-        }`}>
-          <span>{(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'สั่งซื้อและชำระเงิน'}</span>
-          <span>{subTotal.toLocaleString()} ฿</span>
-        </button>
+      {/* Floating Checkout Button */}
+      <div className="fixed bottom-[64px] left-0 right-0 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-blue-100 dark:border-slate-800 z-40 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="max-w-[800px] mx-auto">
+          <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} className={`flex justify-between items-center w-full p-4 border-none rounded-2xl cursor-pointer font-black text-[1.1rem] transition-all ${
+            (shopData && !shopData.is_open) 
+              ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_15px_rgba(37,99,235,0.3)]'
+          }`}>
+            <span>{(shopData && !shopData.is_open) ? 'ร้านปิดให้บริการ' : 'สั่งซื้อและชำระเงิน'}</span>
+            <span>{subTotal.toLocaleString()} ฿</span>
+          </button>
+        </div>
       </div>
 
       {/* 🔴 Payment Modal */}
