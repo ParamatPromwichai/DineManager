@@ -276,10 +276,7 @@ export default function ManageOrdersPage() {
   // 🕰️ กรองออเดอร์ และจัดเรียงลำดับใหม่
   const allActiveOrders = useMemo(() => {
     return orders.filter(order => {
-      const orderDate = new Date(order.created_at).toLocaleDateString('en-CA');
-      const isTodayDate = orderDate === todayDate;
-      const isUnfinished = order.status !== 'done' && order.status !== 'cancel';
-      return isTodayDate || isUnfinished;
+      return order.status !== 'done' && order.status !== 'cancel';
     }).sort((a, b) => {
       const getStatusWeight = (status: string) => {
         if (status === 'pending') return 0;
@@ -797,9 +794,7 @@ export default function ManageOrdersPage() {
             { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
             { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
             { id: 'cooking', label: 'กำลังปรุง', icon: <CookingPot size={16} className="sm:hidden" /> },
-            { id: 'delivery', label: 'กำลังจัดส่ง', icon: <Truck size={16} className="sm:hidden" /> },
-            { id: 'done', label: 'ส่งสำเร็จ', icon: <CheckCircle2 size={16} className="sm:hidden" /> },
-            { id: 'cancel', label: 'ยกเลิก', icon: <XCircle size={16} className="sm:hidden" /> }
+            { id: 'delivery', label: 'กำลังจัดส่ง', icon: <Truck size={16} className="sm:hidden" /> }
           ].map(tab => {
             const count = getTabCount(tab.id);
             const isActive = activeTab === tab.id;

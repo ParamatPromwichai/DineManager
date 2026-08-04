@@ -13,7 +13,8 @@ import {
   Loader2,
   AlertCircle,
   Pencil,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -120,23 +121,27 @@ export default function ShopReviewsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 font-sans pb-24">
-      <div className="max-w-[800px] mx-auto">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 font-sans pb-24">
+      <div className="max-w-5xl w-full mx-auto space-y-5">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-              <Star className="text-amber-500 fill-amber-500" size={32} />
-              รีวิวจากลูกค้า
-            </h1>
-            <p className="text-sm font-semibold text-slate-500 mt-1">
-              อ่านและตอบกลับความคิดเห็นของลูกค้าเพื่อพัฒนาบริการ
-            </p>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0 w-full lg:w-auto">
+            <Link href="/dashboard/shop" className="shrink-0 flex items-center justify-center gap-2 p-2.5 sm:px-5 sm:py-2 bg-slate-900 text-white rounded-xl sm:rounded-full font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm">
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline">กลับ</span>
+            </Link>
+            <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2 sm:gap-3 truncate">
+                <Star className="text-amber-500 fill-amber-500 shrink-0" size={24} />
+                <span className="truncate">รีวิวจากลูกค้า</span>
+              </h1>
+              <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5 hidden sm:block">
+                อ่านและตอบกลับความคิดเห็นของลูกค้าเพื่อพัฒนาบริการ
+              </p>
+            </div>
           </div>
-          <Link href="/dashboard/shop" className="text-sm font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm transition-all">
-            กลับหน้าหลัก
-          </Link>
         </div>
 
         {/* Reviews List */}

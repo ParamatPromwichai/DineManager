@@ -9,7 +9,7 @@ import {
   Plus, Edit, Trash2, Star, CheckCircle2, XCircle,
   ImageOff, UploadCloud, Save, X, Zap, RefreshCw,
   Utensils, Beef, Flame, Drumstick, Fish, Waves, Heart,
-  Loader2, Search, Anchor, ChevronDown, ChevronUp, AlignLeft, ListPlus, FileSpreadsheet
+  Loader2, Search, Anchor, ChevronDown, ChevronUp, AlignLeft, ListPlus, FileSpreadsheet, Download, FolderOpen
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -61,6 +61,18 @@ export default function ManageMenusPage() {
   const menus = fetchedMenus || [];
 
   const [categories, setCategories] = useState<Category[]>([]);
+
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | 'all'>('all');
+
+  const filteredMenus = useMemo(() => {
+    return menus.filter(menu => {
+      const matchesSearch = menu.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || menu.category_id === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [menus, searchQuery, selectedCategory]);
 
   // Modal & Form States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -505,83 +517,85 @@ export default function ManageMenusPage() {
   const iconBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '850px', margin: '0 auto', paddingBottom: '100px', fontFamily: 'sans-serif' }}>
+    <div className="p-4 sm:p-5 max-w-[850px] mx-auto pb-24 font-sans">
 
       {/* 🌟 Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: 10, color: '#1e293b' }}>
-          <Utensils size={28} color="#2563eb" /> จัดการเมนู
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 sm:gap-0">
+        <h1 className="text-2xl font-bold m-0 flex items-center gap-2 text-slate-800">
+          <Utensils size={28} className="text-blue-600" /> จัดการเมนู
         </h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="flex flex-row flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <button
             onClick={() => setIsGlobalAddonsModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-50 text-slate-700 border border-slate-300 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-[13px] sm:text-sm hover:bg-slate-100 transition-colors whitespace-nowrap"
           >
-            <ListPlus size={18} color="#2563eb" /> จัดการตัวเลือกเสริม
+            <ListPlus size={18} className="text-blue-600 shrink-0" /> <span className="hidden sm:inline">จัดการตัวเลือกเสริม</span><span className="sm:hidden">ตัวเลือกเสริม</span>
           </button>
           <button
             onClick={() => setIsBulkUploadModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#10b981', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(16,185,129,0.2)' }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 text-white border-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-[13px] sm:text-sm hover:bg-emerald-600 transition-colors shadow-sm whitespace-nowrap"
           >
-            <FileSpreadsheet size={18} /> อัปโหลด Excel
+            <FileSpreadsheet size={18} className="shrink-0" /> <span className="hidden sm:inline">อัปโหลด Excel</span><span className="sm:hidden">Excel</span>
           </button>
           <button
             onClick={handleOpenAdd}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(37,99,235,0.2)' }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white border-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-[13px] sm:text-sm hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
           >
-            <Plus size={18} /> เพิ่มเมนูใหม่
+            <Plus size={18} className="shrink-0" /> <span className="hidden sm:inline">เพิ่มเมนูใหม่</span><span className="sm:hidden">เพิ่ม</span>
           </button>
         </div>
       </div>
 
       {/* ⚡ แผงจัดการด่วน (Bulk Actions) แบบพับเก็บได้ */}
-      <div style={{ background: '#fff', borderRadius: '16px', marginBottom: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <div className="bg-white rounded-2xl mb-6 border border-slate-200 shadow-sm overflow-hidden">
         <div
           onClick={() => setIsBulkSectionOpen(!isBulkSectionOpen)}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', background: isBulkSectionOpen ? '#f8fafc' : '#fff', transition: 'background 0.2s' }}
+          className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-5 cursor-pointer transition-colors gap-3 sm:gap-0 ${isBulkSectionOpen ? 'bg-slate-50' : 'bg-white'}`}
         >
-          <h3 style={{ margin: 0, fontSize: '1rem', color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Zap size={18} color="#eab308" fill="#eab308" /> จัดการสถานะวัตถุดิบด่วน
+          <h3 className="m-0 text-base font-bold text-slate-700 flex items-center gap-2">
+            <Zap size={18} className="text-amber-500 fill-amber-500 shrink-0" /> จัดการสถานะวัตถุดิบด่วน
           </h3>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
             <button
               onClick={(e) => { e.stopPropagation(); handleBulkAction('all', 'ทั้งหมดในร้าน', 'available'); }}
               disabled={isSubmitting}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '8px', fontWeight: 'bold', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg font-bold text-sm disabled:cursor-not-allowed hover:bg-emerald-100 transition-colors w-full sm:w-auto justify-center"
             >
-              <RefreshCw size={14} /> เปิดขายทั้งหมด
+              <RefreshCw size={14} className="shrink-0" /> เปิดขายทั้งหมด
             </button>
-            {isBulkSectionOpen ? <ChevronUp size={20} color="#94a3b8" /> : <ChevronDown size={20} color="#94a3b8" />}
+            <div className="shrink-0">
+              {isBulkSectionOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+            </div>
           </div>
         </div>
 
         {isBulkSectionOpen && (
-          <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px', marginTop: '16px' }}>
+          <div className="p-4 pt-0 sm:p-5 sm:pt-0 border-t border-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
               {quickIngredients.map((cat) => (
-                <div key={`quick-${cat.id}`} style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', position: 'relative' }}>
+                <div key={`quick-${cat.id}`} className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col gap-2.5 items-center relative">
                   <button
                     onClick={() => handleDeleteQuickIngredient(cat.id)}
-                    style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.6rem' }}
+                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center cursor-pointer text-[10px] hover:bg-red-600 transition-colors"
                   >
                     <X size={12} />
                   </button>
-                  <div style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Utensils size={16} color={cat.color || "#64748b"} /> {cat.name}
+                  <div className="text-slate-600 text-[13px] font-bold flex items-center gap-1.5 text-center leading-tight">
+                    <Utensils size={14} color={cat.color || "#64748b"} className="shrink-0" /> {cat.name}
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                  <div className="flex gap-1 w-full">
                     <button
                       onClick={() => handleBulkAction('custom', cat.name, 'sold_out')}
                       disabled={isSubmitting} title="ตั้งเป็นของหมด"
-                      style={{ flex: 1, padding: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                      className="flex-1 py-1.5 bg-red-100 text-red-500 rounded-lg cursor-pointer flex justify-center hover:bg-red-200 transition-colors"
                     >
                       <XCircle size={16} />
                     </button>
                     <button
                       onClick={() => handleBulkAction('custom', cat.name, 'available')}
                       disabled={isSubmitting} title="ตั้งเป็นพร้อมขาย"
-                      style={{ flex: 1, padding: '6px', background: '#dcfce7', color: '#10b981', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+                      className="flex-1 py-1.5 bg-emerald-100 text-emerald-500 rounded-lg cursor-pointer flex justify-center hover:bg-emerald-200 transition-colors"
                     >
                       <CheckCircle2 size={16} />
                     </button>
@@ -591,20 +605,20 @@ export default function ManageMenusPage() {
             </div>
 
             {/* Input for new custom category */}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '10px', maxWidth: '300px' }}>
+            <div className="mt-4 flex gap-2 w-full sm:max-w-[300px]">
               <input
                 type="text"
                 placeholder="เพิ่มวัตถุดิบใหม่ (เช่น หมูเด้ง)"
                 value={newBulkCategory}
                 onChange={e => setNewBulkCategory(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddQuickIngredient(); }}
-                style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem' }}
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-shadow"
                 disabled={isSubmitting}
               />
               <button
                 onClick={handleAddQuickIngredient}
                 disabled={isSubmitting || !newBulkCategory.trim()}
-                style={{ padding: '8px 12px', background: isSubmitting ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl cursor-pointer font-bold text-sm hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
               >
                 เพิ่ม
               </button>
@@ -613,69 +627,100 @@ export default function ManageMenusPage() {
         )}
       </div>
 
+      {/* 🔍 ค้นหาและตัวกรอง */}
+      <div className="flex flex-row gap-2 mb-4 w-full">
+        <div className="relative flex-1 min-w-0">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={18} className="text-slate-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อเมนู..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[13px] sm:text-sm font-bold text-slate-700 shadow-sm"
+          />
+        </div>
+        <div className="w-[120px] sm:w-[160px] shrink-0">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-[13px] sm:text-sm font-bold text-slate-700 shadow-sm appearance-none"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+          >
+            <option value="all">ทุกหมวดหมู่</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* 📋 รายการเมนู */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {menus.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 0' }}>
-            <Search size={32} style={{ margin: '0 auto 10px auto', opacity: 0.5 }} />
+      <div className="flex flex-col gap-3">
+        {filteredMenus.length === 0 ? (
+          <div className="text-center text-slate-400 py-10">
+            <Search size={32} className="mx-auto mb-2 opacity-50" />
             <p>ยังไม่มีเมนูในระบบ</p>
           </div>
         ) : null}
 
-        {menus.map((menu) => {
+        {filteredMenus.map((menu) => {
           const isSoldOut = Number(menu.is_sold_out) === 1 || String(menu.is_sold_out).toLowerCase() === 'true';
 
           return (
-            <div key={menu.id} style={{ background: '#fff', padding: '12px 16px', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', opacity: isSoldOut ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+            <div key={menu.id} className={`bg-white p-3 sm:p-4 rounded-2xl flex flex-row justify-between items-center border border-slate-200 gap-2 sm:gap-4 transition-opacity ${isSoldOut ? 'opacity-60' : 'opacity-100'}`}>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: 55, height: 55, background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="flex flex-row items-center gap-2.5 sm:gap-4 w-full sm:w-auto min-w-0 flex-1">
+                <div className="w-14 h-14 sm:w-14 sm:h-14 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center shrink-0">
                   {menu.image ? (
-                    <img src={menu.image} alt={menu.name} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isSoldOut ? 'grayscale(100%)' : 'none' }} />
+                    <img src={menu.image} alt={menu.name} className={`w-full h-full object-cover ${isSoldOut ? 'grayscale' : ''}`} />
                   ) : (
-                    <ImageOff size={20} color="#cbd5e1" />
+                    <ImageOff size={20} className="text-slate-300" />
                   )}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#1e293b', marginBottom: '4px', textDecoration: isSoldOut ? 'line-through' : 'none' }}>{menu.name}</div>
-                  <div style={{ color: isSoldOut ? '#94a3b8' : '#2563eb', fontWeight: 'bold', fontSize: '0.9rem' }}>{menu.price.toLocaleString()} ฿</div>
+                <div className="flex-1 min-w-0">
+                  <div className={`font-bold text-[14px] sm:text-[1.05rem] text-slate-800 mb-0.5 truncate ${isSoldOut ? 'line-through' : ''}`}>{menu.name}</div>
+                  <div className={`font-bold text-[12px] sm:text-sm ${isSoldOut ? 'text-slate-400' : 'text-blue-600'}`}>{menu.price.toLocaleString()} ฿</div>
 
                   {/* แสดงแถบออปชันใต้ชื่อเมนูในหน้าหลัก */}
                   {menu.addon_option_ids && menu.addon_option_ids.length > 0 ? (
-                    <div style={{ marginTop: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
-                        + มีตัวเลือกเสริม
+                    <div className="mt-1">
+                      <span className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold border border-blue-200 inline-block">
+                        + ตัวเลือกเสริม
                       </span>
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-1 shrink-0">
                 <button
                   onClick={() => updateMenuStatus(menu.id, { is_sold_out: !isSoldOut })}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: '20px', border: 'none', background: isSoldOut ? '#fee2e2' : '#dcfce7', color: isSoldOut ? '#ef4444' : '#10b981', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', marginRight: '8px' }}
+                  className={`flex items-center justify-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full font-bold text-[11px] sm:text-[13px] mr-0 sm:mr-2 ${isSoldOut ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}
                 >
-                  {isSoldOut ? <><XCircle size={14} /> หมด</> : <><CheckCircle2 size={14} /> มีขาย</>}
+                  {isSoldOut ? <><XCircle size={12} className="sm:w-3.5 sm:h-3.5" /> หมด</> : <><CheckCircle2 size={12} className="sm:w-3.5 sm:h-3.5" /> มีขาย</>}
                 </button>
 
-                <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 4px' }} />
+                <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1" />
 
-                <button
-                  title={menu.is_recommended ? "ยกเลิกแนะนำ" : "ตั้งเป็นเมนูแนะนำ"}
-                  onClick={() => updateMenuStatus(menu.id, { is_recommended: !menu.is_recommended })}
-                  style={{ ...iconBtnStyle, color: menu.is_recommended ? '#eab308' : '#cbd5e1', background: menu.is_recommended ? '#fef9c3' : 'transparent' }}
-                >
-                  <Star size={18} fill={menu.is_recommended ? '#eab308' : 'none'} />
-                </button>
+                <div className="flex items-center gap-1 sm:gap-1">
+                  <button
+                    title={menu.is_recommended ? "ยกเลิกแนะนำ" : "ตั้งเป็นเมนูแนะนำ"}
+                    onClick={() => updateMenuStatus(menu.id, { is_recommended: !menu.is_recommended })}
+                    className={`p-1.5 sm:p-2 rounded-xl flex items-center justify-center transition-colors ${menu.is_recommended ? 'bg-yellow-50 text-yellow-500' : 'bg-transparent text-slate-300 hover:bg-slate-50'}`}
+                  >
+                    <Star size={16} className={`sm:w-[18px] sm:h-[18px] ${menu.is_recommended ? 'fill-yellow-500' : ''}`} />
+                  </button>
 
-                <button title="แก้ไข" onClick={() => handleOpenEdit(menu)} style={{ ...iconBtnStyle, color: '#3b82f6', background: '#eff6ff' }}>
-                  <Edit size={18} />
-                </button>
+                  <button title="แก้ไข" onClick={() => handleOpenEdit(menu)} className="p-1.5 sm:p-2 rounded-xl flex items-center justify-center text-blue-500 bg-blue-50 hover:bg-blue-100 transition-colors">
+                    <Edit size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </button>
 
-                <button title="ลบ" onClick={() => handleDelete(menu.id)} style={{ ...iconBtnStyle, color: '#ef4444', background: '#fef2f2' }}>
-                  <Trash2 size={18} />
-                </button>
+                  <button title="ลบ" onClick={() => handleDelete(menu.id)} className="p-1.5 sm:p-2 rounded-xl flex items-center justify-center text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                    <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -977,8 +1022,8 @@ export default function ManageMenusPage() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button onClick={handleDownloadTemplate} style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                ⬇️ โหลดไฟล์ Template ต้นแบบ
+              <button onClick={handleDownloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                <Download size={16} className="text-blue-600" /> โหลดไฟล์ Template ต้นแบบ
               </button>
             </div>
 
@@ -1008,8 +1053,8 @@ export default function ManageMenusPage() {
                   </p>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>หรือ</p>
                 </div>
-                <label style={{ padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'inline-block' }}>
-                  📂 เลือกไฟล์จากเครื่อง
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <FolderOpen size={16} /> เลือกไฟล์จากเครื่อง
                   <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} onChange={handleFileUpload} />
                 </label>
               </div>

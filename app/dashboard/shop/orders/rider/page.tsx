@@ -229,21 +229,30 @@ export default function RiderOrdersPage() {
 
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen pb-20">
-      <div className="max-w-md mx-auto px-4 pt-6">
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 space-y-5">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/dashboard/shop/orders" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 mb-2 transition-colors">
-              <ArrowLeft size={16} className="mr-1" /> กลับไปหน้าร้าน
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0 w-full lg:w-auto">
+            <Link href="/dashboard/shop/orders" className="shrink-0 flex items-center justify-center gap-2 p-2.5 sm:px-5 sm:py-2 bg-slate-900 text-white rounded-xl sm:rounded-full font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm">
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline">กลับ</span>
             </Link>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-              <Truck size={24} className="text-blue-600" /> จัดการออเดอร์ไรเดอร์
-            </h1>
+            <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2 truncate">
+                <Truck size={24} className="text-blue-600 shrink-0" />
+                <span className="truncate">จัดการออเดอร์ไรเดอร์</span>
+              </h1>
+            </div>
           </div>
-          <button onClick={() => mutate()} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
-            <RefreshCw size={18} className="text-slate-600" />
-          </button>
+          
+          <div className="flex flex-col sm:flex-row w-full lg:w-auto items-center gap-3 min-w-0">
+            <button onClick={() => mutate()} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 rounded-xl font-bold transition-colors shadow-sm">
+              <RefreshCw size={18} />
+              <span className="sm:hidden lg:inline">รีเฟรชข้อมูล</span>
+            </button>
+          </div>
         </div>
 
         {/* ออเดอร์ที่พร้อมจัดส่ง (Delivery) */}
