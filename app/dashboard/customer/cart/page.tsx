@@ -44,7 +44,6 @@ export default function CartPage() {
   const [slipImage, setSlipImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showSuccessSheet, setShowSuccessSheet] = useState(false);
   const [shopData, setShopData] = useState<any>(null);
   const [baseDeliveryFee, setBaseDeliveryFee] = useState(0);
   const [deliveryFeePerKm, setDeliveryFeePerKm] = useState(0);
@@ -149,9 +148,11 @@ export default function CartPage() {
       await fetch('/api/customer/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, address, location }) });
       const res = await fetch('/api/customer/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: cart, phone, address, location, paymentMethod, subTotal, deliveryFee, totalPrice: total, slipImage }) });
       if (!res.ok) throw new Error('Order failed');
+      const data = await res.json();
       setSlipImage(null); setPaymentMethod(''); setShowPaymentModal(false);
       localStorage.removeItem('dinemanager_cart');
-      setShowSuccessSheet(true);
+      setCart([]);
+      router.push(`/dashboard/customer/order/${data.orderId}`);
 
     } catch (error) { 
       alert('เกิดข้อผิดพลาด'); 
@@ -208,8 +209,8 @@ export default function CartPage() {
       </div>
 
       {/* Floating Checkout Button */}
-      <div className="fixed bottom-[64px] left-0 right-0 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-blue-100 dark:border-slate-800 z-40 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div className="max-w-[800px] mx-auto">
+      <div className="fixed bottom-6 left-4 right-4 z-40 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-[800px] mx-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-blue-100 dark:border-slate-700 p-2 rounded-3xl shadow-[0_10px_40px_rgba(37,99,235,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
           <button disabled={shopData && !shopData.is_open} onClick={() => setShowPaymentModal(true)} className={`flex justify-between items-center w-full p-4 border-none rounded-2xl cursor-pointer font-black text-[1.1rem] transition-all ${
             (shopData && !shopData.is_open) 
               ? 'bg-slate-400 dark:bg-slate-600 text-white cursor-not-allowed shadow-none' 
@@ -353,46 +354,6 @@ export default function CartPage() {
         </div>
       )}
 
-      {/* 🎉 Success Sheet */}
-      {showSuccessSheet && (
-        <div className="fixed inset-0 z-[9999] flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-t-[32px] pt-[35px] px-[25px] pb-[40px] flex flex-col items-center shadow-[0_-10px_40px_rgba(0,0,0,0.2)] animate-[slideUp_0.3s_ease-out] transition-colors">
-            <div className="w-[60px] h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-[25px] transition-colors" />
-            
-            <div className="w-[80px] h-[80px] bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-5 text-white shadow-[0_10px_25px_rgba(16,185,129,0.3)] animate-[bounceIn_0.5s_ease-out]">
-              <CheckCircle2 size={44} strokeWidth={2.5} />
-            </div>
-            
-            <h2 className="text-blue-900 dark:text-blue-50 m-0 mb-2.5 text-[1.6rem] font-black text-center">สั่งอาหารสำเร็จ!</h2>
-            <p className="text-slate-500 dark:text-slate-400 m-0 mb-[30px] text-center text-[1rem] leading-relaxed">
-              ขอบคุณที่ใช้บริการค่ะ <br/> ทางร้านได้รับออเดอร์แล้ว และกำลังเตรียมอาหารให้คุณ
-            </p>
-            
-            <button 
-              onClick={() => {
-                setShowSuccessSheet(false);
-                setCart([]);
-                router.push('/dashboard/customer/orders');
-              }}
-              className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white border-none rounded-2xl text-[1.1rem] font-bold cursor-pointer shadow-[0_6px_15px_rgba(37,99,235,0.25)] transition-all"
-            >
-              ดูสถานะออเดอร์
-            </button>
-            
-            <style>{`
-              @keyframes slideUp {
-                from { transform: translateY(100%); }
-                to { transform: translateY(0); }
-              }
-              @keyframes bounceIn {
-                0% { transform: scale(0.5); opacity: 0; }
-                70% { transform: scale(1.1); opacity: 1; }
-                100% { transform: scale(1); opacity: 1; }
-              }
-            `}</style>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

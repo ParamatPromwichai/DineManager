@@ -19,6 +19,7 @@ export default function CustomerLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isMenuPage = navItems.includes(pathname);
 
   // คำนวณทิศทางการเลื่อน
   const prevIndexRef = useRef(0);
@@ -61,13 +62,13 @@ export default function CustomerLayout({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="w-full h-full absolute inset-0 overflow-y-auto pb-[70px]"
+          className={`w-full h-full absolute inset-0 overflow-y-auto ${isMenuPage ? 'pb-[70px]' : ''}`}
         >
           {children}
         </motion.main>
       </AnimatePresence>
       
-      <CustomerNavbar />
+      {isMenuPage && <CustomerNavbar />}
     </div>
   );
 }

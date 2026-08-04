@@ -22,7 +22,11 @@ type OrderItem = {
 type Order = {
   id: number;
   status: string;
+  order_type: string;
   created_at: string;
+  cooking_at?: string | null;
+  delivery_at?: string | null;
+  done_at?: string | null;
   total_price: number;
   delivery_fee?: number;
   distance_km: number;
@@ -30,6 +34,7 @@ type Order = {
   delivery_time_min: number;
   total_time_min: number;
   items: OrderItem[];
+  cancel_reason?: string;
 };
 
 // 🚨 คงสีตามความหมายสถานะไว้ (Semantic Colors) เพื่อให้ผู้ใช้เข้าใจง่าย
@@ -87,6 +92,7 @@ export default function OrderDetailPage() {
 
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [activeStepId, setActiveStepId] = useState<string | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const emojiIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -196,8 +202,26 @@ export default function OrderDetailPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [order, estimatedTotalTimeMin]);
 
+  // Generate Steps for Progress Bar
+  const steps = useMemo(() => {
+    if (!order) return [];
+    const isDineIn = order.order_type === 'dine-in';
+    
+    if (order.status === 'cancel') {
+      return [{ id: 'cancel', label: 'ออเดอร์ถูกยกเลิก', icon: XCircle, time: order.created_at, active: true, isError: true, bg: '', border: '', text: '', gradient: '' }];
+    }
+
+    const baseSteps = [
+      { id: 'pending', label: 'รับออเดอร์', icon: Clock, time: order.created_at, active: ['pending', 'checking_slip', 'cooking', 'delivery', 'done'].includes(order.status), bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-500', gradient: 'from-amber-500' },
+      { id: 'cooking', label: 'ปรุงอาหาร', icon: ChefHat, time: order.cooking_at, active: ['cooking', 'delivery', 'done'].includes(order.status), bg: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-500', gradient: 'from-blue-500' },
+      ...(!isDineIn ? [{ id: 'delivery', label: 'จัดส่ง', icon: Motorbike, time: order.delivery_at, active: ['delivery', 'done'].includes(order.status), bg: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-500', gradient: 'from-purple-500' }] : []),
+      { id: 'done', label: isDineIn ? 'เสิร์ฟอาหาร' : 'สำเร็จ', icon: CheckCircle2, time: order.done_at, active: order.status === 'done', bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-500', gradient: 'from-emerald-500' },
+    ];
+    return baseSteps;
+  }, [order]);
+
   // --- Loading & Error States (Skeleton) ---
-  const showSkeleton = status === 'loading' || (isOrderLoading && !order);
+  const showSkeleton = status === 'loading' || (!order && !error);
 
   if (showSkeleton) {
     return (
@@ -265,8 +289,8 @@ export default function OrderDetailPage() {
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 text-center max-w-sm w-full border border-blue-100 dark:border-slate-700 shadow-sm transition-colors">
           <XCircle size={56} className="text-rose-500 mx-auto mb-4" />
           <h2 className="text-xl font-black text-blue-900 dark:text-blue-50 mb-2">เกิดข้อผิดพลาด</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium mb-6">{error || 'ไม่พบข้อมูลออเดอร์นี้'}</p>
-          <button onClick={() => router.back()} className="w-full py-3.5 bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 text-blue-700 dark:text-blue-300 rounded-xl font-bold transition-colors">
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-6">{error?.message || String(error) || 'ไม่พบข้อมูลออเดอร์นี้'}</p>
+          <button onClick={() => router.push('/dashboard/customer/orders')} className="w-full py-3.5 bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 text-blue-700 dark:text-blue-300 rounded-xl font-bold transition-colors">
             กลับไปหน้าหลัก
           </button>
         </div>
@@ -287,12 +311,13 @@ export default function OrderDetailPage() {
   const subTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const deliveryFee = order.delivery_fee ?? (order.total_price - subTotal);
 
+
   return (
     <div className="min-h-screen bg-blue-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 pb-24 transition-colors">
 
       {/* 🌟 Header */}
       <div className="bg-white dark:bg-slate-800 px-4 py-4 sm:px-6 sticky top-0 z-40 border-b border-blue-100 dark:border-slate-700 shadow-sm flex items-center justify-between transition-colors">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-sm transition-colors bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 px-3 py-2 rounded-xl border border-blue-200 dark:border-slate-600">
+        <button onClick={() => router.push('/dashboard/customer/orders')} className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold text-sm transition-colors bg-blue-50 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 px-3 py-2 rounded-xl border border-blue-200 dark:border-slate-600">
           <ArrowLeft size={18} />
         </button>
         <h1 className="text-lg font-black text-blue-900 dark:text-blue-50 flex items-center gap-2">
@@ -337,21 +362,66 @@ export default function OrderDetailPage() {
             )}
           </div>
 
-          {/* Progress Bar */}
-          {order.status !== 'done' && order.status !== 'cancel' && (
-            <div className="mb-6">
-              <div className="relative h-2.5 bg-blue-100 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
-                <motion.div
-                  className={`absolute top-0 left-0 h-full rounded-full ${order.status === 'delivery' ? 'bg-purple-500' : 'bg-blue-600'}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(progress, 100)}%` }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 text-center flex items-center justify-center gap-1">
-                <Timer size={12} className="text-blue-400 dark:text-blue-500" /> *รวมคิวที่รอแล้ว ร้านมีเวลาเตรียมอาหารอย่างเหมาะสม
-              </p>
-            </div>
+          {/* 🌟 Stepper Progress */}
+          {order.status === 'cancel' ? (
+             <div className="flex flex-col items-center justify-center py-6 mb-6 bg-rose-50 dark:bg-slate-800/50 rounded-2xl border border-rose-100 dark:border-rose-900/50">
+                <XCircle size={48} className="text-rose-500 mb-2" />
+                <div className="text-lg font-black text-rose-600 dark:text-rose-400">ออเดอร์ถูกยกเลิก</div>
+                {order.cancel_reason && <div className="text-sm font-medium text-rose-500 mt-1">{order.cancel_reason}</div>}
+             </div>
+          ) : (
+             <div className="flex w-full items-center mb-8 mt-4 relative z-0">
+               {steps.map((step, index) => {
+                 const isPastOrCurrent = step.active;
+                 const isCurrent = step.id === (order.status === 'checking_slip' ? 'pending' : order.status) || (order.status === 'done' && step.id === 'done');
+                 
+                 return (
+                   <div key={step.id} className="flex-1 flex flex-col items-center relative group">
+                      {/* Line to next */}
+                      {index < steps.length - 1 && (
+                         <div className="absolute top-[16px] left-[50%] w-full h-2 z-0 bg-slate-100 dark:bg-slate-700 overflow-hidden rounded-r-full">
+                            {steps[index + 1]?.active ? (
+                               <div className={`w-full h-full ${step.bg}`} />
+                            ) : (
+                               isCurrent && order.status !== 'done' && order.status !== 'cancel' && (
+                                 <motion.div 
+                                   className={`h-full bg-gradient-to-r ${step.gradient} to-transparent`}
+                                   initial={{ width: '0%' }}
+                                   animate={{ width: '100%' }}
+                                   transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                                 />
+                               )
+                            )}
+                         </div>
+                      )}
+
+                      <div 
+                        onClick={() => step.time && setActiveStepId(activeStepId === step.id ? null : step.id)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 cursor-pointer z-10 relative
+                        ${isCurrent ? `bg-white dark:bg-slate-800 ${step.border} ${step.text} scale-110 shadow-sm` : 
+                          isPastOrCurrent ? `${step.bg} ${step.border} text-white` : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500'}`}
+                      >
+                         <step.icon size={18} />
+                      </div>
+                      <div className={`mt-2 text-[10px] sm:text-[11px] font-bold text-center ${isCurrent ? step.text : isPastOrCurrent ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {step.label}
+                      </div>
+
+                      {/* Timestamp Tooltip */}
+                      <AnimatePresence>
+                        {activeStepId === step.id && step.time && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}
+                            className="absolute top-12 left-1/2 -translate-x-1/2 min-w-[80px] bg-slate-800 text-white text-[10px] py-1 px-2 rounded-md text-center shadow-lg z-20 whitespace-nowrap"
+                          >
+                            {new Date(step.time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                   </div>
+                 );
+               })}
+             </div>
           )}
 
           {/* Stats Grid */}

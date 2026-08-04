@@ -112,12 +112,12 @@ export async function PUT(req: Request) {
 
         if (slip_image) {
           await db.query(
-            "UPDATE orders SET slip_image = ?, status = 'done' WHERE table_id = ? AND status = 'delivery'",
+            "UPDATE orders SET slip_image = ?, status = 'done', done_at = CURRENT_TIMESTAMP WHERE table_id = ? AND status = 'delivery'",
             [slip_image, id]
           );
         } else {
           await db.query(
-            "UPDATE orders SET status = 'done' WHERE table_id = ? AND status = 'delivery'",
+            "UPDATE orders SET status = 'done', done_at = CURRENT_TIMESTAMP WHERE table_id = ? AND status = 'delivery'",
             [id]
           );
         }

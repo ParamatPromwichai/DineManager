@@ -571,7 +571,7 @@ function AllMenusContent() {
 
       {/* --- ตะกร้า (Cart Overlay) --- */}
       {cart.length > 0 && (
-        <div className="fixed bottom-[85px] left-4 right-4 bg-white dark:bg-slate-800 rounded-3xl p-4 shadow-xl border border-blue-100 dark:border-slate-700 z-[90] transition-colors">
+        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-4 right-4 bg-white dark:bg-slate-800 rounded-3xl p-4 shadow-xl border border-blue-100 dark:border-slate-700 z-[90] transition-colors">
           <div className={`flex justify-between items-center ${isCartExpanded ? 'mb-4' : 'mb-2.5'}`}>
             <h4 className="m-0 text-[1.1rem] flex items-center gap-2 text-blue-900 dark:text-blue-100">
               <ShoppingCart size={20} className="text-blue-600 dark:text-blue-400" /> ตะกร้า ({cart.reduce((a, b) => a + b.quantity, 0)} ชิ้น)

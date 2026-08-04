@@ -75,13 +75,27 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'Order already processed' });
     }
     
+    let updateFields = 'status = ?';
+    let queryParams: any[] = [status];
+
     if (status === 'cancel' && cancel_reason) {
-      await db.query('UPDATE orders SET status = ?, cancel_reason = ?, cancelled_by = ? WHERE id = ?', [status, cancel_reason, cancelled_by || 'shop', id]);
+      updateFields += ', cancel_reason = ?, cancelled_by = ?';
+      queryParams.push(cancel_reason, cancelled_by || 'shop');
     } else if (slip_image) {
-      await db.query('UPDATE orders SET status = ?, slip_image = ? WHERE id = ?', [status, slip_image, id]);
-    } else {
-      await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+      updateFields += ', slip_image = ?';
+      queryParams.push(slip_image);
     }
+
+    if (status === 'cooking') {
+      updateFields += ', cooking_at = CURRENT_TIMESTAMP';
+    } else if (status === 'delivery') {
+      updateFields += ', delivery_at = CURRENT_TIMESTAMP';
+    } else if (status === 'done') {
+      updateFields += ', done_at = CURRENT_TIMESTAMP';
+    }
+
+    queryParams.push(id);
+    await db.query(`UPDATE orders SET ${updateFields} WHERE id = ?`, queryParams);
     const skipNotification = body?.skip_notification;
 
     // แจ้งเตือนลูกค้าผ่านแชทเมื่อออเดอร์เสร็จสิ้น (เช็คว่าเปลี่ยนเป็น done ครั้งแรก)
