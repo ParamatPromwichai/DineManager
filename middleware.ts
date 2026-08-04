@@ -82,9 +82,9 @@ export async function middleware(req: NextRequest) {
 
   // 🛡️ 2. ป้องกันหน้า Admin Login ด้วย Secret Key (กันคนนอกเข้าหน้าล็อกอิน)
   if (url.pathname === '/login/admin') {
-    // ต้องเข้าผ่าน /login/admin?key=superadmin2026 เท่านั้น!
-    const adminKey = process.env.ADMIN_SECRET_KEY || 'superadmin2026';
-    if (url.searchParams.get('key') !== adminKey) {
+    // ดึงค่า Secret Key จาก Environment Variable เท่านั้น เพื่อความปลอดภัยสูงสุด
+    const adminKey = process.env.ADMIN_SECRET_KEY;
+    if (!adminKey || url.searchParams.get('key') !== adminKey) {
       // ถ้าไม่มี key หรือ key ผิด ให้เด้งไปหน้าแรกแบบเนียนๆ
       return NextResponse.redirect(new URL('/', req.url));
     }

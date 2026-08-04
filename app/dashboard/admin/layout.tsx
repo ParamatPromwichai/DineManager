@@ -23,8 +23,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // ฟังก์ชันออกจากระบบ
   const handleLogout = async () => {
     if (confirm('ยืนยันการออกจากระบบแอดมิน?')) {
-      // เมื่อล็อกเอาท์ ให้เด้งกลับไปหน้าล็อกอินของแอดมิน
-      await signOut({ callbackUrl: '/login/admin' });
+      // เมื่อล็อกเอาท์ ให้เด้งกลับไปหน้าแรก เพื่อความปลอดภัย (เพราะหน้าล็อกอินแอดมินต้องมี key)
+      await signOut({ callbackUrl: '/' });
     }
   };
 
