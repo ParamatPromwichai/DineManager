@@ -64,6 +64,9 @@ function AdminLoginContent() {
             return;
           }
 
+          // ✅ Set session storage flag so AdminGuard knows this is a valid active browser tab for admin
+          sessionStorage.setItem('admin_active_session', 'true');
+
           // ✅ ใช้ window.location.href เพื่อแก้ปัญหาโหลด Session ไม่ทัน
           window.location.href = '/dashboard/admin';
 
