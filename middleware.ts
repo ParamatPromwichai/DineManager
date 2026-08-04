@@ -143,7 +143,7 @@ export async function middleware(req: NextRequest) {
   if ((url.pathname === '/' || url.pathname === '/login' || url.pathname === '/login/shop') && token && token.role) {
     if (token.role === 'shop') return NextResponse.redirect(new URL('/dashboard/shop', req.url));
     if (token.role === 'customer') return NextResponse.redirect(new URL('/dashboard/customer', req.url));
-    if (token.role === 'admin' && url.pathname.startsWith('/login')) return NextResponse.redirect(new URL('/dashboard/admin', req.url));
+    if (token.role === 'admin' && url.pathname === '/') return NextResponse.redirect(new URL('/dashboard/admin', req.url));
   }
 
   // 🛡️ 6. ตรวจสอบสิทธิ์การเข้า Dashboard

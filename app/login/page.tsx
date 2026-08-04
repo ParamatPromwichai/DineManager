@@ -28,10 +28,14 @@ function LoginContent() {
         return;
       }
 
+      // บังคับล็อกเอาท์เฉพาะแอดมิน เพื่อความปลอดภัย (ตาม Request)
+      if (role === 'admin') {
+        signOut({ callbackUrl: '/login' });
+        return;
+      }
+
       if (role === 'shop') {
         router.push('/dashboard/shop');
-      } else if (role === 'admin') {
-        router.push('/dashboard/admin');
       } else {
         router.push('/dashboard/customer');
       }

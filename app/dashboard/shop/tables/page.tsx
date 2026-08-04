@@ -79,7 +79,6 @@ function SortableTableCard({ table, children }: { table: Table, children: React.
     transition,
     zIndex: isDragging ? 50 : 1,
     opacity: isDragging ? 0.3 : 1, // ทำให้ตัวต้นฉบับจางลงตอนลาก
-    touchAction: 'none' // ป้องกันหน้าจอเลื่อนเวลาลากบนมือถือ
   };
 
   return (
