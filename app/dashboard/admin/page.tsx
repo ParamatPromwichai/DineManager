@@ -26,6 +26,7 @@ export default function AdminDashboardPage() {
   const { data: session, status } = useSession();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login/admin');
@@ -37,19 +38,45 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (status === 'authenticated' && (session?.user as any)?.role === 'admin') {
       fetch('/api/admin/dashboard')
-        .then(res => res.json())
-        .then(json => {
-          setData(json);
-          setLoading(false);
+        .then(async res => {
+          if (!res.ok) throw new Error(`HTTP Error ${res.status}: ${await res.text()}`);
+          return res.json();
         })
-        .catch(err => console.error(err));
+        .then(json => {
+          if (!json.stats) throw new Error('ข้อมูลไม่ครบถ้วนจากเซิร์ฟเวอร์');
+          setData(json);
+        })
+        .catch(err => {
+          console.error(err);
+          setError(err.message);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   }, [status, session]);
 
   if (status === 'loading' || loading) {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={40} /></div>;
   }
-  if (status !== 'authenticated' || (session?.user as any)?.role !== 'admin' || !data) return null;
+  if (status !== 'authenticated' || (session?.user as any)?.role !== 'admin') return null;
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6">
+        <ShieldAlert size={64} className="text-rose-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-2">ไม่สามารถโหลดข้อมูล Dashboard ได้</h2>
+        <p className="text-slate-400 text-center max-w-lg bg-slate-900 p-4 rounded-xl border border-rose-900/50 break-words">
+          {error}
+        </p>
+        <button onClick={() => window.location.reload()} className="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-2.5 rounded-xl font-bold transition-colors">
+          ลองใหม่อีกครั้ง
+        </button>
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10 font-sans pb-24">
