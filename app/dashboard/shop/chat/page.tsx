@@ -29,6 +29,67 @@ function ShopChatContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // --- Notification System ---
+  const prevCustomers = useRef<any[]>([]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      console.error('Audio play failed', e);
+    }
+  };
+
+  const showBrowserNotification = (title: string, body: string) => {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+  };
+
+  useEffect(() => {
+    if (customers && prevCustomers.current.length > 0) {
+      let hasNew = false;
+      customers.forEach((c: any) => {
+        const prev = prevCustomers.current.find((p: any) => p.user_id === c.user_id);
+        // ถ้าเป็นข้อความใหม่จากลูกค้า (sender = user)
+        if (c.last_sender === 'user') {
+          if (prev && c.total_msgs > prev.total_msgs) {
+            hasNew = true;
+          } else if (!prev && c.total_msgs > 0) {
+            hasNew = true;
+          }
+        }
+      });
+
+      if (hasNew) {
+        playNotificationSound();
+        showBrowserNotification('ข้อความใหม่จากลูกค้า', 'มีลูกค้าส่งข้อความสอบถามเข้ามาใหม่ครับ');
+      }
+    }
+    if (customers) {
+      prevCustomers.current = customers;
+    }
+  }, [customers]);
+  // -------------------------
+
   useEffect(() => {
     const targetUserId = searchParams.get('userId');
     const targetName = searchParams.get('name');
@@ -173,7 +234,8 @@ function ShopChatContent() {
           <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3 shrink-0">
             <button 
               onClick={() => router.push('/dashboard/shop')}
-              className="lg:hidden p-2 -ml-2 mr-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-xl transition-colors"
+              className="p-2 -ml-2 mr-1 text-slate-500 hover:text-blue-600 hover:bg-blue-100/50 rounded-xl transition-colors flex items-center gap-1"
+              title="กลับไปหน้าหลักร้านค้า"
             >
               <ChevronLeft size={24} />
             </button>

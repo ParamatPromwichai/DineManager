@@ -12,8 +12,8 @@ export default function AdminGuard() {
     // Only run checks if we are authenticated and the user is an admin
     if (status === 'authenticated' && session?.user?.role === 'admin') {
       
-      // 1. Force logout if navigating to a page outside of the admin area
-      if (!pathname.startsWith('/dashboard/admin')) {
+      // 1. Force logout if navigating to a page outside of the admin area (allow login pages during transition)
+      if (!pathname.startsWith('/dashboard/admin') && !pathname.startsWith('/login/admin')) {
         signOut({ callbackUrl: '/' });
         return;
       }

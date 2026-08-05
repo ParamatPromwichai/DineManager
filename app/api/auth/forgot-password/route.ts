@@ -11,13 +11,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'กรุณาระบุอีเมล' }, { status: 400 });
     }
 
+    // 🛡️ Rate Limiting: จำกัดการส่ง Forgot Password สูงสุด 3 ครั้ง/15 นาที ต่อ IP
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const [rateLimitResult]: any = await db.query(
+      "SELECT COUNT(id) as cnt FROM system_logs WHERE action = 'forgot_password' AND ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
+      [ip]
+    );
+    if (rateLimitResult[0].cnt >= 3) {
+      return NextResponse.json({ message: 'คุณส่งคำขอบ่อยเกินไป กรุณารอ 15 นาทีแล้วลองอีกครั้ง' }, { status: 429 });
+    }
+
+    // บันทึก Log ว่ามีการขอ Reset (ไม่ว่า email จะมีในระบบหรือไม่)
+    await db.query(
+      "INSERT INTO system_logs (user_id, role, action, details, ip_address) VALUES (NULL, NULL, 'forgot_password', ?, ?)",
+      [`Forgot password request for: ${email}`, ip]
+    );
+
     // 1. ค้นหาผู้ใช้ด้วยอีเมล
     const [users]: any = await db.query('SELECT id, username FROM users WHERE email = ?', [email]);
     
     if (!users || users.length === 0) {
-      // ⚠️ แนะนำว่าไม่ควรบอกว่า "ไม่พบอีเมล" เพื่อป้องกันคนสุ่มหาอีเมลในระบบ (Security Best Practice)
-      // แต่ระบบนี้อนุโลมให้ใช้แจ้งได้เพื่อความสะดวกของ User
-      return NextResponse.json({ message: 'ไม่พบอีเมลนี้ในระบบ' }, { status: 404 });
+      // 🛡️ แก้ User Enumeration: ตอบข้อความเดียวกันไม่ว่าจะมี email ในระบบหรือไม่
+      return NextResponse.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปแล้ว กรุณาตรวจสอบอีเมลของคุณ' }, { status: 200 });
     }
 
     const user = users[0];
@@ -92,12 +107,12 @@ export async function POST(req: Request) {
 
     await transporter.sendMail(mailOptions);
 
-    return NextResponse.json({ message: 'ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว' }, { status: 200 });
+    return NextResponse.json({ message: 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปแล้ว กรุณาตรวจสอบอีเมลของคุณ' }, { status: 200 });
 
   } catch (error: any) {
     console.error('Forgot Password Error:', error);
     return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดในการดำเนินการ', error: String(error) },
+      { message: 'เกิดข้อผิดพลาดในการดำเนินการ' },
       { status: 500 }
     );
   }

@@ -36,6 +36,55 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
+  // --- Notification System ---
+  const prevMessagesLength = useRef(0);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const playNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      console.error('Audio play failed', e);
+    }
+  };
+
+  const showBrowserNotification = (title: string, body: string) => {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+  };
+
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current && prevMessagesLength.current > 0) {
+      const newMessages = messages.slice(prevMessagesLength.current);
+      const hasNewFromShopOrBot = newMessages.some(msg => msg.sender !== 'user');
+      
+      if (hasNewFromShopOrBot) {
+        playNotificationSound();
+        showBrowserNotification('มีข้อความใหม่', 'ร้านค้าหรือระบบได้ตอบกลับข้อความของคุณ');
+      }
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages]);
+  // -------------------------
+
   // ➕ 3. ดึง userId จาก session
   const userId = (session?.user as any)?.id;
 
@@ -353,6 +402,22 @@ export default function ChatPage() {
           )}
 
           {messages.map((msg, i) => {
+            const currentMsgDate = msg.created_at ? new Date(msg.created_at).toDateString() : null;
+            const prevMsgDate = i > 0 && messages[i-1].created_at ? new Date(messages[i-1].created_at).toDateString() : null;
+            const showDateDivider = currentMsgDate && currentMsgDate !== prevMsgDate;
+
+            const formatDateDivider = (dateStr: string) => {
+              const date = new Date(dateStr);
+              const today = new Date();
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate() - 1);
+              
+              if (date.toDateString() === today.toDateString()) return "ส่งวันนี้";
+              if (date.toDateString() === yesterday.toDateString()) return "เมื่อวาน";
+              
+              return `วันที่ ${date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}`;
+            };
+
             const isUser = msg.sender === "user";
             const isShop = msg.sender === "shop";
             const isBot = !isUser && !isShop;
@@ -374,7 +439,15 @@ export default function ChatPage() {
             const isCurrentlySending = isUser && isLastMessage && isSending;
 
             return (
-              <div key={i} className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+              <div key={i} className="flex flex-col">
+                {showDateDivider && msg.created_at && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-[0.75rem] bg-blue-100/50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full font-semibold shadow-sm transition-colors">
+                      {formatDateDivider(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+                <div className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
                 {!isUser && (
                   <div className="flex flex-col items-center gap-1 shrink-0 mb-1">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-colors ${
@@ -436,6 +509,7 @@ export default function ChatPage() {
                     <User size={16} className="text-blue-700 dark:text-blue-300" />
                   </div>
                 )}
+                </div>
               </div>
             );
           })}

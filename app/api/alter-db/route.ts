@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
+  // 🛡️ เฉพาะ Admin เท่านั้นที่สามารถ Alter DB ได้
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role !== 'admin') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   const messages: string[] = [];
   const addMsg = (msg: string) => messages.push(msg);
 

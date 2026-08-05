@@ -17,8 +17,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
   }
 
-  // 🤖 1. ตรวจสอบ Google reCAPTCHA v3
-  const secretKey = '6LcajQEtAAAAAKAjdBEBS8exYCgwC08jNtc64NWq'; // * ใส่ Secret Key ของคุณ
+  // 🤖 1. ตรวจสอบ Google reCAPTCHA v3 (ดึง key จาก env เท่านั้น ห้าม hardcode)
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secretKey) {
+    return NextResponse.json({ message: 'การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด' }, { status: 500 });
+  }
   const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
   
   try {
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดที่ Database', error: String(err) }, 
+      { message: 'เกิดข้อผิดพลาดที่ Database' }, 
       { status: 500 }
     );
   }

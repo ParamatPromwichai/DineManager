@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// 🛡️ ฟังก์ชันป้องกัน SQL Injection & XSS อย่างง่าย (WAF)
-const sqlInjectionPattern = /('|--|;|%27|%22|\b(UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b.*?(?:FROM|INTO|SET|TABLE))/i;
+// 🛡️ ฟังก์ชันป้องกัน SQL Injection & XSS อย่างง่าย (WAF) — ปรับปรุง Regex ให้ครอบคลุมมากขึ้น
+const sqlInjectionPattern = /('\s*(OR|AND)\s+['"]?\w*['"]?\s*[=<>]|'\s*;|--|%27|%22|\b(UNION\s+(ALL\s+)?SELECT|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|DROP\s+(TABLE|DATABASE)|ALTER\s+TABLE|TRUNCATE\s+TABLE|EXEC(UTE)?\s+|xp_))/i;
 
 function isSuspicious(val: string) {
   if (!val) return false;
@@ -18,10 +18,12 @@ function isSuspicious(val: string) {
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl.clone();
 
-  // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค
-  if (url.pathname === '/api/admin/blocked-ips') return NextResponse.next();
+  // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค และ Log API
+  if (url.pathname === '/api/admin/blocked-ips' || url.pathname === '/api/logs') return NextResponse.next();
 
-  const ip = req.headers.get('x-forwarded-for') || 'Unknown';
+  // 🛡️ ดึง IP อย่างปลอดภัย: ใช้แค่ IP ตัวแรกจาก x-forwarded-for (ป้องกัน spoofing บางส่วน)
+  const rawIp = req.headers.get('x-forwarded-for') || 'Unknown';
+  const ip = rawIp.split(',')[0].trim();
 
   // 🛡️ 0. ตรวจสอบ IP Blocklist
   try {
@@ -30,10 +32,10 @@ export async function middleware(req: NextRequest) {
     if (res.ok) {
       const data = await res.json();
       const blockedIps = data.ips?.map((row: any) => row.ip_address) || [];
-      // ลบ whitespace และตัด string ให้เหลือแค่ ip แรก (สำหรับ Vercel ที่มักส่งมาเป็น x.x.x.x, y.y.y.y)
-      const clientIp = ip.split(',')[0].trim();
+      // IP ถูก trim แล้วจากด้านบน
+      const clientIp = ip;
       
-      if (blockedIps.includes(clientIp) || blockedIps.includes(ip) || clientIp.startsWith('192.42.116.')) {
+      if (blockedIps.includes(clientIp) || clientIp.startsWith('192.42.116.')) {
         return new NextResponse(JSON.stringify({ message: 'Forbidden: Your IP is blocked' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
@@ -49,7 +51,6 @@ export async function middleware(req: NextRequest) {
   if (!url.pathname.startsWith('/api/auth/')) {
     for (const [key, value] of url.searchParams.entries()) {
       if (isSuspicious(value)) {
-        const ip = req.headers.get('x-forwarded-for') || 'Unknown';
         const userAgent = req.headers.get('user-agent') || 'Unknown';
         console.warn(`🚨 [WAF] Blocked SQL Injection attempt from IP: ${ip} on ${url.pathname}`);
         
@@ -65,10 +66,13 @@ export async function middleware(req: NextRequest) {
           })
         }).catch(() => {});
 
-        // Auto-ban IP ที่พยายามโจมตี
+        // Auto-ban IP ที่พยายามโจมตี (ใช้ internal header เพื่อ bypass auth)
         fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
+          },
           body: JSON.stringify({
             ip_address: ip,
             reason: 'Auto-banned by WAF (SQL Injection/XSS)'
@@ -80,55 +84,65 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 🛡️ 2. ป้องกันหน้า Admin Login ด้วย Secret Key (กันคนนอกเข้าหน้าล็อกอิน)
+  // 🛡️ 2. ป้องกันหน้า Admin Login ด้วย Secret Key (ผ่าน Cookie แทน Query String เพื่อความปลอดภัย)
   if (url.pathname === '/login/admin') {
-    // ดึงค่า Secret Key จาก Environment Variable เท่านั้น เพื่อความปลอดภัยสูงสุด
     const adminKey = process.env.ADMIN_SECRET_KEY;
-    if (!adminKey || url.searchParams.get('key') !== adminKey) {
-      // ถ้าไม่มี key หรือ key ผิด ให้เด้งไปหน้าแรกแบบเนียนๆ
-      return NextResponse.redirect(new URL('/', req.url));
+    const token = req.cookies.get('admin_gateway_token')?.value;
+    
+    if (!adminKey || token !== adminKey) {
+      // ถ้าไม่มี Token ที่ถูกต้อง ให้เด้งไปหน้ากรอก Key แทนหน้าแรก
+      return NextResponse.redirect(new URL('/login/admin-gateway', req.url));
     }
   }
 
-  // 🛡️ 3. API Hardening (ป้องกัน CSRF ยิง API ข้ามโดเมน)
+  // 🛡️ 3. API Hardening (ป้องกัน CSRF ยิง API ข้ามโดเมน) — ปรับปรุงให้ปลอดภัยขึ้น
   if (url.pathname.startsWith('/api/') && req.method !== 'GET') {
     const origin = req.headers.get('origin');
     const referer = req.headers.get('referer');
     const host = req.headers.get('host'); // เช่น localhost:3000 หรือเว็บจริง
 
     if (host) {
-      // เบราว์เซอร์จะส่ง origin หรือ referer เสมอเวลายิงข้ามโดเมน
+      // 🛡️ บังคับว่าต้องมี Origin หรือ Referer อย่างน้อย 1 อัน (เบราว์เซอร์ส่ง Origin เสมอ)
+      // ถ้าไม่มีทั้งสองตัว = ไม่ใช่ request จากเบราว์เซอร์ปกติ
+      const hasOriginOrReferer = origin || referer;
       const isOriginValid = origin ? origin.includes(host) : true;
       const isRefererValid = referer ? referer.includes(host) : true;
 
-      if (!isOriginValid || !isRefererValid) {
-        const ip = req.headers.get('x-forwarded-for') || 'Unknown';
-        const userAgent = req.headers.get('user-agent') || 'Unknown';
-        console.warn(`🚨 [Security] Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}`);
-        
-        // บันทึก Log การโจมตีลงฐานข้อมูล
-        fetch(`${req.nextUrl.origin}/api/logs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'csrf_blocked',
-            details: `Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}, Path: ${url.pathname}`,
-            ip_address: ip,
-            user_agent: userAgent
-          })
-        }).catch(() => {});
+      if (!hasOriginOrReferer || !isOriginValid || !isRefererValid) {
+        // ข้าม NextAuth internal calls (ที่ไม่มี Origin)
+        if (url.pathname.startsWith('/api/auth/')) {
+          // NextAuth internal callbacks อาจไม่มี Origin — ปล่อยผ่าน
+        } else {
+          const userAgent = req.headers.get('user-agent') || 'Unknown';
+          console.warn(`🚨 [Security] Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}`);
+          
+          // บันทึก Log การโจมตีลงฐานข้อมูล
+          fetch(`${req.nextUrl.origin}/api/logs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'csrf_blocked',
+              details: `Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}, Path: ${url.pathname}`,
+              ip_address: ip,
+              user_agent: userAgent
+            })
+          }).catch(() => {});
 
-        // Auto-ban IP ที่พยายามโจมตีข้ามโดเมน
-        fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ip_address: ip,
-            reason: 'Auto-banned by WAF (CSRF/API Abuse)'
-          })
-        }).catch(() => {});
+          // Auto-ban IP ที่พยายามโจมตีข้ามโดเมน (ใช้ internal header)
+          fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
+            },
+            body: JSON.stringify({
+              ip_address: ip,
+              reason: 'Auto-banned by WAF (CSRF/API Abuse)'
+            })
+          }).catch(() => {});
 
-        return NextResponse.json({ message: 'Forbidden: API Access Denied' }, { status: 403 });
+          return NextResponse.json({ message: 'Forbidden: API Access Denied' }, { status: 403 });
+        }
       }
     }
   }
@@ -140,10 +154,10 @@ export async function middleware(req: NextRequest) {
   }
 
   // 🛡️ 5. ถ้าล็อกอินอยู่แล้ว พยายามเข้าหน้า / หรือ /login ให้ redirect ไป Dashboard ทันที (แก้ปัญหาหน้าจอกระพริบ)
-  if ((url.pathname === '/' || url.pathname === '/login' || url.pathname === '/login/shop') && token && token.role) {
+  if ((url.pathname === '/' || url.pathname.startsWith('/login')) && token && token.role) {
     if (token.role === 'shop') return NextResponse.redirect(new URL('/dashboard/shop', req.url));
     if (token.role === 'customer') return NextResponse.redirect(new URL('/dashboard/customer', req.url));
-    if (token.role === 'admin' && url.pathname === '/') return NextResponse.redirect(new URL('/dashboard/admin', req.url));
+    if (token.role === 'admin' && (url.pathname === '/' || url.pathname.startsWith('/login'))) return NextResponse.redirect(new URL('/dashboard/admin', req.url));
   }
 
   // 🛡️ 6. ตรวจสอบสิทธิ์การเข้า Dashboard

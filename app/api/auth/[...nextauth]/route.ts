@@ -31,9 +31,9 @@ export const authOptions: NextAuthOptions = {
         const ip = req.headers?.['x-forwarded-for'] || 'unknown';
         const userAgent = req.headers?.['user-agent'] || 'unknown';
 
-        // 🛡️ เช็ค reCAPTCHA
-        const secretKey = process.env.RECAPTCHA_SECRET_KEY || '6LcajQEtAAAAAKAjdBEBS8exYCgwC08jNtc64NWq';
-        if (!secretKey) throw new Error('การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด');
+        // 🛡️ เช็ค reCAPTCHA (ดึง key จาก env เท่านั้น ห้าม hardcode)
+        const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+        if (!secretKey) throw new Error('การตั้งค่าระบบฝั่งเซิร์ฟเวอร์ผิดพลาด (Missing RECAPTCHA_SECRET_KEY)');
 
         const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${credentials.recaptchaToken}`;
         const recaptchaRes = await fetch(verifyUrl, { method: 'POST' });
@@ -290,7 +290,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 365 * 24 * 60 * 60, // 365 วัน (1 ปี) เพื่อให้จำการล็อกอินได้นานเหมือน Facebook
+    maxAge: 30 * 24 * 60 * 60, // 30 วัน (ปรับจาก 365 วัน เพื่อความปลอดภัย ถ้า Token หลุดจะใช้ได้แค่ 30 วัน)
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

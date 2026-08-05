@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Reset Password Error:', error);
     return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดในการดำเนินการ', error: String(error) },
+      { message: 'เกิดข้อผิดพลาดในการดำเนินการ' },
       { status: 500 }
     );
   }

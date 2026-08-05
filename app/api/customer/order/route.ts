@@ -61,17 +61,35 @@ export async function POST(req: Request) {
     const [realMenus]: any = await db.query(`SELECT id, price FROM menus WHERE id IN (?)`, [menuIds]);
     const menuPriceMap = new Map(realMenus.map((m: any) => [m.id, Number(m.price)]));
 
-    let minCalculatedPrice = 0;
+    // 🛡️ ดึงราคา Addon/Options จาก DB เพื่อตรวจสอบด้วย
+    const [globalOptions]: any = await db.query('SELECT id, extra_price FROM global_options');
+    const optionPriceMap = new Map(globalOptions.map((o: any) => [o.id, Number(o.extra_price)]));
+
+    let serverCalculatedPrice = 0;
     for (const item of items) {
       const realBasePrice = menuPriceMap.get(item.id);
       if (realBasePrice === undefined) {
         return NextResponse.json({ message: `ไม่พบเมนูในระบบ (ID: ${item.id})` }, { status: 400 });
       }
-      minCalculatedPrice += Number(realBasePrice) * Number(item.quantity);
+      
+      let itemTotal = Number(realBasePrice);
+      
+      // ถ้ามี Addons/Options คำนวณราคาเพิ่มจาก DB จริง
+      if (item.selectedOptions && Array.isArray(item.selectedOptions)) {
+        for (const opt of item.selectedOptions) {
+          const optPrice = optionPriceMap.get(opt.id);
+          if (optPrice !== undefined) {
+            itemTotal += Number(optPrice);
+          }
+        }
+      }
+      
+      serverCalculatedPrice += itemTotal * Number(item.quantity);
     }
 
-    // ราคาที่ลูกค้าส่งมา ต้องไม่น้อยกว่า ราคาพื้นฐานของทุกเมนูรวมกัน (ป้องกันแฮกแก้ราคาให้ถูกลง)
-    if (finalTotal < minCalculatedPrice) {
+    // 🛡️ ราคาที่ลูกค้าส่งมา (ไม่รวมค่าส่ง) ต้องไม่น้อยกว่าราคาที่ Server คำนวณได้
+    const totalWithoutDelivery = finalTotal - finalDeliveryFee;
+    if (totalWithoutDelivery < serverCalculatedPrice) {
       return NextResponse.json({ message: 'เกิดข้อผิดพลาดในการคำนวณราคา กรุณาลองใหม่อีกครั้ง' }, { status: 400 });
     }
 
