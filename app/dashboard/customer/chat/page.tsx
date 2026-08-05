@@ -36,54 +36,6 @@ export default function ChatPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
-  // --- Notification System ---
-  const prevMessagesLength = useRef(0);
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const playNotificationSound = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.3);
-    } catch (e) {
-      console.error('Audio play failed', e);
-    }
-  };
-
-  const showBrowserNotification = (title: string, body: string) => {
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/favicon.ico' });
-    }
-  };
-
-  useEffect(() => {
-    if (messages.length > prevMessagesLength.current && prevMessagesLength.current > 0) {
-      const newMessages = messages.slice(prevMessagesLength.current);
-      const hasNewFromShopOrBot = newMessages.some(msg => msg.sender !== 'user');
-      
-      if (hasNewFromShopOrBot) {
-        playNotificationSound();
-        showBrowserNotification('มีข้อความใหม่', 'ร้านค้าหรือระบบได้ตอบกลับข้อความของคุณ');
-      }
-    }
-    prevMessagesLength.current = messages.length;
-  }, [messages]);
-  // -------------------------
 
   // ➕ 3. ดึง userId จาก session
   const userId = (session?.user as any)?.id;
@@ -662,6 +614,8 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

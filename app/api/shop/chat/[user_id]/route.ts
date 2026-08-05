@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ user_id:
     }
 
     const [rows]: any = await db.query(
-      "SELECT sender, message AS text FROM chats WHERE user_id = ? ORDER BY id ASC",
+      "SELECT sender, message AS text, created_at FROM chats WHERE user_id = ? ORDER BY id ASC",
       [user_id]
     );
 

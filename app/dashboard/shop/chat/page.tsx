@@ -29,66 +29,6 @@ function ShopChatContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Notification System ---
-  const prevCustomers = useRef<any[]>([]);
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const playNotificationSound = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.3);
-    } catch (e) {
-      console.error('Audio play failed', e);
-    }
-  };
-
-  const showBrowserNotification = (title: string, body: string) => {
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/favicon.ico' });
-    }
-  };
-
-  useEffect(() => {
-    if (customers && prevCustomers.current.length > 0) {
-      let hasNew = false;
-      customers.forEach((c: any) => {
-        const prev = prevCustomers.current.find((p: any) => p.user_id === c.user_id);
-        // ถ้าเป็นข้อความใหม่จากลูกค้า (sender = user)
-        if (c.last_sender === 'user') {
-          if (prev && c.total_msgs > prev.total_msgs) {
-            hasNew = true;
-          } else if (!prev && c.total_msgs > 0) {
-            hasNew = true;
-          }
-        }
-      });
-
-      if (hasNew) {
-        playNotificationSound();
-        showBrowserNotification('ข้อความใหม่จากลูกค้า', 'มีลูกค้าส่งข้อความสอบถามเข้ามาใหม่ครับ');
-      }
-    }
-    if (customers) {
-      prevCustomers.current = customers;
-    }
-  }, [customers]);
-  // -------------------------
 
   useEffect(() => {
     const targetUserId = searchParams.get('userId');
@@ -196,7 +136,7 @@ function ShopChatContent() {
     setInput('');
 
     // Optimistic UI update
-    setMessages((prev) => [...prev, { sender: 'shop', text: currentInput }]);
+    setMessages((prev) => [...prev, { sender: 'shop', text: currentInput, created_at: new Date().toISOString() }]);
 
     try {
       await fetch(`/api/shop/chat/${activeUser.user_id}`, {
@@ -321,6 +261,22 @@ function ShopChatContent() {
                   <div className="text-center text-slate-400 py-10 font-medium text-sm">ยังไม่มีข้อความ</div>
                 ) : (
                   messages.map((msg, i) => {
+                    const currentMsgDate = msg.created_at ? new Date(msg.created_at).toDateString() : null;
+                    const prevMsgDate = i > 0 && messages[i-1].created_at ? new Date(messages[i-1].created_at).toDateString() : null;
+                    const showDateDivider = currentMsgDate && currentMsgDate !== prevMsgDate;
+
+                    const formatDateDivider = (dateStr: string) => {
+                      const date = new Date(dateStr);
+                      const today = new Date();
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      
+                      if (date.toDateString() === today.toDateString()) return "ส่งวันนี้";
+                      if (date.toDateString() === yesterday.toDateString()) return "เมื่อวาน";
+                      
+                      return `วันที่ ${date.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}`;
+                    };
+
                     const isShop = msg.sender === 'shop';
                     const isBot = msg.sender === 'bot';
                     const isOurSide = isShop || isBot;
@@ -349,7 +305,15 @@ function ShopChatContent() {
                     }
                     
                     return (
-                      <div key={i} className={`flex flex-col ${isOurSide ? 'items-end' : 'items-start'}`}>
+                      <div key={i} className="flex flex-col">
+                        {showDateDivider && msg.created_at && (
+                          <div className="flex justify-center my-3">
+                            <span className="text-[0.75rem] bg-slate-200/50 text-slate-500 px-3 py-1 rounded-full font-semibold shadow-sm transition-colors">
+                              {formatDateDivider(msg.created_at)}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex flex-col ${isOurSide ? 'items-end' : 'items-start'}`}>
                         {/* Sender Label */}
                         <div className={`text-[10px] font-bold mb-1 flex items-center gap-1 px-1 ${
                           isShop ? 'text-blue-600' : 
@@ -394,6 +358,7 @@ function ShopChatContent() {
                             )}
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   })
@@ -457,6 +422,7 @@ function ShopChatContent() {
           </button>
         </div>
       )}
+
     </div>
   );
 }

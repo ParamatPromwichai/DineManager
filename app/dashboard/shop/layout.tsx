@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, BookOpen, ReceiptText, LayoutGrid, Store } from 'lucide-react';
 import GlobalOrderNotification from '@/components/GlobalOrderNotification';
+import ShopGlobalChatNotification from '@/components/ShopGlobalChatNotification';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useRef } from 'react';
 
@@ -58,6 +59,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       
       {/* 🔔 ฝังตัวแจ้งเตือนออเดอร์แบบ Global ไว้ตรงนี้ (ทำงานทุกหน้า) */}
       <GlobalOrderNotification />
+      <ShopGlobalChatNotification />
 
       {/* ส่วนเนื้อหาหลัก (จะเปลี่ยนไปตามหน้า) */}
       <div className={`relative overflow-hidden w-full ${isMenuPage ? 'h-[calc(100vh-80px)]' : 'h-[100dvh]'}`}>

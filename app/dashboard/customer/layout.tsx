@@ -4,6 +4,7 @@ import CustomerNavbar from './CustomerNavbar';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useRef } from 'react';
+import CustomerGlobalChatNotification from '@/components/CustomerGlobalChatNotification';
 
 const navItems = [
   '/dashboard/customer',
@@ -54,6 +55,7 @@ export default function CustomerLayout({
 
   return (
     <div className="relative overflow-hidden w-full h-[100dvh] bg-blue-50 dark:bg-slate-900 transition-colors">
+      <CustomerGlobalChatNotification />
       <AnimatePresence custom={direction} initial={false}>
         <motion.main
           key={pathname}
