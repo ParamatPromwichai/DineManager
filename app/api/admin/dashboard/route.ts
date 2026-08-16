@@ -19,7 +19,10 @@ export async function GET() {
     // 3. รวมยอดขายทั้งหมด (เฉพาะออเดอร์ที่สถานะ done)
     const [revenue]: any = await db.query("SELECT COALESCE(SUM(total_price), 0) as total FROM orders WHERE status = 'done'");
     
-    // 4. ดึงประวัติการเข้าสู่ระบบล่าสุด (ดึง created_at ตรงๆ ได้เลย)
+    // 4. นับผู้ใช้งานที่ออนไลน์ (ภายใน 5 นาทีที่ผ่านมา)
+    const [activeUsersCount]: any = await db.query('SELECT COUNT(id) as total FROM users WHERE last_active_at >= NOW() - INTERVAL 5 MINUTE');
+
+    // 5. ดึงประวัติการเข้าสู่ระบบล่าสุด (ดึง created_at ตรงๆ ได้เลย)
     const [recentLogins]: any = await db.query(`
       SELECT id, username, ip_address, status, created_at as thai_time
       FROM login_logs
@@ -32,6 +35,7 @@ export async function GET() {
         totalUsers: usersCount[0].total,
         totalOrders: ordersCount[0].total,
         totalRevenue: Number(revenue[0].total),
+        activeUsers: activeUsersCount[0].total,
       },
       recentLogins
     });

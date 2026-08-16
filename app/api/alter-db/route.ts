@@ -63,6 +63,9 @@ export async function GET() {
     "ALTER TABLE orders ADD COLUMN cooking_time_min INT DEFAULT 0",
     "ALTER TABLE orders ADD COLUMN delivery_time_min INT DEFAULT 0",
     "ALTER TABLE orders ADD COLUMN total_time_min INT DEFAULT 0",
+
+    // Users Columns
+    "ALTER TABLE users ADD COLUMN last_active_at TIMESTAMP NULL",
   ];
 
   for (const q of queries) {

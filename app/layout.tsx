@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./Providers"; // ➕ 1. นำเข้า Providers ที่เราสร้างไว้
 import Mascot from "@/components/Mascot";
+import ActiveUserTracker from "@/components/ActiveUserTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,6 +51,7 @@ export default function RootLayout({
       >
         {/* ➕ 2. เอา Providers มาครอบ children เอาไว้ */}
         <Providers>
+          <ActiveUserTracker />
           {children}
           <Mascot />
         </Providers>

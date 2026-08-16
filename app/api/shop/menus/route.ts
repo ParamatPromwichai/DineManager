@@ -16,14 +16,14 @@ export async function GET() {
     // 3. ดึงออปชันเสริมของเก่า (เผื่อไว้)
     const [options]: any = await db.query(`SELECT * FROM menu_options`);
 
-    // 4. ประกอบร่าง
+    // 4. แปลงรูปแบบข้อมูล
     const menusWithOptions = menus.map((menu: any) => {
       let addonOptionIds: number[] = [];
       try {
         if (menu.addon_option_ids) {
           addonOptionIds = typeof menu.addon_option_ids === 'string' ? JSON.parse(menu.addon_option_ids) : menu.addon_option_ids;
         }
-      } catch (e) { addonOptionIds = []; }
+      } catch (e) { addonOptionIds = []; } //จบ
 
       return {
         ...menu,

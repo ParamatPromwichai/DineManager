@@ -78,11 +78,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, reply: null });
     }
 
-    // ❌ ลบโค้ด insert user message ออก (ให้ Python จัดการแทนในโหมดบอท)
-
     // 🔥🔥🔥 เรียก Flask ไปเลย
     const flaskRes = await fetch("https://chatbotdinemanager.vercel.app/chat", { 
-      //https://chatbotdinemanager.vercel.app/chat
       method: "POST",
       headers: {
         "Content-Type": "application/json",

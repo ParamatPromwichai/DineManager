@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Users, DollarSign, ShoppingBag, ShieldAlert, ShieldCheck, Activity, Loader2, ArrowRight } from 'lucide-react';
+import { Users, DollarSign, ShoppingBag, ShieldAlert, ShieldCheck, Activity, Loader2, ArrowRight, Wifi } from 'lucide-react';
 import Link from 'next/link';
 
 interface DashboardData {
@@ -11,6 +11,7 @@ interface DashboardData {
     totalUsers: number;
     totalOrders: number;
     totalRevenue: number;
+    activeUsers: number;
   };
   recentLogins: {
     id: number;
@@ -98,7 +99,7 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 text-slate-800 group-hover:scale-110 transition-transform"><DollarSign size={100} /></div>
           <div className="relative z-10">
@@ -118,6 +119,19 @@ export default function AdminDashboardPage() {
           <div className="relative z-10">
             <p className="text-sm font-bold text-slate-400 mb-2 flex items-center gap-2"><Users size={16} className="text-blue-500"/> ผู้ใช้งานในระบบ</p>
             <h2 className="text-4xl font-black text-white">{data.stats.totalUsers.toLocaleString()} <span className="text-xl text-slate-500">บัญชี</span></h2>
+          </div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 text-slate-800 group-hover:scale-110 transition-transform"><Wifi size={100} /></div>
+          <div className="relative z-10">
+            <p className="text-sm font-bold text-slate-400 mb-2 flex items-center gap-2">
+              <span className="relative flex h-3 w-3 mr-1">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              ออนไลน์ตอนนี้
+            </p>
+            <h2 className="text-4xl font-black text-white">{data.stats.activeUsers.toLocaleString()} <span className="text-xl text-slate-500">คน</span></h2>
           </div>
         </div>
       </div>
