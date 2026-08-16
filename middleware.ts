@@ -21,9 +21,9 @@ export async function middleware(req: NextRequest) {
   // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค, Log API และข้ามการตรวจสอบสำหรับ /api/chat ที่มีการ polling ตลอดเวลา
   if (url.pathname === '/api/admin/blocked-ips' || url.pathname === '/api/logs' || url.pathname === '/api/chat') return NextResponse.next();
 
-  // 🛡️ ดึง IP อย่างปลอดภัย: ใช้แค่ IP ตัวแรกจาก x-forwarded-for (ป้องกัน spoofing บางส่วน)
+  // 🛡️ ดึง IP อย่างปลอดภัย: ใช้แค่ IP ตัวแรกจาก x-forwarded-for และตัด ::ffff: ออก (ถ้ามี)
   const rawIp = req.headers.get('x-forwarded-for') || 'Unknown';
-  const ip = rawIp.split(',')[0].trim();
+  const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
 
   // 🛡️ 0. ตรวจสอบ IP Blocklist
   try {

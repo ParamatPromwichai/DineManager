@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     // 🛡️ Rate Limiting: จำกัดการส่ง Forgot Password สูงสุด 3 ครั้ง/15 นาที ต่อ IP
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim().replace(/^::ffff:/, '') || 'unknown';
     const [rateLimitResult]: any = await db.query(
       "SELECT COUNT(id) as cnt FROM system_logs WHERE action = 'forgot_password' AND ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
       [ip]

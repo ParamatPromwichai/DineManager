@@ -8,7 +8,8 @@ export async function POST(req: Request) {
   const { username, password, recaptchaToken } = await req.json();
   
   // 🌐 ดึง IP และข้อมูลเบราว์เซอร์
-  const ip = req.headers.get('x-forwarded-for') || 'unknown';
+  const rawIp = req.headers.get('x-forwarded-for') || 'unknown';
+  const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
   if (!username || !password || !recaptchaToken) {

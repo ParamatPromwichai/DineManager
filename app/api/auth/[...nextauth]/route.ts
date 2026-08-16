@@ -28,7 +28,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         // ดึง IP (ถ้าหาไม่เจอให้ใส่ unknown)
-        const ip = req.headers?.['x-forwarded-for'] || 'unknown';
+        const rawIp = req.headers?.['x-forwarded-for'] || 'unknown';
+        const ip = rawIp.split(',')[0].trim().replace(/^::ffff:/, '');
         const userAgent = req.headers?.['user-agent'] || 'unknown';
 
         // 🛡️ เช็ค reCAPTCHA (ดึง key จาก env เท่านั้น ห้าม hardcode)
@@ -233,7 +234,8 @@ export const authOptions: NextAuthOptions = {
 
       // 🛡️ ระบบดึง IP และ User Agent เพื่อบันทึกไว้ (แต่ไม่เตะออกถ้าเปลี่ยน ป้องกันปัญหาผู้ใช้เน็ตมือถือ IP เด้ง)
       const headersList = await headers();
-      const currentIp = headersList.get('x-forwarded-for') || 'unknown';
+      const rawCurrentIp = headersList.get('x-forwarded-for') || 'unknown';
+      const currentIp = rawCurrentIp.split(',')[0].trim().replace(/^::ffff:/, '');
       const currentUserAgent = headersList.get('user-agent') || 'unknown';
 
       if (user) {
