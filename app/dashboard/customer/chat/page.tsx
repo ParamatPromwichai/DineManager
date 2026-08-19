@@ -5,6 +5,30 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react"; // ➕ 1. นำเข้า useSession
 import { Send, Trash2, ArrowLeft, Bot, User, Zap, Sparkles, Check, Clock, ChevronDown, MoreVertical, X } from "lucide-react";
 
+function mergeChatMessages(serverMessages: any[], localMessages: any[]) {
+  const server = Array.isArray(serverMessages) ? serverMessages : [];
+  const pendingLocalMessages = localMessages.filter(
+    (message) => message.pending && message.sender === "user"
+  );
+
+  const pendingNotYetPersisted = pendingLocalMessages.filter((pending) => {
+    return !server.some((saved) => {
+      if (saved.sender !== "user" || String(saved.text || "") !== String(pending.text || "")) {
+        return false;
+      }
+
+      if (!pending.created_at || !saved.created_at) return true;
+      return new Date(saved.created_at).getTime() >= new Date(pending.created_at).getTime() - 5000;
+    });
+  });
+
+  return [...server, ...pendingNotYetPersisted].sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return aTime - bTime;
+  });
+}
+
 export default function ChatPage() {
   const router = useRouter();
   
@@ -27,7 +51,10 @@ export default function ChatPage() {
     return false;
   });
   const isSendingRef = useRef(isSending);
+  const pendingUserTextRef = useRef<string | null>(null);
+  const pendingReplyRef = useRef<string | null>(null);
   const [isBotEnabled, setIsBotEnabled] = useState(true);
+  const pendingResponder: string = "bot";
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   
@@ -55,6 +82,32 @@ export default function ChatPage() {
       try {
         const res = await fetch(`/api/chat?user_id=${userId}`);
         const data = await res.json();
+
+        // Keep the waiting bubble visible until the chatbot reply is actually
+        // persisted and returned by the history endpoint.
+        if (isSendingRef.current && pendingUserTextRef.current && pendingReplyRef.current) {
+          const pendingUserText = pendingUserTextRef.current.trim();
+          const pendingReply = pendingReplyRef.current.trim();
+          let pendingUserIndex = -1;
+
+          data.forEach((message: any, index: number) => {
+            if (message.sender === "user" && String(message.text || "").trim() === pendingUserText) {
+              pendingUserIndex = index;
+            }
+          });
+
+          const replyPersisted = pendingUserIndex >= 0 && data.slice(pendingUserIndex + 1).some(
+            (message: any) => message.sender !== "user" && String(message.text || "").trim() === pendingReply
+          );
+
+          if (replyPersisted) {
+            pendingUserTextRef.current = null;
+            pendingReplyRef.current = null;
+            setIsSending(false);
+            isSendingRef.current = false;
+            if (typeof window !== "undefined") sessionStorage.setItem("chat_isSending", "false");
+          }
+        }
         
         setMessages((prev) => {
           if (isSendingRef.current && prev.length > 0) {
@@ -68,14 +121,11 @@ export default function ChatPage() {
                 return [...data, optimisticUserMsg];
               } else {
                 // บอทตอบกลับและบันทึกลง DB แล้ว
-                setIsSending(false);
-                isSendingRef.current = false;
-                if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
-                return data;
+                return mergeChatMessages(data, prev);
               }
             }
           }
-          return data || [];
+          return mergeChatMessages(data || [], prev);
         });
       } catch (err) {
         console.error(err);
@@ -251,14 +301,24 @@ export default function ChatPage() {
   const sendMessage = async () => {
     if (!input.trim() || !userId || isSending) return;
 
+    const currentInput = input;
+
     setIsSending(true);
     isSendingRef.current = true;
-    
-    const currentInput = input;
+    pendingUserTextRef.current = currentInput;
+    pendingReplyRef.current = null;
     
     setInput("");
 
-    setMessages((prev) => [...prev, { sender: "user", text: currentInput, created_at: new Date().toISOString() }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: "user",
+        text: currentInput,
+        created_at: new Date().toISOString(),
+        pending: true,
+      },
+    ]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -267,7 +327,8 @@ export default function ChatPage() {
         body: JSON.stringify({ message: currentInput, user_id: userId, disable_bot: !isBotEnabled }),
       });
       const data = await res.json();
-      if (data.reply) {
+      if (res.ok && data.reply) {
+        pendingReplyRef.current = String(data.reply);
         setMessages((prev) => {
           // แทนที่ข้อความสุดท้ายด้วยข้อความของบอท (หรือเก็บไว้ถ้าจะให้ fetchHistory ดึงมาแทน)
           // เนื่องจาก fetchHistory จะดึงมาอยู่แล้ว เราแค่ set สถานะว่าส่งเสร็จแล้วก็พอ
@@ -276,11 +337,18 @@ export default function ChatPage() {
         // บังคับให้โหลดใหม่ทันที
         const histRes = await fetch(`/api/chat?user_id=${userId}`);
         const histData = await histRes.json();
-        setMessages(histData);
+        setMessages((prev) => mergeChatMessages(histData, prev));
+      } else {
+        pendingUserTextRef.current = null;
+        pendingReplyRef.current = null;
+        setIsSending(false);
+        isSendingRef.current = false;
+        if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
       }
     } catch (err) {
       console.error(err);
-    } finally {
+      pendingUserTextRef.current = null;
+      pendingReplyRef.current = null;
       setIsSending(false);
       isSendingRef.current = false;
       if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
@@ -388,7 +456,7 @@ export default function ChatPage() {
             }
 
             const isLastMessage = i === messages.length - 1;
-            const isCurrentlySending = isUser && isLastMessage && isSending;
+            const isCurrentlySending = isUser && (msg.pending || (isLastMessage && isSending));
 
             return (
               <div key={i} className="flex flex-col">
@@ -468,13 +536,29 @@ export default function ChatPage() {
 
           {isSending && (
             <div className="flex justify-start items-end gap-2">
-              <div className="w-7 h-7 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center border border-blue-100 dark:border-slate-700 shrink-0 transition-colors">
-                <Bot size={16} className="text-blue-600 dark:text-blue-400" />
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center border shrink-0 transition-colors ${
+                pendingResponder === "shop"
+                  ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400"
+                  : pendingResponder === "groq"
+                    ? "bg-fuchsia-50 dark:bg-fuchsia-900/30 border-fuchsia-200 dark:border-fuchsia-800 text-fuchsia-500"
+                    : pendingResponder === "gemini"
+                      ? "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-500"
+                      : "bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700 text-blue-600 dark:text-blue-400"
+              }`}>
+                {pendingResponder === "shop" ? <User size={16} /> : pendingResponder === "groq" ? <Zap size={16} /> : pendingResponder === "gemini" ? <Sparkles size={16} /> : <Bot size={16} />}
               </div>
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px_20px_20px_4px] shadow-sm border border-blue-100 dark:border-slate-700 flex gap-[5px] transition-colors">
-                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.32s]"></span>
-                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.16s]"></span>
-                 <span className="w-1.5 h-1.5 bg-blue-300 dark:bg-slate-500 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both]"></span>
+              <div className={`p-4 rounded-[20px_20px_20px_4px] shadow-sm border flex gap-[5px] transition-colors ${
+                pendingResponder === "shop"
+                  ? "bg-blue-100 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800"
+                  : pendingResponder === "groq"
+                    ? "bg-gradient-to-br from-fuchsia-50 to-purple-50 dark:from-fuchsia-900/20 dark:to-purple-900/20 border-purple-200 dark:border-purple-800"
+                    : pendingResponder === "gemini"
+                      ? "bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-amber-200 dark:border-amber-800"
+                      : "bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-700"
+              }`}>
+                 <span className={`w-1.5 h-1.5 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.32s] ${pendingResponder === "shop" ? "bg-blue-500" : pendingResponder === "groq" ? "bg-fuchsia-500" : pendingResponder === "gemini" ? "bg-amber-500" : "bg-blue-300 dark:bg-slate-500"}`}></span>
+                 <span className={`w-1.5 h-1.5 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] delay-[-0.16s] ${pendingResponder === "shop" ? "bg-blue-500" : pendingResponder === "groq" ? "bg-fuchsia-500" : pendingResponder === "gemini" ? "bg-amber-500" : "bg-blue-300 dark:bg-slate-500"}`}></span>
+                 <span className={`w-1.5 h-1.5 rounded-full animate-[bounce_1.4s_infinite_ease-in-out_both] ${pendingResponder === "shop" ? "bg-blue-500" : pendingResponder === "groq" ? "bg-fuchsia-500" : pendingResponder === "gemini" ? "bg-amber-500" : "bg-blue-300 dark:bg-slate-500"}`}></span>
               </div>
             </div>
           )}

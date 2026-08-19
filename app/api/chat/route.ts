@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 async function getAuthorizedCustomerId(requestedUserId: string | null) {
   if (!requestedUserId) return null;
@@ -117,6 +118,7 @@ export async function POST(req: Request) {
 
     // 🔥🔥🔥 เรียก Flask ไปเลย
     const chatbotApiUrl = process.env.CHATBOT_API_URL || "https://chatbotdinemanager.vercel.app/chat";
+    const chatbotTimeoutMs = Number(process.env.CHATBOT_TIMEOUT_MS || 60000);
     const flaskRes = await fetch(chatbotApiUrl, {
       method: "POST",
       headers: {
@@ -126,7 +128,9 @@ export async function POST(req: Request) {
         message: message,
         user_id: customerId,
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(
+        Number.isFinite(chatbotTimeoutMs) && chatbotTimeoutMs > 0 ? chatbotTimeoutMs : 60000
+      ),
     });
 
     if (!flaskRes.ok) {
