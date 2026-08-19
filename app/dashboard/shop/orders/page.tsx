@@ -294,20 +294,18 @@ export default function ManageOrdersPage() {
 
   const displayedOnlineOrders = useMemo(() => {
     let list = allActiveOrders.filter(o => o.order_type === 'online' || !o.order_type);
-    list = list.filter(o => o.status !== 'pending'); // 🚨 ซ่อนออเดอร์ที่ยังไม่กดรับ
     if (activeTab !== 'all') list = list.filter(o => o.status === activeTab);
     return list;
   }, [allActiveOrders, activeTab]);
 
   const displayedDineInOrders = useMemo(() => {
     let list = allActiveOrders.filter(o => o.order_type === 'dine_in');
-    list = list.filter(o => o.status !== 'pending'); // 🚨 ซ่อนออเดอร์ที่ยังไม่กดรับ
     if (activeTab !== 'all') list = list.filter(o => o.status === activeTab);
     return list;
   }, [allActiveOrders, activeTab]);
 
   const getTabCount = (status: string) => {
-    if (status === 'all') return allActiveOrders.filter(o => o.status !== 'pending').length;
+    if (status === 'all') return allActiveOrders.length;
     return allActiveOrders.filter(o => o.status === status).length;
   };
 
@@ -341,7 +339,7 @@ export default function ManageOrdersPage() {
   };
 
   const handleFinishCooking = (batchId: string, menuName: string, amount: number) => {
-    let fulfilledOrderIds: number[] = [];
+    const fulfilledOrderIds: number[] = [];
     let remainingForCalc = amount;
     const cookingOrders = [...allActiveOrders].filter(o => o.status === 'cooking').sort((a, b) => a.id - b.id);
 

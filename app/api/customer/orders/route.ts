@@ -1,32 +1,55 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
+import type { RowDataPacket } from 'mysql2';
 import { db } from '@/lib/db';
-import { getServerSession } from 'next-auth'; // ➕ นำเข้า getServerSession
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'; // ➕ นำเข้า authOptions
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-export async function GET(req: Request) {
+type SessionUser = {
+  id?: number | string;
+  role?: string;
+};
+
+type CustomerOrderRow = RowDataPacket & {
+  id: number;
+  user_id: number;
+  status: string;
+  items?: CustomerOrderItemRow[];
+};
+
+type CustomerOrderItemRow = RowDataPacket & {
+  menu_name: string;
+  price: number | string;
+  quantity: number;
+};
+
+type ExistingOrderRow = RowDataPacket & {
+  status: string;
+  user_id: number;
+};
+
+function getCustomerUserId(session: unknown) {
+  const user = (session as { user?: SessionUser } | null | undefined)?.user;
+  const userId = Number(user?.id);
+  return Number.isInteger(userId) && userId > 0 && user?.role === 'customer' ? userId : null;
+}
+
+export async function GET() {
   try {
-    // 1. ตรวจสอบ Session ด้วย getServerSession แทนการอ่าน Header
     const session = await getServerSession(authOptions);
-
-    // ตรวจสอบว่ามีการล็อกอินและมี ID หรือไม่
-    if (!session || !(session.user as any)?.id) {
-      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
+    const userId = getCustomerUserId(session);
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // ดึง userId ออกมาจาก Session
-    const userId = (session.user as any).id;
-
-    // 2. ดึงออเดอร์โดยใช้ userId ที่รับมา
-    const [orders]: any = await db.query(
+    const [orders] = await db.query<CustomerOrderRow[]>(
       'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
       [userId]
     );
 
-    // ดึงรายการอาหารของแต่ละออเดอร์
     for (const order of orders) {
-      const [items]: any = await db.query(
+      const [items] = await db.query<CustomerOrderItemRow[]>(
         'SELECT menu_name, price, quantity FROM order_items WHERE order_id = ?',
         [order.id]
       );
@@ -35,7 +58,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(orders);
   } catch (error) {
-    console.error("GET Customer Orders Error:", error);
+    console.error('GET Customer Orders Error:', error);
     return NextResponse.json({ message: 'Error fetching orders' }, { status: 500 });
   }
 }
@@ -43,25 +66,23 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any)?.id) {
-      return NextResponse.json({ message: 'Unauthorized / กรุณาเข้าสู่ระบบ' }, { status: 401 });
+    const userId = getCustomerUserId(session);
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
     const { id, status, cancel_reason } = await req.json();
-
     if (status !== 'cancel') {
       return NextResponse.json({ message: 'Invalid status update' }, { status: 400 });
     }
 
-    // เช็คว่าออเดอร์นี้เป็นของลูกค้านี้จริง และสถานะอนุญาตให้ยกเลิกได้
-    const [existingRows]: any = await db.query(
+    const [existingRows] = await db.query<ExistingOrderRow[]>(
       'SELECT status, user_id FROM orders WHERE id = ?',
       [id]
     );
-    
-    const order = existingRows?.[0];
-    if (!order || order.user_id !== userId) {
+
+    const order = existingRows[0];
+    if (!order || Number(order.user_id) !== userId) {
       return NextResponse.json({ message: 'Order not found or unauthorized' }, { status: 404 });
     }
 
@@ -76,7 +97,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ message: 'Order cancelled successfully' });
   } catch (error) {
-    console.error("PUT Customer Order Error:", error);
+    console.error('PUT Customer Order Error:', error);
     return NextResponse.json({ message: 'Error updating order' }, { status: 500 });
   }
 }

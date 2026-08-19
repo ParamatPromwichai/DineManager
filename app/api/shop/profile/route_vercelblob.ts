@@ -39,7 +39,7 @@ export async function PUT(req: Request) {
         longitude = ?
     `;
     
-    let queryParams: any[] = [
+    const queryParams: any[] = [
       name, open_time, close_time, is_open, 
       bank_name, account_number, account_name, 
       latitude, longitude

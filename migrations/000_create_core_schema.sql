@@ -1,0 +1,207 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) DEFAULT NULL,
+  role ENUM('customer', 'shop', 'admin') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  phone VARCHAR(20) DEFAULT NULL,
+  address TEXT DEFAULT NULL,
+  latitude DECIMAL(10,7) DEFAULT NULL,
+  longitude DECIMAL(10,7) DEFAULT NULL,
+  name VARCHAR(255) DEFAULT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  failed_attempts INT DEFAULT 0,
+  is_locked TINYINT(1) DEFAULT 0,
+  reset_token VARCHAR(255) DEFAULT NULL,
+  reset_token_expires DATETIME DEFAULT NULL,
+  last_active_at TIMESTAMP NULL
+);
+
+CREATE TABLE IF NOT EXISTS shops (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  is_open TINYINT(1) DEFAULT 1,
+  open_time TIME DEFAULT NULL,
+  close_time TIME DEFAULT NULL,
+  bank_name VARCHAR(100) DEFAULT NULL,
+  account_number VARCHAR(50) DEFAULT NULL,
+  account_name VARCHAR(100) DEFAULT NULL,
+  qr_image VARCHAR(255) DEFAULT NULL,
+  latitude DECIMAL(10,7) DEFAULT NULL,
+  longitude DECIMAL(10,7) DEFAULT NULL,
+  address VARCHAR(255) DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  sort_order INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS menus (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  category_id INT DEFAULT NULL,
+  name VARCHAR(100) NOT NULL,
+  description TEXT DEFAULT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  image VARCHAR(255) DEFAULT NULL,
+  is_recommended TINYINT(1) DEFAULT 0,
+  is_sold_out TINYINT(1) DEFAULT 0,
+  addon_option_ids JSON DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS menu_options (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  menu_id INT NOT NULL,
+  option_group VARCHAR(100) NOT NULL,
+  option_name VARCHAR(100) NOT NULL,
+  extra_price DECIMAL(10,2) DEFAULT 0,
+  is_multiple TINYINT(1) DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS global_options (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  option_group VARCHAR(100) NOT NULL,
+  option_name VARCHAR(100) NOT NULL,
+  extra_price DECIMAL(10,2) DEFAULT 0,
+  is_multiple TINYINT(1) DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS tables (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
+  capacity INT NOT NULL,
+  is_occupied TINYINT(1) DEFAULT 0,
+  session_token VARCHAR(255) DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id INT DEFAULT NULL,
+  total_price DECIMAL(10,2) NOT NULL,
+  delivery_fee DECIMAL(10,2) DEFAULT 0,
+  status ENUM('pending', 'checking_slip', 'cooking', 'delivery', 'done', 'cancel') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  phone VARCHAR(20) DEFAULT NULL,
+  address TEXT DEFAULT NULL,
+  latitude DECIMAL(10,7) DEFAULT NULL,
+  longitude DECIMAL(10,7) DEFAULT NULL,
+  payment_method ENUM('qr', 'cod') NOT NULL,
+  payment_status ENUM('pending', 'paid') DEFAULT 'pending',
+  slip_image LONGTEXT DEFAULT NULL,
+  order_type VARCHAR(50) DEFAULT 'online',
+  table_id INT DEFAULT NULL,
+  session_token VARCHAR(255) DEFAULT NULL,
+  cancel_reason VARCHAR(255) DEFAULT NULL,
+  cancelled_by VARCHAR(50) DEFAULT NULL,
+  cooking_at TIMESTAMP NULL,
+  delivery_at TIMESTAMP NULL,
+  done_at TIMESTAMP NULL,
+  distance_km DECIMAL(10,2) DEFAULT 0,
+  cooking_time_min INT DEFAULT 0,
+  delivery_time_min INT DEFAULT 0,
+  total_time_min INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  menu_id INT DEFAULT NULL,
+  menu_name VARCHAR(100) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  quantity INT NOT NULL,
+  cooked_quantity INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS reservations (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  pax INT NOT NULL,
+  reservation_time DATETIME NOT NULL,
+  status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  table_id INT DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  user_id INT DEFAULT NULL,
+  menu_id INT DEFAULT NULL,
+  rating INT DEFAULT NULL,
+  comment TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_edited TINYINT(1) DEFAULT 0,
+  shop_reply TEXT DEFAULT NULL,
+  is_shop_reply_edited TINYINT(1) DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS chats (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  sender ENUM('user', 'bot', 'shop') NOT NULL DEFAULT 'user',
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS queue_status (
+  id INT NOT NULL PRIMARY KEY,
+  remaining_queue INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS menu_stats (
+  menu_id INT NOT NULL PRIMARY KEY,
+  order_count INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS quick_ingredients (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  icon VARCHAR(50) DEFAULT NULL,
+  color VARCHAR(50) DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kitchen_batches (
+  batch_id VARCHAR(100) NOT NULL PRIMARY KEY,
+  menu_name VARCHAR(100) NOT NULL,
+  amount INT NOT NULL DEFAULT 0,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  order_ids LONGTEXT DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS blocked_ips (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ip_address VARCHAR(45) NOT NULL UNIQUE,
+  reason VARCHAR(255) DEFAULT NULL,
+  blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS login_logs (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(255) NOT NULL,
+  user_id INT DEFAULT NULL,
+  ip_address VARCHAR(100) DEFAULT NULL,
+  user_agent TEXT DEFAULT NULL,
+  status VARCHAR(50) NOT NULL,
+  fail_reason TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_logs (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id INT DEFAULT NULL,
+  role VARCHAR(50) DEFAULT NULL,
+  action VARCHAR(100) NOT NULL,
+  details TEXT DEFAULT NULL,
+  ip_address VARCHAR(45) DEFAULT NULL,
+  user_agent TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+  setting_value TEXT NOT NULL,
+  description TEXT DEFAULT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

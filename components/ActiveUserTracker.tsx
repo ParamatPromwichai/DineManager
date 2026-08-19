@@ -2,47 +2,53 @@
 
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
 
 export default function ActiveUserTracker() {
   const { status } = useSession();
-  const pathname = usePathname();
 
   useEffect(() => {
-    // ใช้งานเฉพาะตอนล็อกอินเท่านั้น
     if (status !== 'authenticated') return;
+
+    const controller = new AbortController();
 
     const sendHeartbeat = async () => {
       try {
-        await fetch('/api/user/heartbeat', {
+        const response = await fetch('/api/user/heartbeat', {
           method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal,
         });
-      } catch (error) {
-        console.error('Failed to send heartbeat', error);
+
+        if (!response.ok && response.status !== 401) {
+          console.warn('Failed to send heartbeat', response.status);
+        }
+      } catch {
+        // Browser lifecycle/network races are expected during navigation, reloads, and tab closing.
       }
     };
 
-    // ส่ง Heartbeat ทันทีเมื่อโหลดคอมโพเนนต์ (หรือเปลี่ยนหน้า)
     sendHeartbeat();
+    const intervalId = window.setInterval(sendHeartbeat, 60_000);
 
-    // ส่ง Heartbeat ทุกๆ 1 นาที (60000 ms)
-    const intervalId = setInterval(sendHeartbeat, 60000);
+    const sendOffline = () => {
+      if (navigator.sendBeacon('/api/user/offline')) return;
 
-    // เมื่อผู้ใช้ปิดหน้าเว็บ ปิดแท็บ หรือเปลี่ยนโดเมน ให้ส่งสัญญาณว่าออฟไลน์ทันที
-    const handleUnload = () => {
-      // ใช้ fetch แบบ keepalive เพื่อให้ยิง API ออกไปแม้เบราว์เซอร์จะถูกปิด
-      fetch('/api/user/offline', { method: 'POST', keepalive: true }).catch(() => {});
+      fetch('/api/user/offline', {
+        method: 'POST',
+        keepalive: true,
+        credentials: 'same-origin',
+      }).catch(() => {});
     };
 
-    window.addEventListener('pagehide', handleUnload);
-    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', sendOffline);
 
     return () => {
-      clearInterval(intervalId);
-      window.removeEventListener('pagehide', handleUnload);
-      window.removeEventListener('beforeunload', handleUnload);
+      controller.abort();
+      window.clearInterval(intervalId);
+      window.removeEventListener('pagehide', sendOffline);
     };
-  }, [status, pathname]);
+  }, [status]);
 
-  return null; // Component นี้ไม่มี UI
+  return null;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { queryWithRetry } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -13,7 +13,7 @@ export async function POST() {
     const userId = (session.user as any).id;
     
     // อัปเดตเวลาใช้งานล่าสุด (last_active_at) ของผู้ใช้คนนี้
-    await db.query(
+    await queryWithRetry(
       'UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?',
       [userId]
     );

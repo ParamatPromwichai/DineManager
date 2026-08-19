@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"; 
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials"; // ➕ นำเข้า Credentials Provider
-import { db } from "@/lib/db";
+import { db, queryWithRetry } from "@/lib/db";
 import { cookies, headers } from "next/headers"; 
 import bcrypt from 'bcrypt'; // ➕ นำเข้า bcrypt สำหรับเช็ครหัสผ่าน
 
@@ -244,11 +244,14 @@ export const authOptions: NextAuthOptions = {
       }
 
       // 🚨 ตรวจสอบสถานะการแบน (is_locked) และ โหมดปรับปรุงระบบ (Maintenance) ตลอดการใช้งาน
-      if (token && token.id) {
+      const securityCheckAge = Date.now() - Number((token as any).lastSecurityCheck || 0);
+      const shouldCheckSecurity = Boolean(user) || securityCheckAge >= 60000;
+
+      if (token && token.id && shouldCheckSecurity) {
         try {
           const [checkLockResult, maintenanceResult] = await Promise.all([
-            db.query("SELECT is_locked FROM users WHERE id = ?", [token.id]),
-            db.query("SELECT setting_value FROM system_settings WHERE setting_key = 'maintenance_mode'")
+            queryWithRetry("SELECT is_locked FROM users WHERE id = ?", [token.id]),
+            queryWithRetry("SELECT setting_value FROM system_settings WHERE setting_key = 'maintenance_mode'")
           ]);
           
           const checkLock: any = checkLockResult[0];
@@ -261,6 +264,8 @@ export const authOptions: NextAuthOptions = {
           if (isLocked || (isMaintenance && token.role !== 'admin')) {
             return { exp: 1 } as any; // ตั้งค่าให้ token หมดอายุทันที เพื่อให้เบราว์เซอร์ลบคุกกี้ทิ้ง
           }
+
+          (token as any).lastSecurityCheck = Date.now();
         } catch (error) {
           console.error("Error checking lock/maintenance status in JWT:", error);
         }

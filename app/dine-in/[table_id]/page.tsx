@@ -34,6 +34,8 @@ type CartItem = Menu & {
   cartItemId: string; 
   quantity: number;
   originalName: string;
+  selectedOptions?: MenuOption[];
+  optionNote?: string;
 };
 
 type TableData = {
@@ -413,7 +415,9 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
       name: customName,
       originalName: menu.name,
       price: calculatedOptionPrice,
-      quantity: 1
+      quantity: 1,
+      selectedOptions: Object.values(selectedOptions).flat(),
+      optionNote: optionNote.trim() || undefined
     });
   }
 

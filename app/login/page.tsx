@@ -78,7 +78,8 @@ function LoginContent() {
       return;
     }
 
-    if (typeof window === 'undefined' || !window.grecaptcha) {
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (!siteKey || typeof window === 'undefined' || !window.grecaptcha) {
       alert("ระบบความปลอดภัยกำลังโหลด กรุณารอสักครู่แล้วกดใหม่อีกครั้งครับ");
       return;
     }
@@ -86,8 +87,6 @@ function LoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
-      
       window.grecaptcha.execute(siteKey, { action: 'login' }).then(async function (token: string) {
         try {
           const res = await signIn('credentials', {
@@ -194,10 +193,12 @@ function LoginContent() {
   // 🔵 หน้าจอ Login ปกติ
   return (
     <div className="clean-container">
-      <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
-        strategy="afterInteractive" 
-      />
+      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+          strategy="afterInteractive"
+        />
+      )}
 
       <style>{`
         .clean-container { min-height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #ffffff 100%); overflow: hidden; position: relative; padding: 20px; box-sizing: border-box; font-family: 'Inter', sans-serif; }

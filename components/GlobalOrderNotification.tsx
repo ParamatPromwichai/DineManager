@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import useSWR, { mutate } from 'swr';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -13,7 +12,6 @@ type Order = { id: number; status: string; total_price: number; payment_method: 
 type AlertOrder = Order & { timeLeft: number };
 
 export default function GlobalOrderNotification() {
-  const router = useRouter();
   const [activeAlerts, setActiveAlerts] = useState<AlertOrder[]>([]);
   
   const notifiedOrders = useRef<Set<number>>(new Set());
@@ -23,6 +21,27 @@ export default function GlobalOrderNotification() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: orders } = useSWR<Order[]>('/api/shop/orders', fetcher, { refreshInterval: 3000 });
+
+  const handleAction = async (orderId: number, action: 'accept' | 'cancel', paymentMethod: string) => {
+    setActiveAlerts(prev => prev.filter(a => a.id !== orderId));
+
+    let newStatus = 'cancel';
+    if (action === 'accept') {
+      newStatus = paymentMethod === 'qr' ? 'checking_slip' : 'cooking';
+    }
+
+    try {
+      await fetch('/api/shop/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status: newStatus })
+      });
+
+      mutate('/api/shop/orders');
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    }
+  };
 
   useEffect(() => {
     if (!orders) return;
@@ -40,7 +59,7 @@ export default function GlobalOrderNotification() {
     }
 
     if (hasNew) {
-      setActiveAlerts(prev => [...prev, ...newAlerts]);
+      setTimeout(() => setActiveAlerts(prev => [...prev, ...newAlerts]), 0);
       
       // ถ้ายังไม่มีเสียงเล่นอยู่ ให้เริ่มเล่น
       if (!audioRef.current) {
@@ -52,11 +71,13 @@ export default function GlobalOrderNotification() {
     }
 
     // 🚨 Sync activeAlerts: ลบออเดอร์ที่ถูกจัดการไปแล้ว (สถานะไม่ใช่ pending) จากหน้าต่างอื่นออก
-    setActiveAlerts(prev => {
-      const pendingIds = new Set(pendingOrders.map(o => o.id));
-      const filtered = prev.filter(a => pendingIds.has(a.id));
-      return filtered.length !== prev.length ? filtered : prev;
-    });
+    setTimeout(() => {
+      setActiveAlerts(prev => {
+        const pendingIds = new Set(pendingOrders.map(o => o.id));
+        const filtered = prev.filter(a => pendingIds.has(a.id));
+        return filtered.length !== prev.length ? filtered : prev;
+      });
+    }, 0);
   }, [orders]);
 
   // ฟังก์ชันสำหรับสั่ง "หยุดเสียง"
@@ -104,28 +125,6 @@ export default function GlobalOrderNotification() {
       stopAudio(); // 🚨 หยุดเสียงถ้าหน้าต่างนี้ถูกปิดหรือเปลี่ยนหน้า
     };
   }, []);
-
-  const handleAction = async (orderId: number, action: 'accept' | 'cancel', paymentMethod: string) => {
-    // ลบออกจาก activeAlerts ทันที (Optimistic)
-    setActiveAlerts(prev => prev.filter(a => a.id !== orderId));
-    
-    let newStatus = 'cancel';
-    if (action === 'accept') {
-      newStatus = paymentMethod === 'qr' ? 'checking_slip' : 'cooking';
-    }
-    
-    try {
-      await fetch('/api/shop/orders', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: orderId, status: newStatus })
-      });
-      
-      mutate('/api/shop/orders'); // สั่งให้ทุกหน้าที่ดึงออเดอร์ ทำการ Refresh ทันที
-    } catch (error) {
-      alert('เกิดข้อผิดพลาด');
-    }
-  };
 
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] w-[90%] max-w-sm pointer-events-none">

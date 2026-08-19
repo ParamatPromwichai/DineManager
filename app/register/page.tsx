@@ -98,12 +98,18 @@ export default function CustomerRegisterPage() {
       return;
     }
 
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (!siteKey || typeof window === 'undefined' || !window.grecaptcha) {
+      alert('ระบบความปลอดภัยยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ');
+      return;
+    }
+
     setLoading(true);
 
     // 🤖 เรียกใช้ Google reCAPTCHA v3
     // * เปลี่ยน 'YOUR_RECAPTCHA_SITE_KEY' เป็น Site Key ของคุณ
     window.grecaptcha.ready(function () {
-      window.grecaptcha.execute('6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM', { action: 'register' }).then(async function (token: string) {
+      window.grecaptcha.execute(siteKey, { action: 'register' }).then(async function (token: string) {
         try {
           const res = await fetch('/api/auth/register', {
             method: 'POST',
@@ -194,7 +200,12 @@ export default function CustomerRegisterPage() {
   return (
     <div className="clean-container">
       {/* 🚀 โหลด Google reCAPTCHA Script */}
-      <Script src="https://www.google.com/recaptcha/api.js?render=6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM" strategy="beforeInteractive" />
+      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+          strategy="beforeInteractive"
+        />
+      )}
 
       <style>{`
         /* =========================================

@@ -459,10 +459,10 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
   }
 
   function handleConfirm() {
-    let addonsText = optionAddons.length > 0 ? ` +${optionAddons.join('+')}` : '';
-    let sizeText = optionSize === 'พิเศษ' ? '(พิเศษ)' : '';
-    let spicyText = `[เผ็ด${optionSpicy}]`;
-    let noteText = optionNote ? ` *${optionNote}*` : '';
+    const addonsText = optionAddons.length > 0 ? ` +${optionAddons.join('+')}` : '';
+    const sizeText = optionSize === 'พิเศษ' ? '(พิเศษ)' : '';
+    const spicyText = `[เผ็ด${optionSpicy}]`;
+    const noteText = optionNote ? ` *${optionNote}*` : '';
     
     const customName = `${menu.name} ${sizeText} ${spicyText}${addonsText}${noteText}`.trim();
     const cartItemId = `${menu.id}-${customName}`;

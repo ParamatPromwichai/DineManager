@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth'; // ➕ ตรวจสอบ Session
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { sanitizeUploadFileName, validateImageFile } from '@/lib/upload-security';
 
 export async function PUT(req: Request) {
   try {
@@ -47,7 +48,7 @@ export async function PUT(req: Request) {
         longitude = ?
     `;
     
-    let queryParams: any[] = [
+    const queryParams: any[] = [
       name, open_time, close_time, is_open, 
       bank_name, account_number, account_name, 
       latitude, longitude
@@ -57,19 +58,13 @@ export async function PUT(req: Request) {
     if (qrFile && typeof qrFile !== 'string') {
       
       // เช็คว่าเป็นไฟล์รูปภาพเท่านั้น
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!validTypes.includes(qrFile.type)) {
+      const validationError = validateImageFile(qrFile);
+      if (validationError) {
         return NextResponse.json({ message: 'Invalid file type: กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG, WEBP) เท่านั้น' }, { status: 400 });
       }
 
-      // เช็คขนาดไฟล์ (ไม่เกิน 5MB)
-      if (qrFile.size > 5 * 1024 * 1024) {
-        return NextResponse.json({ message: 'File too large: ไฟล์ต้องมีขนาดไม่เกิน 5MB' }, { status: 400 });
-      }
-
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      // ตัดอักขระพิเศษออกจากชื่อไฟล์
-      const cleanFileName = qrFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const cleanFileName = sanitizeUploadFileName(qrFile.name, 'jpg');
       const filename = `qr-${uniqueSuffix}-${cleanFileName}`;
       
       // อัปโหลดไฟล์ตรงๆ ไม่ต้องแปลงเป็น Buffer

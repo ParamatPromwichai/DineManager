@@ -9,17 +9,33 @@ function isSuspicious(val: string) {
   let decoded = val;
   try {
     decoded = decodeURIComponent(val);
-  } catch (e) {
+  } catch {
     // ข้ามไปถ้าค่า URL Encode ไม่สมบูรณ์ (เช่น 100%)
   }
   return sqlInjectionPattern.test(decoded);
 }
 
-export async function middleware(req: NextRequest) {
+function isTrustedInternalIp(ip: string) {
+  return (
+    ip === 'Unknown' ||
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)
+  );
+}
+
+export async function proxy(req: NextRequest) {
   const url = req.nextUrl.clone();
 
-  // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค, Log API และข้ามการตรวจสอบสำหรับ /api/chat ที่มีการ polling ตลอดเวลา
-  if (url.pathname === '/api/admin/blocked-ips' || url.pathname === '/api/logs' || url.pathname === '/api/chat') return NextResponse.next();
+  // ป้องกัน Loop สำหรับ API ดึงข้อมูล IP ที่ถูกบล็อค, Log API และ heartbeat polling
+  if (
+    url.pathname === '/api/admin/blocked-ips' ||
+    url.pathname === '/api/logs' ||
+    url.pathname === '/api/user/heartbeat' ||
+    url.pathname === '/api/user/offline'
+  ) return NextResponse.next();
 
   // 🛡️ ดึง IP อย่างปลอดภัย: ใช้แค่ IP ตัวแรกจาก x-forwarded-for และตัด ::ffff: ออก (ถ้ามี)
   const rawIp = req.headers.get('x-forwarded-for') || 'Unknown';
@@ -30,19 +46,19 @@ export async function middleware(req: NextRequest) {
     // ดึงข้อมูล IP ที่ถูกบล็อค โดยมีการแคช 60 วินาที
     const res = await fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, { next: { revalidate: 60 } });
     if (res.ok) {
-      const data = await res.json();
-      const blockedIps = data.ips?.map((row: any) => row.ip_address) || [];
+      const data = await res.json() as { ips?: Array<{ ip_address: string }> };
+      const blockedIps = data.ips?.map((row) => row.ip_address) || [];
       // IP ถูก trim แล้วจากด้านบน
       const clientIp = ip;
       
-      if (blockedIps.includes(clientIp) || clientIp.startsWith('192.42.116.')) {
+      if (!isTrustedInternalIp(clientIp) && (blockedIps.includes(clientIp) || clientIp.startsWith('192.42.116.'))) {
         return new NextResponse(JSON.stringify({ message: 'Forbidden: Your IP is blocked' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
         });
       }
     }
-  } catch (error) {
+  } catch {
     // ถ้า Fetch ไม่ได้ให้ปล่อยผ่านไปก่อน
   }
 
@@ -57,7 +73,10 @@ export async function middleware(req: NextRequest) {
         // บันทึก Log การโจมตีลงฐานข้อมูล (ทำงานแบบ Background ไม่รอผลลัพธ์)
         fetch(`${req.nextUrl.origin}/api/logs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-log-internal': process.env.NEXTAUTH_SECRET || ''
+          },
           body: JSON.stringify({
             action: 'waf_blocked',
             details: `Blocked SQL Injection attempt on ${url.pathname}?${key}=${value}`,
@@ -67,17 +86,19 @@ export async function middleware(req: NextRequest) {
         }).catch(() => {});
 
         // Auto-ban IP ที่พยายามโจมตี (ใช้ internal header เพื่อ bypass auth)
-        fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
-          },
-          body: JSON.stringify({
-            ip_address: ip,
-            reason: 'Auto-banned by WAF (SQL Injection/XSS)'
-          })
-        }).catch(() => {});
+        if (!isTrustedInternalIp(ip)) {
+          fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
+            },
+            body: JSON.stringify({
+              ip_address: ip,
+              reason: 'Auto-banned by WAF (SQL Injection/XSS)'
+            })
+          }).catch(() => {});
+        }
 
         return NextResponse.json({ message: 'Forbidden: Invalid Characters Detected' }, { status: 403 });
       }
@@ -119,7 +140,10 @@ export async function middleware(req: NextRequest) {
           // บันทึก Log การโจมตีลงฐานข้อมูล
           fetch(`${req.nextUrl.origin}/api/logs`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-log-internal': process.env.NEXTAUTH_SECRET || ''
+            },
             body: JSON.stringify({
               action: 'csrf_blocked',
               details: `Blocked Cross-Origin Request. Origin: ${origin}, Referer: ${referer}, Path: ${url.pathname}`,
@@ -129,17 +153,19 @@ export async function middleware(req: NextRequest) {
           }).catch(() => {});
 
           // Auto-ban IP ที่พยายามโจมตีข้ามโดเมน (ใช้ internal header)
-          fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
-            },
-            body: JSON.stringify({
-              ip_address: ip,
-              reason: 'Auto-banned by WAF (CSRF/API Abuse)'
-            })
-          }).catch(() => {});
+          if (!isTrustedInternalIp(ip)) {
+            fetch(`${req.nextUrl.origin}/api/admin/blocked-ips`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'x-waf-internal': process.env.NEXTAUTH_SECRET || ''
+              },
+              body: JSON.stringify({
+                ip_address: ip,
+                reason: 'Auto-banned by WAF (CSRF/API Abuse)'
+              })
+            }).catch(() => {});
+          }
 
           return NextResponse.json({ message: 'Forbidden: API Access Denied' }, { status: 403 });
         }

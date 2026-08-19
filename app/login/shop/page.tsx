@@ -76,7 +76,8 @@ function ShopLoginContent() {
       return;
     }
 
-    if (typeof window === 'undefined' || !window.grecaptcha) {
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (!siteKey || typeof window === 'undefined' || !window.grecaptcha) {
       alert("ระบบความปลอดภัยกำลังโหลด กรุณารอสักครู่แล้วกดใหม่อีกครั้งครับ");
       return;
     }
@@ -84,8 +85,6 @@ function ShopLoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
-
       window.grecaptcha.execute(siteKey, { action: 'login_shop' }).then(async function (token: string) {
 
         // 🚀 ให้ NextAuth จัดการล็อกอิน Username/Password ให้แทน
@@ -193,10 +192,12 @@ function ShopLoginContent() {
 
   return (
     <div className="clean-container">
-      <Script
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`}
-        strategy="afterInteractive"
-      />
+      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+          strategy="afterInteractive"
+        />
+      )}
 
       <style>{`
         .clean-container { min-height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #ffffff 100%); overflow: hidden; position: relative; padding: 20px; box-sizing: border-box; font-family: 'Inter', sans-serif; }

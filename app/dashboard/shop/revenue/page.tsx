@@ -8,7 +8,24 @@ import {
   Loader2, BarChart3, Filter, RefreshCw,
   Download, FileText, ArrowLeft
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
+const csvEscape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+
+const downloadCsv = (rows: Array<Record<string, string | number>>, fileName: string) => {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.map(csvEscape).join(','),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header] ?? '')).join(',')),
+  ].join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 import Link from 'next/link';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -139,7 +156,7 @@ export default function ShopRevenuePage() {
       groups[key] += Number(o.total_price);
     });
 
-    let chartArray = Object.keys(groups).map(k => ({ label: k, value: groups[k] }));
+    const chartArray = Object.keys(groups).map(k => ({ label: k, value: groups[k] }));
 
     // Sort logic
     if (type === 'daily') {
@@ -163,7 +180,7 @@ export default function ShopRevenuePage() {
 
   const maxVal = chartData.length > 0 ? Math.max(...chartData.map(d => d.value)) : 100;
 
-  const handleExportExcel = () => {
+  const handleExportCSV = () => {
     if (orders === 0) return alert('ไม่มีข้อมูลสำหรับส่งออก');
     
     const exportData = rawOrders.map(o => ({
@@ -174,10 +191,7 @@ export default function ShopRevenuePage() {
       'วิธีชำระเงิน': o.payment_method === 'qr' ? 'เงินโอน' : 'เงินสด'
     }));
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    XLSX.utils.book_append_sheet(wb, ws, "Revenue");
-    XLSX.writeFile(wb, `Revenue_Report_${dateParam}.xlsx`);
+    downloadCsv(exportData, `Revenue_Report_${dateParam}.csv`);
   };
 
   const handleExportPDF = () => {
@@ -277,11 +291,11 @@ export default function ShopRevenuePage() {
 
           <div className="flex flex-row shrink-0 items-center gap-2 sm:gap-3 print-hide">
             <button
-              onClick={handleExportExcel}
+              onClick={handleExportCSV}
               className="p-2 sm:px-4 sm:py-2 bg-emerald-50 border border-emerald-200 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
             >
               <Download size={18} />
-              <span className="hidden sm:inline">Excel</span>
+              <span className="hidden sm:inline">CSV</span>
             </button>
 
             <button

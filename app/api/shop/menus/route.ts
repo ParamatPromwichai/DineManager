@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { sanitizeUploadFileName, validateImageFile } from '@/lib/upload-security';
 
 // 🔍 ดึงข้อมูลเมนูทั้งหมดพร้อมตัวเลือกเสริม (GET)
 export async function GET() {
@@ -62,8 +63,12 @@ export async function POST(req: Request) {
     let imageUrl = null;
 
     if (imageFile && typeof imageFile === 'object' && imageFile.name) {
+      const validationError = validateImageFile(imageFile);
+      if (validationError) {
+        return NextResponse.json({ message: validationError }, { status: 400 });
+      }
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      const filename = `${uniqueSuffix}-${imageFile.name}`;
+      const filename = `${uniqueSuffix}-${sanitizeUploadFileName(imageFile.name, 'jpg')}`;
       const blob = await put(filename, imageFile, { access: 'public' });
       imageUrl = blob.url;
     }
@@ -106,12 +111,16 @@ export async function PUT(req: Request) {
     }
 
     let updateQuery = `UPDATE menus SET name = ?, price = ?, category_id = ?, description = ?, addon_option_ids = ?`;
-    let queryParams: any[] = [name, price, categoryId, description, addonOptionIdsStr];
+    const queryParams: any[] = [name, price, categoryId, description, addonOptionIdsStr];
 
     if (imageFile && typeof imageFile === 'object' && 'name' in imageFile) {
       const file = imageFile as File;
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        return NextResponse.json({ message: validationError }, { status: 400 });
+      }
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      const filename = `${uniqueSuffix}-${file.name}`;
+      const filename = `${uniqueSuffix}-${sanitizeUploadFileName(file.name, 'jpg')}`;
       const blob = await put(filename, file, { access: 'public' });
 
       updateQuery += `, image = ?`;
@@ -143,8 +152,8 @@ export async function PATCH(req: Request) {
 
     if (!id) return NextResponse.json({ message: 'ระบุ ID ไม่ถูกต้อง' }, { status: 400 });
 
-    let updateFields = [];
-    let queryParams = [];
+    const updateFields = [];
+    const queryParams = [];
 
     if (is_recommended !== undefined) {
       updateFields.push('is_recommended = ?');

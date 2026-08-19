@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db, queryWithRetry } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -7,7 +7,7 @@ export const revalidate = 60; // แคชผลลัพธ์ GET ไว้ 60
 
 export async function GET() {
   try {
-    const [rows]: any = await db.query('SELECT ip_address, reason, blocked_at FROM blocked_ips ORDER BY blocked_at DESC');
+    const [rows]: any = await queryWithRetry('SELECT ip_address, reason, blocked_at FROM blocked_ips ORDER BY blocked_at DESC');
     return NextResponse.json({ ips: rows });
   } catch (error) {
     console.error('Error fetching blocked IPs:', error);

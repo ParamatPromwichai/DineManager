@@ -1,8 +1,26 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import type { RowDataPacket } from 'mysql2';
+
+type QueryParam = string | number;
+type RevenueOrderRow = RowDataPacket & {
+  id: number;
+  total_price: number | string;
+  payment_method: string | null;
+  order_type: string | null;
+  created_at: Date | string;
+};
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    if (role !== 'shop' && role !== 'admin') {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'daily'; 
     const dateParam = searchParams.get('date');
@@ -12,7 +30,7 @@ export async function GET(req: Request) {
     }
 
     let query = '';
-    let queryParams: any[] = [];
+    let queryParams: QueryParam[] = [];
 
     // เลือกเงื่อนไข SQL ตามประเภทของเวลาที่ขอดู
     if (type === 'daily') {
@@ -73,7 +91,7 @@ export async function GET(req: Request) {
       queryParams = [];
     }
 
-    const [rows]: any = await db.query(query, queryParams);
+    const [rows] = await db.query<RevenueOrderRow[]>(query, queryParams);
 
     return NextResponse.json({
       orders: rows

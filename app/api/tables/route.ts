@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { validateImageDataUrl } from '@/lib/upload-security';
 
 // ฟังก์ชันช่วยเหลือสำหรับตรวจสอบสิทธิ์
 async function checkAuth(req: Request) {
@@ -20,17 +21,27 @@ async function checkAuth(req: Request) {
 // 1. ดึงข้อมูลโต๊ะทั้งหมด (เรียงตาม ID)
 export async function GET() {
   try {
-    const [tables]: any = await db.query('SELECT * FROM tables ORDER BY sort_order ASC, id ASC');
-    
-    // Auto-generate session token for occupied tables that don't have one (legacy data)
-    for (const table of tables) {
-      if (table.is_occupied && !table.session_token) {
-        table.session_token = uuidv4();
-        await db.query('UPDATE tables SET session_token = ? WHERE id = ?', [table.session_token, table.id]);
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    const canViewTokens = role === 'shop' || role === 'admin';
+    const selectFields = canViewTokens
+      ? '*'
+      : 'id, name, capacity, is_occupied, sort_order';
+    const [safeTables]: any = await db.query(
+      `SELECT ${selectFields} FROM tables ORDER BY sort_order ASC, id ASC`
+    );
+
+    if (canViewTokens) {
+      // Auto-generate session tokens only for staff views that need QR codes.
+      for (const table of safeTables) {
+        if (table.is_occupied && !table.session_token) {
+          table.session_token = uuidv4();
+          await db.query('UPDATE tables SET session_token = ? WHERE id = ?', [table.session_token, table.id]);
+        }
       }
     }
 
-    return NextResponse.json(tables);
+    return NextResponse.json(safeTables);
   } catch (error) {
     return NextResponse.json({ message: 'Database Error' }, { status: 500 });
   }
@@ -111,13 +122,42 @@ export async function PUT(req: Request) {
         );
 
         if (slip_image) {
+          const slipValidationError = validateImageDataUrl(slip_image);
+          if (slipValidationError) {
+            return NextResponse.json({ message: slipValidationError }, { status: 400 });
+          }
           await db.query(
-            "UPDATE orders SET slip_image = ?, status = 'done', done_at = CURRENT_TIMESTAMP WHERE table_id = ? AND status = 'delivery'",
+            `UPDATE orders SET
+              slip_image = ?,
+              status = 'done',
+              done_at = CURRENT_TIMESTAMP,
+              cooking_time_min = CASE
+                WHEN cooking_at IS NULL THEN cooking_time_min
+                ELSE GREATEST(0, TIMESTAMPDIFF(MINUTE, cooking_at, COALESCE(delivery_at, CURRENT_TIMESTAMP)))
+              END,
+              delivery_time_min = CASE
+                WHEN delivery_at IS NULL THEN 0
+                ELSE GREATEST(0, TIMESTAMPDIFF(MINUTE, delivery_at, CURRENT_TIMESTAMP))
+              END,
+              total_time_min = GREATEST(0, TIMESTAMPDIFF(MINUTE, created_at, CURRENT_TIMESTAMP))
+             WHERE table_id = ? AND status = 'delivery'`,
             [slip_image, id]
           );
         } else {
           await db.query(
-            "UPDATE orders SET status = 'done', done_at = CURRENT_TIMESTAMP WHERE table_id = ? AND status = 'delivery'",
+            `UPDATE orders SET
+              status = 'done',
+              done_at = CURRENT_TIMESTAMP,
+              cooking_time_min = CASE
+                WHEN cooking_at IS NULL THEN cooking_time_min
+                ELSE GREATEST(0, TIMESTAMPDIFF(MINUTE, cooking_at, COALESCE(delivery_at, CURRENT_TIMESTAMP)))
+              END,
+              delivery_time_min = CASE
+                WHEN delivery_at IS NULL THEN 0
+                ELSE GREATEST(0, TIMESTAMPDIFF(MINUTE, delivery_at, CURRENT_TIMESTAMP))
+              END,
+              total_time_min = GREATEST(0, TIMESTAMPDIFF(MINUTE, created_at, CURRENT_TIMESTAMP))
+             WHERE table_id = ? AND status = 'delivery'`,
             [id]
           );
         }

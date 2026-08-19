@@ -11,7 +11,60 @@ import {
   Utensils, Beef, Flame, Drumstick, Fish, Waves, Heart,
   Loader2, Search, Anchor, ChevronDown, ChevronUp, AlignLeft, ListPlus, FileSpreadsheet, Download, FolderOpen
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
+const csvEscape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+
+const downloadCsv = (rows: Array<Record<string, string | number>>, fileName: string) => {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const csv = [
+    headers.map(csvEscape).join(','),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header] ?? '')).join(',')),
+  ].join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const parseCsv = (text: string) => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      i++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i++;
+      row.push(cell);
+      if (row.some((value) => value.trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim() !== '')) rows.push(row);
+
+  const [headers = [], ...body] = rows;
+  return body.map((values) => Object.fromEntries(headers.map((header, index) => [header.trim(), values[index]?.trim() ?? ''])));
+};
 
 // 🟢 เพิ่ม Type สำหรับตัวเลือกเสริมและหมวดหมู่
 type MenuOption = {
@@ -310,48 +363,41 @@ export default function ManageMenusPage() {
     }
   };
 
-  // 📝 จัดการ Bulk Excel Upload
+  // 📝 จัดการ Bulk CSV Upload
   const handleDownloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([{
-      'ชื่อเมนู': 'ข้าวผัดกะเพราหมูสับ',
-      'ราคา': 50,
-      'หมวดหมู่': 'อาหารจานเดียว',
-      'รายละเอียด': 'เผ็ดน้อย'
-    }]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Menus");
-    XLSX.writeFile(wb, "Template_Menus.xlsx");
+    downloadCsv([{
+      name: 'Sample Menu',
+      price: 50,
+      category: 'Main Dish',
+      description: 'Optional description'
+    }], "Template_Menus.csv");
   };
 
-  const processExcelFile = (file: File) => {
+  const processCsvFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        
+        const data = parseCsv(String(evt.target?.result ?? ''));
+
         const parsedMenus = data.map((row: any) => ({
-          name: row['ชื่อเมนู'] || row['name'] || '',
-          price: row['ราคา'] || row['price'] || 0,
-          categoryName: row['หมวดหมู่'] || row['category'] || '',
-          description: row['รายละเอียด'] || row['description'] || ''
+          name: row['????????'] || row['name'] || '',
+          price: row['????'] || row['price'] || 0,
+          categoryName: row['????????'] || row['category'] || '',
+          description: row['??????????'] || row['description'] || ''
         })).filter((m) => m.name && m.price !== undefined);
 
         setBulkMenusPreview(parsedMenus);
       } catch (err) {
-        alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel กรุณาลองใหม่อีกครั้ง');
+        alert('??????????????????????????? CSV ????????????????????');
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsText(file, 'utf-8');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    processExcelFile(file);
+    processCsvFile(file);
     e.target.value = ''; // reset input
   };
 
@@ -367,7 +413,7 @@ export default function ManageMenusPage() {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) processExcelFile(file);
+    if (file) processCsvFile(file);
   };
 
   const handlePreviewChange = (index: number, field: string, value: string | number) => {
@@ -399,7 +445,7 @@ export default function ManageMenusPage() {
       fetchMenus();
       alert('เพิ่มเมนูสำเร็จ!');
     } catch (error: any) {
-      alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel กรุณาลองใหม่อีกครั้ง');
+      alert('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsUploadingBulk(false);
     }
@@ -535,7 +581,7 @@ export default function ManageMenusPage() {
             onClick={() => setIsBulkUploadModalOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500 text-white border-none px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-[13px] sm:text-sm hover:bg-emerald-600 transition-colors shadow-sm whitespace-nowrap"
           >
-            <FileSpreadsheet size={18} className="shrink-0" /> <span className="hidden sm:inline">อัปโหลด Excel</span><span className="sm:hidden">Excel</span>
+            <FileSpreadsheet size={18} className="shrink-0" /> <span className="hidden sm:inline">อัปโหลด CSV</span><span className="sm:hidden">CSV</span>
           </button>
           <button
             onClick={handleOpenAdd}
@@ -1007,14 +1053,14 @@ export default function ManageMenusPage() {
         </div>
       )}
 
-      {/* 🚀 Modal อัปโหลด Excel */}
+      {/* 🚀 Modal อัปโหลด CSV */}
       {isBulkUploadModalOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}>
           <div style={{ background: 'white', width: '90%', maxWidth: '700px', borderRadius: '24px', padding: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b', margin: 0 }}>
-                <FileSpreadsheet size={24} color="#10b981" /> เพิ่มหลายเมนูผ่าน Excel
+                <FileSpreadsheet size={24} color="#10b981" /> เพิ่มหลายเมนูผ่าน CSV
               </h2>
               <button onClick={() => { setIsBulkUploadModalOpen(false); setBulkMenusPreview([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '50%', color: '#94a3b8' }}>
                 <X size={20} />
@@ -1049,13 +1095,13 @@ export default function ManageMenusPage() {
                 <UploadCloud size={48} color={isDragging ? '#2563eb' : '#94a3b8'} />
                 <div>
                   <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#334155', fontSize: '1.1rem' }}>
-                    ลากไฟล์ Excel (.xlsx, .csv) มาวางที่นี่
+                    ลากไฟล์ CSV (.csv) มาวางที่นี่
                   </p>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>หรือ</p>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                   <FolderOpen size={16} /> เลือกไฟล์จากเครื่อง
-                  <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} onChange={handleFileUpload} />
+                  <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={handleFileUpload} />
                 </label>
               </div>
             )}

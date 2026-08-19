@@ -34,7 +34,8 @@ function AdminLoginContent() {
       return;
     }
 
-    if (typeof window === 'undefined' || !window.grecaptcha) {
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (!siteKey || typeof window === 'undefined' || !window.grecaptcha) {
       alert("ระบบความปลอดภัยกำลังโหลด กรุณารอสักครู่แล้วกดใหม่อีกครั้งครับ");
       return;
     }
@@ -42,8 +43,6 @@ function AdminLoginContent() {
     setLoading(true);
 
     window.grecaptcha.ready(function () {
-      const siteKey = (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM') as string;
-      
       window.grecaptcha.execute(siteKey, { action: 'login_admin' }).then(async function (token: string) {
         
         try {
@@ -94,10 +93,12 @@ function AdminLoginContent() {
 
   return (
     <div className="clean-container">
-      <Script 
-        src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LcajQEtAAAAAISMrtkRin24xKI-TjaKRn_sb-XM'}`} 
-        strategy="afterInteractive" 
-      />
+      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+        <Script
+          src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+          strategy="afterInteractive"
+        />
+      )}
 
       <style>{`
         /* เปลี่ยนพื้นหลังหน้า Admin ให้ดูเคร่งขรึมและพรีเมียมขึ้น (โทนเทา-ดำ) */
