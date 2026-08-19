@@ -1,11 +1,12 @@
 # DineManager production deployment
 
-This deployment includes the restaurant system only. The separate `chatbotdinemanager` service and customer chatbot route are intentionally excluded.
+This deployment includes the restaurant system and customer chatbot. The chatbot service is external and must remain reachable from the DineManager server.
 
 ## Required services
 
 - A MySQL-compatible database such as TiDB Serverless.
 - Vercel Blob for menu/QR image uploads, or a later migration to Azure Blob Storage.
+- The `chatbotdinemanager` service at `CHATBOT_API_URL` for customer chatbot replies.
 - SMTP credentials for password-reset email.
 - Google OAuth and reCAPTCHA credentials if those login protections are enabled.
 
@@ -14,6 +15,8 @@ This deployment includes the restaurant system only. The separate `chatbotdinema
 Copy `.env.example` into the deployment secret store and set every value. Never commit `.env.local`.
 
 `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` must point to the production database. `JWT_SECRET`, `NEXTAUTH_SECRET`, and `ADMIN_SECRET_KEY` must be long random values. Set `NEXTAUTH_URL` to the public HTTPS URL.
+
+Set `CHATBOT_API_URL` to the reachable chatbot endpoint. The default is `https://chatbotdinemanager.vercel.app/chat`.
 
 ## Database bootstrap
 
@@ -63,4 +66,4 @@ curl http://127.0.0.1:3000/api/health
 
 Configure the reverse proxy (IIS/Nginx) to forward HTTPS traffic to port 3000. Keep the application behind HTTPS and do not expose the Node.js port directly to the public internet.
 
-Before exposing the service, set production secrets, run the database bootstrap, and verify login, menu, order, payment-slip, shop-dashboard, and password-reset flows in staging.
+Before exposing the service, set production secrets, run the database bootstrap, and verify login, menu, order, payment-slip, shop-dashboard, password-reset, and customer-chatbot flows in staging.

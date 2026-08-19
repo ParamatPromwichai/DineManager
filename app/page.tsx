@@ -199,7 +199,7 @@ export default function Home() {
         </div>
 
         <div className={styles.grid}>
-          {features.filter((feature) => feature.icon.type !== Bot).map((feature, index) => (
+          {features.map((feature, index) => (
             <div key={index} className={styles.card}>
               <div className={styles.cardIcon}>
                 {feature.icon}
