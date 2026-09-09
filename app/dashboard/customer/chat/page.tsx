@@ -12,7 +12,7 @@ function mergeChatMessages(serverMessages: any[], localMessages: any[]) {
   );
 
   const pendingNotYetPersisted = pendingLocalMessages.filter((pending) => {
-    return !server.some((saved) => {
+    const isMatched = server.some((saved) => {
       if (saved.sender !== "user" || String(saved.text || "") !== String(pending.text || "")) {
         return false;
       }
@@ -20,6 +20,15 @@ function mergeChatMessages(serverMessages: any[], localMessages: any[]) {
       if (!pending.created_at || !saved.created_at) return true;
       return new Date(saved.created_at).getTime() >= new Date(pending.created_at).getTime() - 5000;
     });
+    
+    if (isMatched) return false;
+    
+    // ถ้าเกิน 65 วินาทีแล้วยังไม่ลง DB ให้ถือว่าส่งไม่สำเร็จและซ่อนไป (API timeout คือ 60s)
+    if (pending.created_at) {
+      const age = new Date().getTime() - new Date(pending.created_at).getTime();
+      if (age > 65000) return false;
+    }
+    return true;
   });
 
   return [...server, ...pendingNotYetPersisted].sort((a, b) => {
@@ -38,18 +47,19 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('chat_messages');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          return [];
+        }
+      }
     }
     return [];
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isSending, setIsSending] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('chat_isSending') === 'true';
-    }
-    return false;
-  });
+  const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(isSending);
   const pendingUserTextRef = useRef<string | null>(null);
   const pendingReplyRef = useRef<string | null>(null);
@@ -155,10 +165,7 @@ export default function ChatPage() {
   }, [messages, userId]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('chat_isSending', isSending ? 'true' : 'false');
-      isSendingRef.current = isSending;
-    }
+    isSendingRef.current = isSending;
   }, [isSending]);
 
   useEffect(() => {
@@ -328,22 +335,22 @@ export default function ChatPage() {
       });
       const data = await res.json();
       if (res.ok && data.reply) {
-        pendingReplyRef.current = String(data.reply);
-        setMessages((prev) => {
-          // แทนที่ข้อความสุดท้ายด้วยข้อความของบอท (หรือเก็บไว้ถ้าจะให้ fetchHistory ดึงมาแทน)
-          // เนื่องจาก fetchHistory จะดึงมาอยู่แล้ว เราแค่ set สถานะว่าส่งเสร็จแล้วก็พอ
-          return prev;
-        });
+        setMessages((prev) => prev); // keep optimistic update if needed
         // บังคับให้โหลดใหม่ทันที
         const histRes = await fetch(`/api/chat?user_id=${userId}`);
         const histData = await histRes.json();
         setMessages((prev) => mergeChatMessages(histData, prev));
+        
+        // เคลียร์สถานะการส่งทันทีเมื่อ API ตอบกลับเสร็จสมบูรณ์
+        pendingUserTextRef.current = null;
+        pendingReplyRef.current = null;
+        setIsSending(false);
+        isSendingRef.current = false;
       } else {
         pendingUserTextRef.current = null;
         pendingReplyRef.current = null;
         setIsSending(false);
         isSendingRef.current = false;
-        if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
       }
     } catch (err) {
       console.error(err);
@@ -351,7 +358,6 @@ export default function ChatPage() {
       pendingReplyRef.current = null;
       setIsSending(false);
       isSendingRef.current = false;
-      if (typeof window !== 'undefined') sessionStorage.setItem('chat_isSending', 'false');
     }
   };
 
