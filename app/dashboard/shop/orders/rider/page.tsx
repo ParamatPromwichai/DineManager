@@ -6,6 +6,10 @@ import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
 import { MapPin, Phone, User, Check, Truck, Clock, Camera, UploadCloud, X, ImageOff, ArrowLeft, RefreshCw, AlertCircle, CookingPot, ChevronDown, ChevronUp, Flame } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
+
+const DeliveryMap = dynamic(() => import('@/components/DeliveryMap'), { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center bg-slate-100 rounded-2xl animate-pulse"><div className="text-slate-400 font-medium">กำลังโหลดแผนที่...</div></div> });
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -70,6 +74,42 @@ export default function RiderOrdersPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({});
 
+  // Pull to refresh state
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const startY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startY.current = e.touches[0].clientY;
+    } else {
+      startY.current = 0;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startY.current === 0) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startY.current;
+    if (diff > 0 && window.scrollY === 0) {
+      setPullY(Math.min(diff * 0.4, 80));
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullY > 50) {
+      setIsRefreshing(true);
+      setPullY(60);
+      await mutate();
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullY(0);
+      }, 600);
+    } else {
+      setPullY(0);
+    }
+    startY.current = 0;
+  };
   // Delivery Photo State
   const [notifyDeliveryOrder, setNotifyDeliveryOrder] = useState<Order | null>(null);
   const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
@@ -228,43 +268,87 @@ export default function RiderOrdersPage() {
   }
 
   return (
-    <div className="bg-slate-50 text-slate-900 font-sans min-h-screen pb-20">
-      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 space-y-5">
-        
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0 w-full lg:w-auto">
-            <Link href="/dashboard/shop/orders" className="shrink-0 flex items-center justify-center gap-2 p-2.5 sm:px-5 sm:py-2 bg-slate-900 text-white rounded-xl sm:rounded-full font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm">
-              <ArrowLeft size={18} />
-              <span className="hidden sm:inline">กลับ</span>
-            </Link>
-            <div className="hidden sm:block w-px h-10 bg-slate-200"></div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2 truncate">
-                <Truck size={24} className="text-blue-600 shrink-0" />
-                <span className="truncate">จัดการออเดอร์ไรเดอร์</span>
-              </h1>
+    <div 
+      className="bg-slate-50 text-slate-900 font-sans min-h-screen pb-20 relative"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ transform: `translateY(${pullY}px)`, transition: isRefreshing || pullY === 0 ? 'transform 0.3s ease-out' : 'none' }}
+    >
+      {/* Pull to refresh indicator */}
+      <div className="absolute left-0 right-0 top-[-60px] h-[60px] flex items-center justify-center">
+        {isRefreshing ? (
+           <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        ) : (
+           <div className={`transition-transform duration-200 ${pullY > 50 ? 'rotate-180 text-emerald-500' : 'text-slate-400'}`}>
+             <RefreshCw size={20} />
+           </div>
+        )}
+      </div>
+      
+      {/* 🗺️ แผนที่รวมจุดส่ง (Overview Map) - วางไว้บนสุด เต็มขอบในมือถือ */}
+      {deliveryOrders.filter(o => o.latitude && o.longitude).length > 0 && (
+        <div className="w-full max-w-5xl mx-auto sm:px-6 sticky top-0 z-40 bg-slate-50 sm:pt-6 sm:pb-2">
+          <div className="w-full h-[220px] sm:h-[300px] relative shadow-md sm:rounded-3xl overflow-hidden border-b sm:border border-slate-200">
+            {/* ปุ่มย้อนกลับ (สีจางๆ วางลอยบนแผนที่แบบ Fixed ทำให้เลื่อนจอลงมาก็ยังอยู่) */}
+            <div className="absolute top-4 left-4 z-[999]">
+              <Link href="/dashboard/shop/orders" className="flex items-center justify-center w-10 h-10 bg-white/70 backdrop-blur-sm text-slate-700 rounded-full shadow hover:bg-white/90 transition-colors">
+                <ArrowLeft size={20} />
+              </Link>
             </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row w-full lg:w-auto items-center gap-3 min-w-0">
-            <button onClick={() => mutate()} className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 rounded-xl font-bold transition-colors shadow-sm">
-              <RefreshCw size={18} />
-              <span className="sm:hidden lg:inline">รีเฟรชข้อมูล</span>
-            </button>
+
+          <DeliveryMap 
+            locations={deliveryOrders.filter(o => o.latitude && o.longitude).map(o => ({
+              id: o.id,
+              lat: o.latitude as number,
+              lng: o.longitude as number,
+              address: o.address || '',
+              customerName: o.customer_name
+            }))}
+            shopLocation={shopData?.latitude && shopData?.longitude ? { lat: Number(shopData.latitude), lng: Number(shopData.longitude) } : undefined}
+            focusedLocationId={Object.keys(expandedOrders).find(key => expandedOrders[Number(key)]) ? Number(Object.keys(expandedOrders).find(key => expandedOrders[Number(key)])) : undefined}
+          />
           </div>
         </div>
+      )}
+
+      {/* ถ้าไม่มีพิกัดเลย ให้แสดงส่วนหัวปกติ */}
+      {deliveryOrders.filter(o => o.latitude && o.longitude).length === 0 && (
+        <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-8 space-y-5">
+          <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <Link href="/dashboard/shop/orders" className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-full font-medium text-sm hover:bg-slate-200 transition-colors">
+              <ArrowLeft size={18} />
+              กลับ
+            </Link>
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-800 flex items-center gap-2">
+              <Truck size={24} className="text-blue-600 shrink-0" />
+              จัดการออเดอร์ไรเดอร์
+            </h1>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-4 space-y-3">
+
+
+
 
         {/* ออเดอร์ที่พร้อมจัดส่ง (Delivery) */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg text-emerald-700 flex items-center gap-1.5">
-              <Check size={18} /> พร้อมจัดส่ง
-            </h2>
-            <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">
-              {deliveryOrders.length} ออเดอร์
-            </span>
+        <div className="mb-3 bg-white rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+              <Truck size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800 leading-tight">พร้อมจัดส่ง</h2>
+              <p className="text-[10px] font-medium text-slate-500 mt-0.5">ไรเดอร์เตรียมรับของ</p>
+            </div>
           </div>
+          <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-100">
+            <span className="text-xl font-black text-emerald-600 leading-none">{deliveryOrders.length}</span>
+            <span className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">ออเดอร์</span>
+          </div>
+        </div>
 
           <div className="space-y-4">
             {deliveryOrders.length === 0 ? (
@@ -272,7 +356,7 @@ export default function RiderOrdersPage() {
                 <p className="text-slate-400 font-medium text-sm">ไม่มีออเดอร์ที่รอจัดส่ง</p>
               </div>
             ) : (
-              deliveryOrders.map(order => {
+              deliveryOrders.map((order, index) => {
                 let isLate = false;
                 let lateMinutesStr: string | null = null;
                 let remainingMinsStr: string | null = null;
@@ -302,7 +386,10 @@ export default function RiderOrdersPage() {
                 }
 
                 return (
-                <div 
+                <motion.div 
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + (index * 0.1), ease: "easeOut" }}
                   key={order.id} 
                   className={`bg-white rounded-2xl border ${isLate ? 'border-rose-300' : 'border-emerald-200'} shadow-sm overflow-hidden relative cursor-pointer`}
                   onClick={() => setExpandedOrders(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
@@ -320,6 +407,9 @@ export default function RiderOrdersPage() {
                           ) : (
                             <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">เงินสด</span>
                           )}
+                          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                          </span>
                           {!isLate && remainingMinsStr && (
                             <span className="text-xs font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 flex items-center gap-1">
                               <Clock size={12} /> เหลือ {remainingMinsStr}
@@ -340,15 +430,17 @@ export default function RiderOrdersPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2 text-slate-700">
-                      <MapPin size={16} className="text-red-500 mt-0.5 shrink-0" /> 
-                      {order.latitude && order.longitude ? (
-                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="font-bold text-sm leading-snug text-blue-600 hover:underline">
-                          {order.address || 'ดูแผนที่'}
-                        </a>
-                      ) : (
-                        <span className="font-bold text-sm leading-snug">{order.address || 'ไม่ระบุที่อยู่'}</span>
-                      )}
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                      <div className="flex items-start gap-2 text-slate-700">
+                        <MapPin size={16} className="text-red-500 mt-0.5 shrink-0" /> 
+                        {order.latitude && order.longitude ? (
+                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="font-bold text-sm leading-snug text-blue-600 hover:underline">
+                            {order.address || `${order.latitude}, ${order.longitude}`}
+                          </a>
+                        ) : (
+                          <span className="font-bold text-sm leading-snug">{order.address || 'ไม่ระบุที่อยู่'}</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Expandable Content */}
@@ -394,13 +486,11 @@ export default function RiderOrdersPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                  </motion.div>
                 );
               })
             )}
           </div>
-        </div>
-
         {/* ออเดอร์ที่อยู่ในครัว (Kitchen) */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -418,8 +508,11 @@ export default function RiderOrdersPage() {
                 <p className="text-slate-400 font-medium text-sm">ไม่มีออเดอร์ในครัว</p>
               </div>
             ) : (
-              kitchenOrders.map(order => (
-                <div 
+              kitchenOrders.map((order, index) => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + (index * 0.1), ease: "easeOut" }}
                   key={order.id} 
                   className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => setExpandedOrders(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
@@ -431,16 +524,21 @@ export default function RiderOrdersPage() {
                         <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-2 py-0.5 rounded-md border border-orange-200">
                           {order.status === 'cooking' ? 'กำลังปรุง' : order.status === 'pending' ? 'รอรับออเดอร์' : 'รอตรวจสลิป'}
                         </span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                        </span>
                       </div>
-                      <div className="flex items-start gap-2 text-slate-600 pr-2">
-                        <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" /> 
-                        {order.latitude && order.longitude ? (
-                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="font-bold text-sm leading-snug text-blue-600 hover:underline">
-                            {order.address || 'ดูแผนที่'}
-                          </a>
-                        ) : (
-                          <span className="font-bold text-sm leading-snug">{order.address || 'ไม่ระบุที่อยู่'}</span>
-                        )}
+                      <div className="flex flex-col gap-2 w-full mt-2 pr-2">
+                        <div className="flex items-start gap-2 text-slate-600">
+                          <MapPin size={16} className="text-slate-400 mt-0.5 shrink-0" /> 
+                          {order.latitude && order.longitude ? (
+                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="font-bold text-sm leading-snug text-blue-600 hover:underline">
+                              {order.address || `${order.latitude}, ${order.longitude}`}
+                            </a>
+                          ) : (
+                            <span className="font-bold text-sm leading-snug">{order.address || 'ไม่ระบุที่อยู่'}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -461,7 +559,7 @@ export default function RiderOrdersPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))
             )}
           </div>

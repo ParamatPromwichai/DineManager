@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
-import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, ImageOff, Camera, UploadCloud, X, MessageCircle } from 'lucide-react';
+import { Search, Calendar, User, Phone, MapPin, ChevronDown, ChevronUp, CheckCircle2, CircleDashed, CookingPot, Truck, Check, RefreshCw, AlertCircle, List, Clock, Receipt, XCircle, History, ImageOff, Camera, UploadCloud, X, MessageCircle, Maximize2, Minimize2 } from 'lucide-react';
 import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -15,6 +15,7 @@ type ActiveBatch = {
   amount: number;
   status?: 'cooking' | 'done';
   orderIds?: number[];
+  orderIdsText?: string;
 };
 
 type OrderItem = {
@@ -59,11 +60,13 @@ export default function ManageOrdersPage() {
 
   const orders = fetchedOrders || [];
   const [slipPopupOrder, setSlipPopupOrder] = useState<Order | null>(null);
+  const [fullscreenSlip, setFullscreenSlip] = useState<string | null>(null);
   const [cookedItems, setCookedItems] = useState<Record<number, Record<string, number>>>({});
   const [doneInputs, setDoneInputs] = useState<Record<string, number>>({});
   const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
   const [readyPopupOrder, setReadyPopupOrder] = useState<Order | null>(null);
   const [cancelPopupOrder, setCancelPopupOrder] = useState<Order | null>(null);
+  const [cancelBatchPopup, setCancelBatchPopup] = useState<{ batchId: string, menuName: string, amount: number } | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('');
   const promptedOrders = useRef<Set<number>>(new Set());
 
@@ -73,6 +76,7 @@ export default function ManageOrdersPage() {
   const [activeTab, setActiveTab] = useState<string>('all');
   const [mobileView, setMobileView] = useState<'online' | 'kitchen' | 'dine_in'>('online');
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [isKitchenExpanded, setIsKitchenExpanded] = useState(false);
 
   const [codPaymentOrder, setCodPaymentOrder] = useState<Order | null>(null);
   const [codPaymentMethod, setCodPaymentMethod] = useState<'qr' | 'cash' | ''>('');
@@ -276,7 +280,7 @@ export default function ManageOrdersPage() {
   // 🕰️ กรองออเดอร์ และจัดเรียงลำดับใหม่
   const allActiveOrders = useMemo(() => {
     return orders.filter(order => {
-      return order.status !== 'done' && order.status !== 'cancel';
+      return order.status !== 'done' && order.status !== 'cancel' && order.status !== 'delivery' && order.status !== 'pending';
     }).sort((a, b) => {
       const getStatusWeight = (status: string) => {
         if (status === 'pending') return 0;
@@ -323,8 +327,42 @@ export default function ManageOrdersPage() {
     });
   };
 
-  const handleStartCooking = (menuName: string, amount: number) => {
-    setActiveBatches(prev => [...prev, { id: Date.now().toString() + Math.random(), menuName, amount }]);
+  const handleStartCooking = (menuName: string, amount: number, _ignored?: string) => {
+    let currentlyCooking = 0;
+    activeBatches.forEach(b => {
+      if (b.status !== 'done' && b.menuName === menuName) {
+        currentlyCooking += Number(b.amount || 0);
+      }
+    });
+
+    const cookingOrders = [...allActiveOrders].filter(o => o.status === 'cooking').sort((a, b) => a.id - b.id);
+    let remainingToAllocate = amount;
+    const allocatedOrders: { id: number, type: string, table?: string }[] = [];
+
+    for (const order of cookingOrders) {
+      if (remainingToAllocate <= 0) break;
+      const orderItem = order.items.find(i => i.menu_name === menuName);
+      if (!orderItem) continue;
+
+      const cooked = Number(cookedItems[order.id]?.[menuName] || 0);
+      let needed = Number(orderItem.quantity) - cooked;
+
+      if (needed > 0 && currentlyCooking > 0) {
+        const skipped = Math.min(needed, currentlyCooking);
+        needed -= skipped;
+        currentlyCooking -= skipped;
+      }
+
+      if (needed > 0) {
+        const allocate = Math.min(needed, remainingToAllocate);
+        remainingToAllocate -= allocate;
+        allocatedOrders.push({ id: order.id, type: order.order_type || 'online', table: order.table_name });
+      }
+    }
+
+    const orderIds = allocatedOrders.map(o => o.id);
+
+    setActiveBatches(prev => [...prev, { id: Date.now().toString() + Math.random(), menuName, amount, orderIds }]);
     setDoneInputs(prev => {
       const next = { ...prev };
       delete next[menuName];
@@ -333,9 +371,7 @@ export default function ManageOrdersPage() {
   };
 
   const handleCancelBatch = (batchId: string, menuName: string, amount: number) => {
-    if (window.confirm(`ต้องการยกเลิกการทำเมนู "${menuName}" จำนวน ${amount} ใช่หรือไม่?`)) {
-      setActiveBatches(prev => prev.filter(b => b.id !== batchId));
-    }
+    setCancelBatchPopup({ batchId, menuName, amount });
   };
 
   const handleFinishCooking = (batchId: string, menuName: string, amount: number) => {
@@ -380,24 +416,8 @@ export default function ManageOrdersPage() {
       return next;
     });
 
-    setActiveBatches(prev => prev.map(b => b.id === batchId ? { ...b, status: 'done', orderIds: fulfilledOrderIds } : b));
+    setActiveBatches(prev => prev.filter(b => b.id !== batchId));
   };
-
-  useEffect(() => {
-    setActiveBatches(prev => {
-      const next = prev.filter(batch => {
-        if (batch.status !== 'done') return true;
-        if (!batch.orderIds || batch.orderIds.length === 0) return false;
-        const hasCookingOrder = batch.orderIds.some(id => {
-          const order = allActiveOrders.find(o => o.id === id);
-          return order && order.status === 'cooking';
-        });
-        return hasCookingOrder;
-      });
-      if (prev.length !== next.length) return next;
-      return prev;
-    });
-  }, [allActiveOrders]);
 
   useEffect(() => {
     if (readyPopupOrder) return;
@@ -537,12 +557,77 @@ export default function ManageOrdersPage() {
 
     const isFinishedState = order.status === 'done' || order.status === 'cancel' || order.status === 'delivery';
 
+    if (isKitchenExpanded) {
+      return (
+        <div key={order.id} className={`bg-white rounded-xl border shadow-sm flex flex-col transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200' : 'border-slate-200'} ${isFinishedState ? 'opacity-50' : ''}`}>
+          
+          {order.status === 'checking_slip' ? (
+            <div className="bg-indigo-500 animate-pulse text-white text-[10px] font-bold px-3 py-1.5 flex items-center justify-between rounded-t-[0.65rem] shadow-sm">
+              <div className="flex items-center gap-1">
+                <Receipt size={12} /> 
+                <span>ตรวจสอบสลิป</span>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setSlipPopupOrder(order); }} className="bg-white text-indigo-600 px-2 py-0.5 rounded text-[9px] hover:bg-indigo-50 transition-colors shadow-sm">
+                ดูสลิป
+              </button>
+            </div>
+          ) : isPendingCooking && (
+            <div className={`text-white text-[10px] font-bold px-3 py-1 flex items-center justify-between rounded-t-[0.65rem] ${
+              isDelayed ? 'bg-rose-500 animate-pulse' : 
+              remainingMinutes <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}>
+              <div className="flex items-center gap-1">
+                <Clock size={12} /> 
+                {isDelayed ? 'ล่าช้า' : remainingMinutes <= 3 ? 'ใกล้ถึงกำหนด' : 'กำลังดำเนินการ'}
+              </div>
+              <div>
+                {isDelayed ? `(เลยเวลา ${Math.abs(remainingMinutes)} นาที)` : `(เหลือ ${remainingMinutes} นาที)`}
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 flex flex-col gap-2">
+            <div className="flex justify-between items-start">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-black text-slate-900 text-sm">#{order.id} {order.table_name ? `(โต๊ะ ${order.table_name})` : ''}</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium">{new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            <div className="mt-1">
+              <div className="text-[11px] text-slate-600 font-medium line-clamp-2 leading-relaxed">
+                {order.items.map(item => `${item.menu_name} x${item.quantity}`).join(', ')}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={order.id} className={`bg-white rounded-2xl border transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200 shadow-sm' : 'border-slate-200 shadow-sm hover:shadow-md'} ${isFinishedState ? 'opacity-60 hover:opacity-100' : ''}`}>
 
-        {isDelayed && (
-          <div className="bg-red-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5 animate-pulse rounded-t-2xl">
-            <AlertCircle size={14} /> ออเดอร์นี้ล่าช้า (เกินเวลา {Math.abs(remainingMinutes)} นาที)
+        {order.status === 'checking_slip' ? (
+          <div className="bg-indigo-500 animate-pulse text-white text-xs font-bold px-4 py-2 flex items-center justify-between rounded-t-2xl shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <Receipt size={14} /> 
+              <span>ต้องตรวจสอบสลิปโอนเงิน</span>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setSlipPopupOrder(order); }} className="bg-white text-indigo-600 px-3 py-1 rounded-md text-[10px] font-black hover:bg-indigo-50 transition-colors shadow-sm">
+              ดูสลิปเดี๋ยวนี้
+            </button>
+          </div>
+        ) : isPendingCooking && (
+          <div className={`text-white text-xs font-bold px-4 py-1.5 flex items-center justify-between rounded-t-2xl ${
+            isDelayed ? 'bg-rose-500 animate-pulse' : 
+            remainingMinutes <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
+          }`}>
+            <div className="flex items-center gap-1.5">
+              <Clock size={14} /> 
+              {isDelayed ? 'ออเดอร์ล่าช้า' : remainingMinutes <= 3 ? 'ใกล้ถึงกำหนดส่ง' : 'กำลังดำเนินการ'}
+            </div>
+            <div>
+              {isDelayed ? `(เลยเวลา ${Math.abs(remainingMinutes)} นาที)` : `(เหลือ ${remainingMinutes} นาที)`}
+            </div>
           </div>
         )}
 
@@ -556,12 +641,6 @@ export default function ManageOrdersPage() {
                 <span className={`${isOrderExpanded ? 'text-lg' : 'text-base'} font-black ${isFinishedState ? 'text-slate-600' : 'text-slate-900'}`}>#{order.id}</span>
                 {getStatusBadge(order.status)}
 
-                {isPendingCooking && (
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm whitespace-nowrap border ${isDelayed ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                    {isDelayed ? `เลยเวลา ${Math.abs(remainingMinutes)} นาที` : `เหลือ ${remainingMinutes} นาที`}
-                  </span>
-                )}
-
                 {isOverdue && (
                   <span className="flex items-center gap-1 text-[10px] bg-rose-50 text-rose-600 px-2 py-1 rounded-md font-bold border border-rose-100">
                     <AlertCircle size={12} /> ค้างจากเมื่อวาน
@@ -569,13 +648,11 @@ export default function ManageOrdersPage() {
                 )}
               </div>
 
-              {isOrderExpanded && (
-                <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
-                  <span>{new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
-                  <span>•</span>
-                  {order.payment_method === 'qr' ? <span className={isFinishedState ? 'text-slate-400' : 'text-indigo-500'}>โอนเงิน</span> : <span className="text-slate-500">เงินสด</span>}
-                </div>
-              )}
+              <div className="flex items-center gap-3 text-xs font-semibold text-slate-400">
+                <span>{new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>•</span>
+                {order.payment_method === 'qr' ? <span className={isFinishedState ? 'text-slate-400' : 'text-indigo-500'}>โอนเงิน</span> : <span className="text-slate-500">เงินสด</span>}
+              </div>
             </div>
 
             <div className="text-right flex items-center gap-2">
@@ -759,13 +836,43 @@ export default function ManageOrdersPage() {
       <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-6 flex flex-col flex-1 lg:h-full lg:min-h-0">
 
         {/* 🌟 Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 shrink-0">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">รายการออเดอร์</h1>
-            <p className="text-sm text-slate-500 mt-1">จัดการออเดอร์และคิวทำอาหารแบบเรียลไทม์</p>
+        {/* 🌟 Header */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4">
+          
+          <div className="flex flex-col gap-0.5 min-w-fit">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 shrink-0">รายการออเดอร์</h1>
+            <p className="text-sm text-slate-500 whitespace-nowrap">จัดการออเดอร์และคิวทำอาหารแบบเรียลไทม์</p>
+          </div>
+          
+          {/* --- แถบสถานะ (Global) --- */}
+          <div className="flex overflow-x-auto gap-2 pb-1 xl:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden flex-1 justify-start xl:justify-center w-full xl:w-auto">
+            {[
+              { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
+              { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
+              { id: 'cooking', label: 'กำลังปรุง', icon: <CookingPot size={16} className="sm:hidden" /> }
+            ].map(tab => {
+              const count = getTabCount(tab.id);
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${isActive
+                    ? 'bg-slate-900 text-white shadow-md'
+                    : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
+                    }`}
+                >
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center justify-start xl:justify-end gap-3 min-w-fit w-full xl:w-auto">
             <Link
               href="/dashboard/shop/orders/rider"
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-all"
@@ -782,37 +889,6 @@ export default function ManageOrdersPage() {
               <RefreshCw size={18} className="text-slate-600" />
             </button>
           </div>
-        </div>
-
-
-        {/* --- แถบสถานะ (Global) --- */}
-        {/* --- ส่วนรายการออเดอร์ --- */}
-        <div className="flex overflow-x-auto gap-2 pb-3 mb-4 -mx-4 px-4 sm:mx-0 sm:px-1 sm:pb-4 shrink-0 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
-          {[
-            { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
-            { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
-            { id: 'cooking', label: 'กำลังปรุง', icon: <CookingPot size={16} className="sm:hidden" /> },
-            { id: 'delivery', label: 'กำลังจัดส่ง', icon: <Truck size={16} className="sm:hidden" /> }
-          ].map(tab => {
-            const count = getTabCount(tab.id);
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${isActive
-                  ? 'bg-slate-900 text-white shadow-md'
-                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700'
-                  }`}
-              >
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold ${isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
         </div>
 
         {/* แถบเมนูสำหรับหน้าจอเล็ก (Mobile View Selector) */}
@@ -841,10 +917,10 @@ export default function ManageOrdersPage() {
         </div>
 
         {/* 🌟 3-Column Layout สำหรับออเดอร์ */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 lg:min-h-0 pb-4">
+        <div className={`grid grid-cols-1 ${isKitchenExpanded ? 'lg:grid-cols-[1fr_4fr_1fr]' : 'lg:grid-cols-3'} gap-6 mt-4 flex-1 lg:min-h-0 pb-4 transition-all duration-300 ease-in-out`}>
 
           {/* คอลัมน์ 1: ออเดอร์ออนไลน์ */}
-          <div className={`bg-slate-100 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'online' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className={`bg-indigo-50/30 border border-indigo-100/50 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'online' ? 'flex' : 'hidden lg:flex'}`}>
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-indigo-900 shrink-0">
               <Truck size={20} /> ออเดอร์ออนไลน์
               <span className="bg-indigo-200/50 text-indigo-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
@@ -864,19 +940,26 @@ export default function ManageOrdersPage() {
           </div>
 
           {/* คอลัมน์ 2: Smart Kitchen */}
-          <div className={`bg-white rounded-3xl shadow-sm border-2 border-slate-200 lg:h-full flex-col lg:overflow-hidden ${mobileView === 'kitchen' ? 'flex' : 'hidden lg:flex'}`}>
-            <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 rounded-t-[1.3rem] flex items-center justify-between shrink-0">
+          <div className={`bg-white rounded-3xl shadow-xl shadow-slate-900/10 border-2 border-slate-900 lg:h-full flex-col lg:overflow-hidden relative z-10 lg:scale-[1.02] ${mobileView === 'kitchen' ? 'flex' : 'hidden lg:flex'}`}>
+            <div className="bg-slate-900 px-5 py-4 rounded-t-[1.3rem] flex items-center justify-between shrink-0 shadow-sm">
               <div className="flex items-center gap-2">
-                <CookingPot size={22} className="text-slate-700" />
-                <h3 className="text-slate-800 font-bold text-lg flex-1">คิวหน้าเตา (Smart Kitchen)</h3>
-                <span className="bg-slate-200 text-slate-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
-                  {batchSuggestions.length + activeBatches.length}
+                <CookingPot size={22} className="text-white" />
+                <h3 className="text-white font-bold text-lg flex-1">คิวหน้าเตา (Smart Kitchen)</h3>
+                <span className="bg-white text-slate-900 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
+                  {batchSuggestions.length + activeBatches.filter(b => b.status !== 'done').length}
                 </span>
+                <button 
+                  onClick={() => setIsKitchenExpanded(!isKitchenExpanded)}
+                  className="hidden lg:flex ml-2 p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer"
+                  title={isKitchenExpanded ? "ย่อขนาด" : "ขยายเต็มจอ"}
+                >
+                  {isKitchenExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
               </div>
             </div>
             <div className="p-2 lg:overflow-y-auto pb-4 flex-1 lg:min-h-0">
               {/* 👨‍🍳 Smart Kitchen */}
-              {(batchSuggestions.length > 0 || activeBatches.length > 0) && (
+              {(batchSuggestions.length > 0 || activeBatches.some(b => b.status !== 'done')) && (
                 <div className="h-full flex flex-col">
                   <div className="hidden">
                     <div className="flex items-center gap-2">
@@ -914,44 +997,69 @@ export default function ManageOrdersPage() {
                     )}
 
                     {/* === รายการที่กำลังทำอยู่ (Active Batches) === */}
-                    {activeBatches.length > 0 && (
+                    {activeBatches.some(b => b.status !== 'done') && (
                       <div className="mb-4">
                         <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">กำลังทำบนเตา</h4>
                         <div className="space-y-2">
-                          {activeBatches.map((batch) => (
-                            <div key={batch.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 border rounded-xl ${batch.status === 'done' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                          {activeBatches.filter(b => b.status !== 'done').map((batch) => {
+                            const pendingForThisBatch = allActiveOrders.filter(o => o.status === 'cooking' && o.items.some(i => {
+                              if (i.menu_name !== batch.menuName) return false;
+                              const cooked = cookedItems[o.id]?.[batch.menuName] || 0;
+                              return cooked < i.quantity;
+                            })).map(o => {
+                              const suffix = o.order_type === 'dine_in' && o.table_name ? ` (โต๊ะ ${o.table_name})` : ` (ออนไลน์)`;
+                              return `#${o.id}${suffix}`;
+                            });
+                            
+                            const displayOrderIds = (batch.orderIds && batch.orderIds.length > 0)
+                              ? batch.orderIds.map(id => {
+                                  const order = allActiveOrders.find(o => o.id === id);
+                                  if (!order) return `#${id}`;
+                                  const suffix = order.order_type === 'dine_in' && order.table_name ? ` (โต๊ะ ${order.table_name})` : ` (ออนไลน์)`;
+                                  return `#${id}${suffix}`;
+                                }).join(', ')
+                              : (pendingForThisBatch.length > 0 ? pendingForThisBatch.slice(0, batch.amount).join(', ') : '');
+
+                            return (
+                            <div key={batch.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 border rounded-xl ${batch.status === 'done' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'}`}>
                               <div>
-                                <div className={`font-bold ${batch.status === 'done' ? 'text-emerald-900' : 'text-blue-900'}`}>
-                                  {batch.menuName} <span className={`${batch.status === 'done' ? 'text-emerald-600' : 'text-blue-600'} text-sm font-bold ml-1`}>x {batch.amount}</span>
+                                <div className={`font-bold ${batch.status === 'done' ? 'text-emerald-900' : 'text-blue-900'} text-base`}>
+                                  {batch.menuName} <span className={`${batch.status === 'done' ? 'text-emerald-600' : 'text-blue-600'} text-sm font-black ml-2 bg-white/60 px-2 py-0.5 rounded-md`}>x {batch.amount}</span>
                                 </div>
                                 {batch.status === 'done' ? (
-                                  <div className="text-xs text-emerald-500 mt-0.5 flex items-center gap-1">
-                                    <CheckCircle2 size={12} /> ปรุงเสร็จแล้ว รอส่งมอบ
+                                  <div className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1.5 font-semibold">
+                                    <CheckCircle2 size={14} /> ปรุงเสร็จแล้ว รอส่งมอบ
                                   </div>
                                 ) : (
-                                  <div className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
+                                  <div className="text-xs text-blue-500 mt-1.5 flex items-center gap-1.5 font-semibold">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span> กำลังปรุง...
+                                  </div>
+                                )}
+                                {displayOrderIds && (
+                                  <div className="mt-1.5 text-[11px] text-blue-600/70 leading-relaxed font-medium">
+                                    {displayOrderIds}
                                   </div>
                                 )}
                               </div>
                               {batch.status !== 'done' && (
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 shrink-0">
                                   <button
                                     onClick={() => handleCancelBatch(batch.id, batch.menuName, batch.amount)}
-                                    className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                                    className="bg-red-50 hover:bg-red-100 text-red-600 w-20 py-2.5 rounded-xl text-base font-bold transition-colors shadow-sm shrink-0 whitespace-nowrap"
                                   >
                                     ยกเลิก
                                   </button>
                                   <button
                                     onClick={() => handleFinishCooking(batch.id, batch.menuName, batch.amount)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                                    className="bg-emerald-500 hover:bg-emerald-600 text-white w-24 py-2.5 rounded-xl text-base font-bold transition-colors shadow-sm shrink-0 whitespace-nowrap"
                                   >
                                     เสร็จแล้ว
                                   </button>
                                 </div>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -969,20 +1077,27 @@ export default function ManageOrdersPage() {
                                   <div className="font-bold text-slate-800">
                                     {sug.menuName} <span className="text-slate-500 text-sm font-medium ml-1">x {sug.total}</span>
                                   </div>
-                                  <div className="text-xs text-slate-400 mt-0.5">Order #{sug.orderIds}</div>
+                                  <details className="mt-1 group">
+                                    <summary className="text-[11px] text-slate-400 cursor-pointer list-none flex items-center gap-1 hover:text-slate-600 transition-colors">
+                                      <span className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center group-open:bg-slate-200 font-bold">i</span> 
+                                      <span className="group-open:hidden">ดูเลขออเดอร์ ({sug.total} รายการ)</span>
+                                      <span className="hidden group-open:inline">ซ่อนเลขออเดอร์</span>
+                                    </summary>
+                                    <div className="text-[11px] text-slate-500 mt-1 pl-5 leading-relaxed">{sug.orderIds}</div>
+                                  </details>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                                    <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">-</button>
-                                    <div className="px-2 font-bold text-slate-900 min-w-[30px] text-center text-sm">{currentInput}</div>
-                                    <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-3 py-1.5 hover:bg-slate-200 font-bold text-slate-600">+</button>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                                    <button onClick={() => handleAmountChange(sug.menuName, -1, sug.total)} className="px-4 py-2 hover:bg-slate-200 font-bold text-slate-600 text-lg">-</button>
+                                    <div className="px-3 font-bold text-slate-900 min-w-[36px] text-center text-base">{currentInput}</div>
+                                    <button onClick={() => handleAmountChange(sug.menuName, 1, sug.total)} className="px-4 py-2 hover:bg-slate-200 font-bold text-slate-600 text-lg">+</button>
                                   </div>
                                   <button
-                                    onClick={() => handleStartCooking(sug.menuName, currentInput)}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                                    onClick={() => handleStartCooking(sug.menuName, currentInput, sug.orderIds)}
+                                    className="bg-amber-400 hover:bg-amber-500 text-amber-950 w-24 py-2.5 rounded-xl text-base font-bold transition-colors shadow-sm shrink-0 whitespace-nowrap"
                                   >
-                                    กำลังทำ
+                                    เริ่มทำ
                                   </button>
                                 </div>
                               </div>
@@ -1000,7 +1115,7 @@ export default function ManageOrdersPage() {
           </div>
 
           {/* คอลัมน์ 3: ออเดอร์หน้าร้าน */}
-          <div className={`bg-slate-100 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'dine_in' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className={`bg-emerald-50/30 border border-emerald-100/50 p-4 rounded-3xl shadow-inner lg:h-full flex-col lg:overflow-hidden ${mobileView === 'dine_in' ? 'flex' : 'hidden lg:flex'}`}>
             <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-emerald-900 shrink-0">
               🍽️ ออเดอร์หน้าร้าน
               <span className="bg-emerald-200/50 text-emerald-700 text-sm px-2.5 py-0.5 rounded-full ml-auto font-black shadow-sm">
@@ -1130,7 +1245,12 @@ export default function ManageOrdersPage() {
             </h3>
             <p className="text-slate-500 mb-5 font-medium">Order #{slipPopupOrder.id} • <strong className="text-slate-900">฿{slipPopupOrder.total_price.toLocaleString()}</strong></p>
             {slipPopupOrder.slip_image ? (
-              <img src={slipPopupOrder.slip_image} alt="Slip" className="w-full max-h-80 object-contain rounded-xl mb-6 bg-slate-50" />
+              <img 
+                src={slipPopupOrder.slip_image} 
+                alt="Slip" 
+                className="w-full max-h-80 object-contain rounded-xl mb-6 bg-slate-50 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                onClick={() => setFullscreenSlip(slipPopupOrder.slip_image!)}
+              />
             ) : (
               <div className="py-10 bg-slate-50 text-slate-400 rounded-xl mb-6 font-bold">ไม่พบรูปสลิป</div>
             )}
@@ -1144,6 +1264,20 @@ export default function ManageOrdersPage() {
               <button onClick={() => setSlipPopupOrder(null)} className="w-full py-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-bold transition-colors">ปิด</button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 🖼️ Fullscreen Slip */}
+      {fullscreenSlip && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[99999] flex justify-center items-center cursor-zoom-out p-4"
+          onClick={() => setFullscreenSlip(null)}
+        >
+          <img 
+            src={fullscreenSlip} 
+            alt="Fullscreen Slip" 
+            className="max-w-full max-h-full object-contain"
+          />
         </div>
       )}
 
@@ -1210,6 +1344,41 @@ export default function ManageOrdersPage() {
         </div>
       )}
 
+      {/* 🛑 9. Popup ยืนยันการยกเลิกการทำอาหาร (Smart Kitchen) */}
+      {cancelBatchPopup && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
+          <div className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} />
+            </div>
+            <h3 className="text-xl text-slate-900 font-black mb-2">
+              ต้องการยกเลิกการทำเมนูนี้?
+            </h3>
+            <p className="text-slate-500 font-medium mb-6 text-sm">
+              เมนู <span className="font-bold text-slate-800">"{cancelBatchPopup.menuName}"</span><br/>จำนวน {cancelBatchPopup.amount} รายการ
+            </p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  setActiveBatches(prev => prev.filter(b => b.id !== cancelBatchPopup.batchId));
+                  setCancelBatchPopup(null);
+                }} 
+                className="w-full py-3.5 bg-rose-500 text-white hover:bg-rose-600 rounded-xl font-bold transition-colors shadow-md"
+              >
+                ยืนยันการยกเลิก
+              </button>
+              <button 
+                onClick={() => setCancelBatchPopup(null)} 
+                className="w-full py-3.5 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl font-bold transition-colors"
+              >
+                ไม่ กลับไปก่อน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

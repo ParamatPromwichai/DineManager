@@ -70,6 +70,12 @@ export async function POST(req: Request) {
     if (!phone || !address) {
       return NextResponse.json({ message: 'กรุณากรอกเบอร์โทรและที่อยู่จัดส่ง' }, { status: 400 });
     }
+    if (String(phone).length !== 10 || !String(phone).startsWith('0')) {
+      return NextResponse.json({ message: 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลักและขึ้นต้นด้วย 0)' }, { status: 400 });
+    }
+    if (String(address).length > 255) {
+      return NextResponse.json({ message: 'ที่อยู่ยาวเกินไป (สูงสุด 255 ตัวอักษร)' }, { status: 400 });
+    }
     if (paymentMethod === 'qr' && !slipImage) {
       return NextResponse.json({ message: 'กรุณาแนบสลิปโอนเงิน' }, { status: 400 });
     }
@@ -286,6 +292,12 @@ export async function PUT(req: Request) {
         { status: 400 }
       );
     }
+    if (String(phone).length !== 10 || !String(phone).startsWith('0')) {
+      return NextResponse.json({ message: 'เบอร์โทรศัพท์ไม่ถูกต้อง (ต้องมี 10 หลักและขึ้นต้นด้วย 0)' }, { status: 400 });
+    }
+    if (String(address).length > 255) {
+      return NextResponse.json({ message: 'ที่อยู่ยาวเกินไป (สูงสุด 255 ตัวอักษร)' }, { status: 400 });
+    }
 
     await db.query(
       `UPDATE users 
@@ -312,3 +324,5 @@ export async function PUT(req: Request) {
     return NextResponse.json({ message: 'Database Error' }, { status: 500 });
   }
 }
+
+

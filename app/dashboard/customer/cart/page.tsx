@@ -140,6 +140,8 @@ export default function CartPage() {
 
   async function handleConfirmOrder() {
     if (!phone || !address || !paymentMethod) { alert('กรุณากรอกข้อมูลให้ครบ'); return; }
+    if (phone.length !== 10 || !phone.startsWith('0')) { alert('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก เริ่มต้นด้วย 0)'); return; }
+    if (address.length > 255) { alert('ที่อยู่ยาวเกินไป (สูงสุด 255 ตัวอักษร)'); return; }
     if (!location) { alert('กรุณาแนบพิกัดเพื่อคำนวณค่าส่ง'); return; }
     if (paymentMethod === 'qr' && !slipImage) { alert('กรุณาแนบสลิปโอนเงิน'); return; }
     if (cart.length === 0) return;
@@ -232,9 +234,15 @@ export default function CartPage() {
             </div>
 
             {/* ข้อมูลการจัดส่ง */}
-            <div className="flex flex-col gap-3 mb-5">
-              <input type="tel" placeholder="เบอร์โทรศัพท์ติดต่อ *" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="p-3.5 border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors" />
-              <textarea placeholder="ที่อยู่จัดส่งโดยละเอียด *" value={address} onChange={e => setAddress(e.target.value)} className="p-3.5 min-h-[80px] border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-slate-400 dark:placeholder-slate-400 transition-colors" />
+            <div className="flex flex-col gap-4 mb-5">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[0.95rem] font-bold text-blue-900 dark:text-blue-100 px-1">เบอร์โทรศัพท์ติดต่อ <span className="text-rose-500">*</span></label>
+                <input type="tel" maxLength={10} placeholder="08X-XXX-XXXX" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="p-3.5 border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-blue-300 dark:placeholder-slate-400 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[0.95rem] font-bold text-blue-900 dark:text-blue-100 px-1">ที่อยู่จัดส่งโดยละเอียด <span className="text-rose-500">*</span></label>
+                <textarea maxLength={255} placeholder="บ้านเลขที่, ซอย, ถนน, หมู่บ้าน, จุดสังเกต..." value={address} onChange={e => setAddress(e.target.value)} className="p-3.5 min-h-[80px] border border-blue-200 dark:border-slate-600 rounded-xl outline-none text-[1rem] bg-blue-50 dark:bg-slate-700 text-blue-900 dark:text-blue-50 placeholder-blue-300 dark:placeholder-slate-400 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+              </div>
             </div>
             <div className="flex gap-2.5 mb-5">
               <button onClick={requestLocation} className="flex-1 flex items-center justify-center gap-1.5 p-3 text-[0.85rem] bg-blue-50 dark:bg-blue-900/30 border border-dashed border-blue-600 text-blue-700 dark:text-blue-400 rounded-xl cursor-pointer font-bold transition-colors">
