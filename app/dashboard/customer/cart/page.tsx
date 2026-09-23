@@ -194,8 +194,7 @@ export default function CartPage() {
           {cart.map(item => (
             <div key={item.cartItemId} className="flex justify-between items-start mb-3 pb-3 border-b border-slate-100 dark:border-slate-700">
               <div className="flex-1 pr-2.5">
-                <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.originalName}</div>
-                <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 leading-snug">{item.name.replace(item.originalName, '').trim()}</div>
+                <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.name}</div>
                 <div className="text-blue-600 dark:text-blue-400 font-bold text-[0.85rem]">{item.price.toLocaleString()} ฿</div>
               </div>
               <div className="flex items-center bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-slate-600 rounded-full overflow-hidden transition-colors">

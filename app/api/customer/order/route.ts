@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       }
 
       let itemPrice = Number(menu.price);
-      let itemName = String(menu.name);
+      let itemName = String(item.name || menu.name);
       let selectedOptions: Array<{ id: unknown }> = [];
       if (Array.isArray(item.selectedOptions)) {
         selectedOptions = item.selectedOptions;
@@ -167,7 +167,6 @@ export async function POST(req: Request) {
       }
 
       const serverItemPrice = Math.round(itemPrice);
-      itemName += optionNames.length > 0 ? ` [${optionNames.join(', ')}]` : '';
       calculatedItems.push({ id: menuId, name: itemName, price: serverItemPrice, quantity });
       serverCalculatedPrice += serverItemPrice * quantity;
     }

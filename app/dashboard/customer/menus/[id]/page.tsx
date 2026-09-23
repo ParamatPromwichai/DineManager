@@ -43,6 +43,7 @@ type CartItem = Menu & {
   cartItemId: string; 
   quantity: number;
   originalName: string;
+  selectedOptions?: Array<{ id: number }>;
 };
 
 // ⭐ ฟังก์ชันแสดงดาว
@@ -373,8 +374,7 @@ export default function MenuDetailPage() {
               {cart.map(item => (
                 <div key={item.cartItemId} className="flex justify-between items-start mb-3">
                   <div className="flex-1 pr-2.5">
-                    <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.originalName}</div>
-                    <div className="text-[0.8rem] text-slate-500 dark:text-slate-400 leading-snug">{item.name.replace(item.originalName, '').trim()}</div>
+                    <div className="font-bold text-[0.95rem] text-blue-800 dark:text-blue-200">{item.name}</div>
                     <div className="text-blue-600 dark:text-blue-400 font-bold text-[0.85rem]">{item.price.toLocaleString()} ฿</div>
                   </div>
                   <div className="flex items-center bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 rounded-full overflow-hidden transition-colors">
@@ -501,6 +501,7 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
     if (optionNote) customName += ` *${optionNote}*`;
 
     const cartItemId = `${menu.id}-${customName}`;
+    const flatSelectedOptions = Object.values(selectedOptions).flat().map(opt => ({ id: opt.id }));
 
     onConfirm({
       ...menu,
@@ -508,7 +509,8 @@ const MenuOptionModal = memo(({ menu, onClose, onConfirm }: { menu: Menu, onClos
       name: customName,
       originalName: menu.name,
       price: calculatedOptionPrice,
-      quantity: 1
+      quantity: 1,
+      selectedOptions: flatSelectedOptions
     });
   }
 

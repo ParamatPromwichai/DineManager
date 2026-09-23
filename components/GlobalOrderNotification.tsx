@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
+import { useRouter } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -12,6 +13,7 @@ type Order = { id: number; status: string; total_price: number; payment_method: 
 type AlertOrder = Order & { timeLeft: number };
 
 export default function GlobalOrderNotification() {
+  const router = useRouter();
   const [activeAlerts, setActiveAlerts] = useState<AlertOrder[]>([]);
   
   const notifiedOrders = useRef<Set<number>>(new Set());
@@ -38,6 +40,10 @@ export default function GlobalOrderNotification() {
       });
 
       mutate('/api/shop/orders');
+
+      if (action === 'accept') {
+        router.push('/dashboard/shop/orders');
+      }
     } catch {
       alert('เกิดข้อผิดพลาด');
     }
