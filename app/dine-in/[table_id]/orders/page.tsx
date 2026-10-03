@@ -107,7 +107,7 @@ export default function DineInOrdersPage(props: { params: Promise<{ table_id: st
                         <div>
                           <p className="font-bold text-slate-700">{item.menu_name.split('[')[0].trim()}</p>
                           {item.menu_name.includes('[') && (
-                            <p className="text-xs text-slate-500 mt-0.5">[{item.menu_name.split('[')[1]}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{item.menu_name.split('[')[1]}</p>
                           )}
                         </div>
                       </div>
