@@ -98,6 +98,10 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'Order already processed' });
     }
 
+    if ((status === 'cooking' || status === 'checking_slip') && existingOrder.status !== 'pending') {
+      return NextResponse.json({ message: 'Order already processed by another staff' }, { status: 409 });
+    }
+
     let updateFields = 'status = ?';
     const queryParams: Array<string | number | null> = [status];
 

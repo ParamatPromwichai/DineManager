@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 type OrderItem = { menu_name: string; quantity: number };
-type Order = { id: number; status: string; total_price: number; payment_method: string; items: OrderItem[] };
+type Order = { id: number; status: string; total_price: number; payment_method: string; items: OrderItem[]; table_name?: string | null; };
 type AlertOrder = Order & { timeLeft: number };
 
 export default function GlobalOrderNotification() {
@@ -22,9 +22,47 @@ export default function GlobalOrderNotification() {
   // 🚨 1. เพิ่ม audioRef เพื่อเก็บ Object เสียงไว้สั่งหยุดทีหลัง
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const { data: orders } = useSWR<Order[]>('/api/shop/orders', fetcher, { refreshInterval: 3000 });
+  // 🚨 ปลดล็อคเสียงบน iPad/Safari เมื่อผู้ใช้สัมผัสหน้าจอครั้งแรก
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio('/sounds/notification.mp3');
+      audioRef.current.loop = true;
+      
+      const unlockAudio = () => {
+        if (audioRef.current) {
+          audioRef.current.volume = 0;
+          audioRef.current.play().then(() => {
+            audioRef.current?.pause();
+            if (audioRef.current) {
+              audioRef.current.currentTime = 0;
+              audioRef.current.volume = 1;
+            }
+          }).catch(() => {});
+        }
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+      };
+      
+      document.addEventListener('click', unlockAudio);
+      document.addEventListener('touchstart', unlockAudio);
+      
+      return () => {
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+      };
+    }
+  }, []);
+
+  const { data: orders } = useSWR<Order[]>('/api/shop/orders', fetcher, { refreshInterval: 1000, refreshWhenHidden: true });
 
   const handleAction = async (orderId: number, action: 'accept' | 'cancel', paymentMethod: string) => {
+    // 🚨 เช็คว่าออเดอร์โดนคนอื่นกดไปแล้วหรือยัง (เช็คจาก local state ที่ sync มาล่าสุด)
+    const currentOrderState = orders?.find(o => o.id === orderId);
+    if (currentOrderState && currentOrderState.status !== 'pending') {
+      setActiveAlerts(prev => prev.filter(a => a.id !== orderId));
+      return; // ปิดป็อปอัพเงียบๆ ไม่ต้องทำอะไรต่อ
+    }
+
     setActiveAlerts(prev => prev.filter(a => a.id !== orderId));
 
     let newStatus = 'cancel';
@@ -33,11 +71,16 @@ export default function GlobalOrderNotification() {
     }
 
     try {
-      await fetch('/api/shop/orders', {
+      const res = await fetch('/api/shop/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: orderId, status: newStatus })
       });
+
+      if (res.status === 409) {
+        // มีพนักงานคนอื่นกดรับไปแล้ว! ปิดป็อปอัพเงียบๆ
+        return;
+      }
 
       mutate('/api/shop/orders');
 
@@ -68,11 +111,8 @@ export default function GlobalOrderNotification() {
       setTimeout(() => setActiveAlerts(prev => [...prev, ...newAlerts]), 0);
       
       // ถ้ายังไม่มีเสียงเล่นอยู่ ให้เริ่มเล่น
-      if (!audioRef.current) {
-        const audio = new Audio('/sounds/notification.mp3');
-        audio.loop = true; 
-        audio.play().catch(e => console.log('เบราว์เซอร์บล็อคเสียง:', e));
-        audioRef.current = audio;
+      if (audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(e => console.log('เบราว์เซอร์บล็อคเสียง:', e));
       }
     }
 
@@ -91,7 +131,6 @@ export default function GlobalOrderNotification() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-      audioRef.current = null;
     }
   };
 
@@ -137,6 +176,7 @@ export default function GlobalOrderNotification() {
       <AnimatePresence>
         {activeAlerts.map((newOrder, idx) => {
           const isTop = idx === 0;
+          const isDineIn = !!newOrder.table_name;
           
           return (
           <motion.div 
@@ -152,38 +192,40 @@ export default function GlobalOrderNotification() {
             className={`absolute top-0 left-0 w-full transition-all duration-300 ${isTop ? 'pointer-events-auto' : 'pointer-events-none'}`}
             layout
           >
-            <div className={`bg-slate-900 text-white p-5 rounded-2xl shadow-2xl border border-slate-700 relative overflow-hidden ${!isTop && 'blur-[1px]'}`}>
+            <div className={`${isDineIn ? 'bg-orange-950 border-orange-700' : 'bg-slate-900 border-slate-700'} text-white p-5 rounded-2xl shadow-2xl border relative overflow-hidden ${!isTop && 'blur-[1px]'}`}>
               
               <motion.div 
                 initial={{ width: '100%' }}
                 animate={{ width: `${(newOrder.timeLeft / 60) * 100}%` }}
                 transition={{ duration: 1, ease: 'linear' }}
-                className={`absolute bottom-0 left-0 h-1 ${newOrder.timeLeft <= 10 ? 'bg-red-500' : 'bg-blue-500'}`}
+                className={`absolute bottom-0 left-0 h-1 ${newOrder.timeLeft <= 10 ? 'bg-red-500' : (isDineIn ? 'bg-orange-500' : 'bg-blue-500')}`}
               />
 
               <div className="flex items-start gap-4">
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-20"></span>
+                <div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${isDineIn ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                  <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${isDineIn ? 'bg-orange-400' : 'bg-blue-400'} opacity-20`}></span>
                   <BellRing size={24} className="animate-bounce" />
                 </div>
 
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-white">ออเดอร์ใหม่เข้า! 🎉</h3>
+                    <h3 className="text-lg font-bold text-white">{isDineIn ? `ออเดอร์หน้าร้าน! 🍽️ โต๊ะ ${newOrder.table_name}` : 'ออเดอร์ออนไลน์! 🛵'}</h3>
                     <div className={`flex items-center gap-1 text-sm font-black ${newOrder.timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-amber-500'}`}>
                       <Clock size={14} /> {newOrder.timeLeft}s
                     </div>
                   </div>
                   
                   <p className="text-sm text-slate-400 mt-1">
-                    Order <span className="text-white font-bold">#{newOrder.id}</span> • ยอด <span className="text-emerald-400 font-bold">฿{newOrder.total_price}</span>
+                    Order <span className="text-white font-bold">#{newOrder.id}</span> • ยอด <span className={`font-bold ${isDineIn ? 'text-orange-400' : 'text-emerald-400'}`}>฿{newOrder.total_price}</span>
                   </p>
 
-                  <div className="mt-2 inline-block px-2 py-1 rounded-md text-[10px] font-bold tracking-wider bg-slate-800 text-slate-300">
-                    {newOrder.payment_method === 'qr' ? '💳 โอนเงิน (รอตรวจสลิป)' : '💵 เงินสด (ชำระปลายทาง)'}
-                  </div>
+                  {!isDineIn && (
+                    <div className="mt-2 inline-block px-2 py-1 rounded-md text-[10px] font-bold tracking-wider text-white bg-slate-800 border border-slate-700">
+                      {newOrder.payment_method === 'qr' ? '💳 โอนเงิน (รอตรวจสลิป)' : '💵 เงินสด'}
+                    </div>
+                  )}
 
-                  <div className="mt-3 bg-slate-800 rounded-lg p-3 text-sm border border-slate-700/50">
+                  <div className={`mt-3 rounded-lg p-3 text-sm border ${isDineIn ? 'bg-orange-950/60 border-orange-800/50' : 'bg-slate-800 border-slate-700/50'}`}>
                     {newOrder.items.slice(0, 2).map((item, idx) => (
                       <div key={idx} className="flex justify-between text-slate-300 mb-1 last:mb-0">
                         <span>{item.menu_name}</span>
@@ -191,20 +233,20 @@ export default function GlobalOrderNotification() {
                       </div>
                     ))}
                     {newOrder.items.length > 2 && (
-                      <div className="text-xs text-slate-500 mt-2 text-center pt-2 border-t border-slate-700">และอื่นๆ อีก {newOrder.items.length - 2} รายการ</div>
+                      <div className={`text-xs text-slate-500 mt-2 text-center pt-2 border-t ${isDineIn ? 'border-orange-800' : 'border-slate-700'}`}>และอื่นๆ อีก {newOrder.items.length - 2} รายการ</div>
                     )}
                   </div>
 
                   <div className="flex gap-2 mt-4">
                     <button 
                       onClick={() => handleAction(newOrder.id, 'cancel', newOrder.payment_method)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-red-400 transition-colors text-sm font-bold"
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-slate-300 hover:text-red-400 transition-colors text-sm font-bold ${isDineIn ? 'bg-orange-950/80 border border-orange-800/50 hover:bg-orange-900' : 'bg-slate-800 border border-slate-700/50 hover:bg-slate-700'}`}
                     >
                       <X size={16} strokeWidth={3} /> ปฏิเสธ
                     </button>
                     <button 
                       onClick={() => handleAction(newOrder.id, 'accept', newOrder.payment_method)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all"
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-all ${isDineIn ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20 hover:shadow-orange-500/40' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20 hover:shadow-emerald-500/40'}`}
                     >
                       <Check size={16} strokeWidth={3} /> รับออเดอร์
                     </button>
