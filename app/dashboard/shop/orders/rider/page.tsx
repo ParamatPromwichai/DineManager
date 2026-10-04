@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
@@ -67,7 +68,7 @@ export default function RiderOrdersPage() {
   const [codPaymentOrder, setCodPaymentOrder] = useState<Order | null>(null);
   const [codPaymentMethod, setCodPaymentMethod] = useState<'qr' | 'cash' | ''>('');
   const [codSlipImage, setCodSlipImage] = useState<string | null>(null);
-  const paymentBottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<'cod' | 'delivery' | null>(null);
@@ -115,10 +116,28 @@ export default function RiderOrdersPage() {
   const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
   const [isSendingPhoto, setIsSendingPhoto] = useState(false);
 
+  // Lock body scroll when popup is open
   useEffect(() => {
-    if (codPaymentMethod === 'qr' && paymentBottomRef.current) {
+    if (codPaymentOrder || notifyDeliveryOrder) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [codPaymentOrder, notifyDeliveryOrder]);
+
+  useEffect(() => {
+    if (codPaymentMethod === 'qr' && scrollContainerRef.current) {
       setTimeout(() => {
-        paymentBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        scrollContainerRef.current?.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
       }, 100);
     }
   }, [codPaymentMethod]);
@@ -568,12 +587,12 @@ export default function RiderOrdersPage() {
       </div>
 
       {/* 💰 Popup ชำระเงินปลายทาง (เหมือนของหน้าร้าน) */}
-      {codPaymentOrder && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85vh] shadow-2xl relative">
+      {codPaymentOrder && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85dvh] shadow-2xl relative">
             {showCamera && (
               <div className="absolute inset-0 bg-black z-50 flex flex-col">
-                <video ref={videoRef} autoPlay playsInline className="flex-1 object-cover" />
+                <video ref={videoRef} autoPlay playsInline className="flex-1 min-h-0 object-cover" />
                 <div className="p-4 bg-black flex justify-center gap-4">
                   <button onClick={stopCamera} className="px-6 py-3 bg-slate-800 text-white rounded-full font-bold">ยกเลิก</button>
                   <button onClick={capturePhoto} className="w-16 h-16 bg-white rounded-full border-4 border-slate-300"></button>
@@ -581,7 +600,7 @@ export default function RiderOrdersPage() {
               </div>
             )}
             
-            <div className="p-6 overflow-y-auto flex-1 text-center">
+            <div ref={scrollContainerRef} className="p-6 overflow-y-auto flex-1 min-h-0 text-center">
               <h3 className="text-xl font-black mb-1">ชำระเงินก่อนส่งมอบ</h3>
               <p className="text-slate-500 mb-5 font-medium">Order #{codPaymentOrder.id} • <strong className="text-slate-900 text-lg">฿{codPaymentOrder.total_price.toLocaleString()}</strong></p>
 
@@ -632,7 +651,6 @@ export default function RiderOrdersPage() {
                   )}
                 </div>
               )}
-              <div ref={paymentBottomRef} />
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-white flex gap-2">
@@ -653,17 +671,17 @@ export default function RiderOrdersPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {/* 📸 Popup ถ่ายรูปจัดส่งสำเร็จ (แจ้งลูกค้าในแชท) */}
-      {notifyDeliveryOrder && !codPaymentOrder && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] px-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85vh] shadow-2xl relative">
+      {notifyDeliveryOrder && !codPaymentOrder && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm flex flex-col overflow-hidden max-h-[85dvh] shadow-2xl relative">
             
             {showCamera && (
               <div className="absolute inset-0 bg-black z-50 flex flex-col">
-                <video ref={videoRef} autoPlay playsInline className="flex-1 object-cover" />
+                <video ref={videoRef} autoPlay playsInline className="flex-1 min-h-0 object-cover" />
                 <div className="p-4 bg-black flex justify-center gap-4">
                   <button onClick={stopCamera} className="px-6 py-3 bg-slate-800 text-white rounded-full font-bold">ยกเลิก</button>
                   <button onClick={capturePhoto} className="w-16 h-16 bg-white rounded-full border-4 border-slate-300"></button>
@@ -671,7 +689,7 @@ export default function RiderOrdersPage() {
               </div>
             )}
 
-            <div className="p-6 overflow-y-auto flex-1 text-center">
+            <div className="p-6 overflow-y-auto flex-1 min-h-0 text-center">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check size={32} strokeWidth={3} />
               </div>
@@ -699,7 +717,7 @@ export default function RiderOrdersPage() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2">
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-2 pb-8 sm:pb-4">
               <button 
                 disabled={isSendingPhoto}
                 onClick={skipPhotoAndSendText} 
@@ -720,7 +738,7 @@ export default function RiderOrdersPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
     </div>
   );

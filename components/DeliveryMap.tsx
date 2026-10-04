@@ -26,14 +26,19 @@ const CustomShopIcon = L.divIcon({
   popupAnchor: [0, -20],
 });
 
+const iconCache: Record<string, L.DivIcon> = {};
+
 const createNumberedIcon = (number: string) => {
-  return L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color: #ef4444; color: white; width: 36px; height: 36px; border-radius: 50% 50% 50% 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); border: 2px solid white; font-weight: 900; font-size: 13px; transform: rotate(-45deg);"><span style="transform: rotate(45deg);">${number}</span></div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -36],
-  });
+  if (!iconCache[number]) {
+    iconCache[number] = L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color: #ef4444; color: white; width: 36px; height: 36px; border-radius: 50% 50% 50% 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); border: 2px solid white; font-weight: 900; font-size: 13px; transform: rotate(-45deg);"><span style="transform: rotate(45deg);">${number}</span></div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor: [0, -36],
+    });
+  }
+  return iconCache[number];
 };
 
 export type DeliveryLocation = {
