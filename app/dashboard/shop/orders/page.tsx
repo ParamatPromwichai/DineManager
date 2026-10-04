@@ -282,6 +282,18 @@ export default function ManageOrdersPage() {
     return orders.filter(order => {
       return order.status !== 'done' && order.status !== 'cancel' && order.status !== 'delivery' && order.status !== 'pending';
     }).sort((a, b) => {
+      const isComplete = (order: any) => {
+        if (order.status !== 'cooking') return false;
+        return order.items.length > 0 && order.items.every((item: any) => {
+          return Number(cookedItems[order.id]?.[item.menu_name] || 0) >= Number(item.quantity);
+        });
+      };
+      const completeA = isComplete(a);
+      const completeB = isComplete(b);
+
+      if (completeA && !completeB) return -1;
+      if (!completeA && completeB) return 1;
+
       const getStatusWeight = (status: string) => {
         if (status === 'pending') return 0;
         if (status === 'checking_slip') return 1;
@@ -294,7 +306,7 @@ export default function ManageOrdersPage() {
       if (weightA !== weightB) return weightA - weightB;
       return a.id - b.id;
     });
-  }, [orders, todayDate]);
+  }, [orders, todayDate, cookedItems]);
 
   const displayedOnlineOrders = useMemo(() => {
     let list = allActiveOrders.filter(o => o.order_type === 'online' || !o.order_type);
@@ -557,6 +569,10 @@ export default function ManageOrdersPage() {
 
     const isFinishedState = order.status === 'done' || order.status === 'cancel' || order.status === 'delivery';
 
+    const isOrderComplete = order.status === 'cooking' && order.items.length > 0 && order.items.every(item => {
+      return Number(cookedItems[order.id]?.[item.menu_name] || 0) >= Number(item.quantity);
+    });
+
     if (isKitchenExpanded) {
       return (
         <div key={order.id} className={`bg-white rounded-xl border shadow-sm flex flex-col transition-all ${isDelayed ? 'border-red-300 ring-2 ring-red-100' : isOverdue ? 'border-rose-200' : 'border-slate-200'} ${isFinishedState ? 'opacity-50' : ''}`}>
@@ -569,6 +585,16 @@ export default function ManageOrdersPage() {
               </div>
               <button onClick={(e) => { e.stopPropagation(); setSlipPopupOrder(order); }} className="bg-white text-indigo-600 px-2 py-0.5 rounded text-[9px] hover:bg-indigo-50 transition-colors shadow-sm">
                 ดูสลิป
+              </button>
+            </div>
+          ) : isOrderComplete ? (
+            <div className="bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 flex items-center justify-between rounded-t-[0.65rem] shadow-sm">
+              <div className="flex items-center gap-1">
+                <CheckCircle2 size={12} />
+                <span>พร้อมเสิร์ฟ!</span>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); updateStatus(order.id, 'delivery'); }} className="bg-white text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black hover:bg-emerald-50 transition-colors shadow-sm">
+                {order.order_type === 'dine_in' ? 'เสิร์ฟอาหาร' : 'ส่งให้ไรเดอร์'}
               </button>
             </div>
           ) : isPendingCooking && (
@@ -614,6 +640,16 @@ export default function ManageOrdersPage() {
             </div>
             <button onClick={(e) => { e.stopPropagation(); setSlipPopupOrder(order); }} className="bg-white text-indigo-600 px-3 py-1 rounded-md text-[10px] font-black hover:bg-indigo-50 transition-colors shadow-sm">
               ดูสลิปเดี๋ยวนี้
+            </button>
+          </div>
+        ) : isOrderComplete ? (
+          <div className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 flex items-center justify-between rounded-t-2xl shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={14} />
+              <span>พร้อมเสิร์ฟ!</span>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); updateStatus(order.id, 'delivery'); }} className="bg-white text-emerald-600 px-3 py-1 rounded-md text-[10px] font-black hover:bg-emerald-50 transition-colors shadow-sm">
+              {order.order_type === 'dine_in' ? 'เสิร์ฟอาหาร' : 'ส่งให้ไรเดอร์'}
             </button>
           </div>
         ) : isPendingCooking && (
@@ -963,6 +999,12 @@ export default function ManageOrdersPage() {
             </div>
             <div className="p-2 lg:overflow-y-auto pb-4 flex-1 lg:min-h-0">
               {/* 👨‍🍳 Smart Kitchen */}
+              {batchSuggestions.length === 0 && !activeBatches.some(b => b.status !== 'done') && (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 opacity-50 pt-20">
+                  <CookingPot size={48} className="mb-4" />
+                  <p className="font-bold">ไม่มีคิวอาหารที่ต้องทำ</p>
+                </div>
+              )}
               {(batchSuggestions.length > 0 || activeBatches.some(b => b.status !== 'done')) && (
                 <div className="h-full flex flex-col">
                   <div className="hidden">
@@ -973,32 +1015,7 @@ export default function ManageOrdersPage() {
                   </div>
 
                   <div className="p-5 grid gap-3">
-                    {/* === อาหารพร้อมเสิร์ฟ / รอส่ง (Ready to Serve) === */}
-                    {readyToServeOrders.length > 0 && (
-                      <div className="mb-4">
-                        <h4 className="text-xs font-bold text-emerald-600 mb-2 uppercase tracking-wider">พร้อมเสิร์ฟ / รอส่งมอบ</h4>
-                        <div className="space-y-2">
-                          {readyToServeOrders.map(order => (
-                            <div key={order.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl">
-                              <div>
-                                <div className="font-bold text-emerald-900">
-                                  Order #{order.id} {order.order_type === 'dine_in' ? `(โต๊ะ ${order.table_name})` : '(ออนไลน์)'}
-                                </div>
-                                <div className="text-xs text-emerald-600 mt-0.5">
-                                  {order.items.map(i => `${i.menu_name} x${i.quantity}`).join(', ')}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => updateStatus(order.id, 'delivery')}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap"
-                              >
-                                {order.order_type === 'dine_in' ? 'เสิร์ฟอาหาร' : 'ส่งให้ไรเดอร์'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
 
                     {/* === รายการที่กำลังทำอยู่ (Active Batches) === */}
                     {activeBatches.some(b => b.status !== 'done') && (
