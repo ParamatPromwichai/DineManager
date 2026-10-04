@@ -98,7 +98,11 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: 'Order already processed' });
     }
 
-    if ((status === 'cooking' || status === 'checking_slip') && existingOrder.status !== 'pending') {
+    if (status === 'checking_slip' && existingOrder.status !== 'pending') {
+      return NextResponse.json({ message: 'Order already processed by another staff' }, { status: 409 });
+    }
+
+    if (status === 'cooking' && existingOrder.status !== 'pending' && existingOrder.status !== 'checking_slip') {
       return NextResponse.json({ message: 'Order already processed by another staff' }, { status: 409 });
     }
 
