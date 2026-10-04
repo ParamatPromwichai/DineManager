@@ -837,7 +837,7 @@ export default function ManageOrdersPage() {
 
         {/* 🌟 Header */}
         {/* 🌟 Header */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
           
           <div className="flex flex-col gap-0.5 min-w-fit">
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 shrink-0">รายการออเดอร์</h1>
@@ -845,7 +845,7 @@ export default function ManageOrdersPage() {
           </div>
           
           {/* --- แถบสถานะ (Global) --- */}
-          <div className="flex overflow-x-auto gap-2 pb-1 xl:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden flex-1 justify-start xl:justify-center w-full xl:w-auto">
+          <div className="flex overflow-x-auto gap-2 pb-1 lg:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden flex-1 justify-start lg:justify-center w-full lg:w-auto">
             {[
               { id: 'all', label: 'ทั้งหมด', icon: <List size={16} className="sm:hidden" /> },
               { id: 'checking_slip', label: 'รอตรวจสลิป', icon: <Receipt size={16} className="sm:hidden" /> },
@@ -872,21 +872,25 @@ export default function ManageOrdersPage() {
             })}
           </div>
 
-          <div className="flex items-center justify-start xl:justify-end gap-3 min-w-fit w-full xl:w-auto">
+          <div className="flex flex-wrap lg:flex-nowrap items-center justify-start lg:justify-end gap-3 min-w-fit w-full lg:w-auto">
             <Link
               href="/dashboard/shop/orders/rider"
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-all"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 lg:px-3 xl:px-4 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-all"
+              title="จัดการออเดอร์ไรเดอร์"
             >
-              <Truck size={16} /> จัดการออเดอร์ไรเดอร์
+              <Truck size={18} className="shrink-0" /> 
+              <span className="lg:hidden xl:inline whitespace-nowrap">จัดการออเดอร์ไรเดอร์</span>
             </Link>
             <Link
               href="/dashboard/shop/orders/history"
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 lg:px-3 xl:px-4 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 transition-all"
+              title="ประวัติออเดอร์"
             >
-              <History size={16} /> ประวัติออเดอร์
+              <History size={18} className="shrink-0" /> 
+              <span className="lg:hidden xl:inline whitespace-nowrap">ประวัติออเดอร์</span>
             </Link>
-            <button onClick={() => mutate()} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm">
-              <RefreshCw size={18} className="text-slate-600" />
+            <button onClick={() => mutate()} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors shadow-sm" title="รีเฟรชข้อมูล">
+              <RefreshCw size={18} className="text-slate-600 shrink-0" />
             </button>
           </div>
         </div>
